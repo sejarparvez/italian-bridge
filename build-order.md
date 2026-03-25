@@ -25,14 +25,14 @@ Each phase must be **fully working** before moving to the next. The rule: if you
 ## Phase 2 — Static Card + Table (No Logic)
 **Goal:** See what the game will look like. No state, no interaction.
 
-- [ ] `Card.tsx` — render a single card face-up (suit symbol, rank, SUIT_COLORS)
-- [ ] `CardBack.tsx` — navy card back with gold SVG pattern
-- [ ] `GameTable.tsx` — dark felt background with gold oval center area
-- [ ] Hard-code a fake hand of 13 cards at the bottom of the screen
-- [ ] Hard-code 3 face-down bot hands (top, left, right positions)
-- [ ] Hard-code 4 cards in the center trick area (one per seat)
-- [ ] `ScoreBar.tsx` — static team score display pinned to left/right edges
-- [ ] `TrumpBadge.tsx` — static gold pill badge showing a suit
+- [x] `Card.tsx` — render a single card face-up (suit symbol, rank, SUIT_COLORS)
+- [x] `CardBack.tsx` — navy card back with gold SVG pattern
+- [x] `GameTable.tsx` — dark felt background with gold oval center area
+- [x] Hard-code a fake hand of 13 cards at the bottom of the screen
+- [x] Hard-code 3 face-down bot hands (top, left, right positions)
+- [x] Hard-code 4 cards in the center trick area (one per seat)
+- [x] `ScoreBar.tsx` — static team score display pinned to left/right edges
+- [x] `TrumpBadge.tsx` — static gold pill badge showing a suit
 
 **Done when:** The game *looks* like a card table with cards in all the right places. Screenshot it — this is your visual reference for everything that follows.
 

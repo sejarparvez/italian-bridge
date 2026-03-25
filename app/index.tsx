@@ -13,7 +13,7 @@ export default function HomeScreen() {
       <View className='flex gap-4'>
         <Pressable
           className='bg-felt-mid border border-gold px-8 py-4 rounded-lg min-w-48 items-center'
-          onPress={() => router.push('/bid')}
+          onPress={() => router.push('/game')}
         >
           <Text className='text-gold-light text-lg font-semibold tracking-wide'>
             New Game
