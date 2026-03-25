@@ -1,55 +1,50 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Card Game Theme - Dark felt + Gold accents (Ace of Spades style)
  */
 
 import '@/global.css';
-
 import { Platform } from 'react-native';
 
-export const Colors = {
-  light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
-  },
-  dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-  },
-} as const;
+export const COLORS = {
+  feltDark: '#0D2B1A',
+  feltMid: '#1A4A2E',
+  feltBorder: '#0A1F13',
 
-export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
+  goldPrimary: '#C9A84C',
+  goldLight: '#E8D5A3',
+  goldDark: '#8B6914',
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: 'var(--font-display)',
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
-  },
-});
+  cardFace: '#F5F0E8',
+  cardBack: '#1C1C2E',
+  cardBackAccent: '#C9A84C',
+
+  redSuit: '#C0392B',
+  blackSuit: '#1A1A2E',
+
+  overlayDark: 'rgba(0,0,0,0.75)',
+  textPrimary: '#E8D5A3',
+  textSecondary: 'rgba(232,213,163,0.6)',
+  danger: '#E05C5C',
+  success: '#4CAF7D',
+};
+
+export const Fonts = {
+  display: Platform.select({
+    ios: 'System',
+    android: 'serif',
+    default: 'serif',
+  }),
+  body: Platform.select({
+    ios: 'System',
+    android: 'serif',
+    default: 'serif',
+  }),
+  mono: Platform.select({
+    ios: 'Menlo',
+    android: 'monospace',
+    default: 'monospace',
+  }),
+};
 
 export const Spacing = {
   half: 2,

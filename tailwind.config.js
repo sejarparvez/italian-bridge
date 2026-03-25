@@ -19,6 +19,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        felt: {
+          dark: '#0D2B1A',
+          mid: '#1A4A2E',
+          border: '#0A1F13',
+        },
+        gold: {
+          DEFAULT: '#C9A84C',
+          light: '#E8D5A3',
+          dark: '#8B6914',
+        },
+        card: {
+          face: '#F5F0E8',
+          back: '#1C1C2E',
+        },
         primary: {
           0: 'rgb(var(--color-primary-0)/<alpha-value>)',
           50: 'rgb(var(--color-primary-50)/<alpha-value>)',

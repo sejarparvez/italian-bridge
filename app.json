@@ -3,7 +3,7 @@
     "name": "italian-bridge",
     "slug": "italian-bridge",
     "version": "1.0.0",
-    "orientation": "default",
+    "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "italianbridge",
     "userInterfaceStyle": "automatic",

@@ -9,14 +9,14 @@ Each phase must be **fully working** before moving to the next. The rule: if you
 ## Phase 1 — Project Setup
 **Goal:** Empty app that runs in landscape with your design tokens loaded.
 
-- [ ] `bun create expo-app partner-call-break --template blank-typescript`
-- [ ] Install all deps (`bunx expo install`, `bun add` — see Quick Start in plan)
-- [ ] Configure Expo Router in `_layout.tsx`
-- [ ] Lock to landscape with `expo-screen-orientation`
-- [ ] Set up NativeWind v4 (`tailwind.config.js`, babel plugin, `global.css`)
-- [ ] Run `npx gluestack-ui init` and add: button, modal, pressable, switch, select, progress
-- [ ] Extend `tailwind.config.js` with `felt`, `gold`, `card` color tokens
-- [ ] Load Cinzel + Crimson Text fonts via `expo-font`
+- [x] `bun create expo-app partner-call-break --template blank-typescript`
+- [x] Install all deps (`bunx expo install`, `bun add` — see Quick Start in plan)
+- [x] Configure Expo Router in `_layout.tsx`
+- [x] Lock to landscape with `expo-screen-orientation`
+- [x] Set up NativeWind v4 (`tailwind.config.js`, babel plugin, `global.css`)
+- [x] Run `npx gluestack-ui init` (provider only, components added later as needed)
+- [x] Extend `tailwind.config.js` with `felt`, `gold`, `card` color tokens
+- [ ] Load Cinzel + Crimson Text fonts via `expo-font` (defer to Phase 7)
 
 **Done when:** App opens in landscape, shows a dark green background and gold-colored text. Nothing else.
 
