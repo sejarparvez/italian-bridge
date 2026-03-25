@@ -41,23 +41,23 @@ Each phase must be **fully working** before moving to the next. The rule: if you
 ## Phase 3 — Game Engine (Pure TypeScript)
 **Goal:** All game logic written and fully tested. Zero React involved.
 
-- [ ] `deck.ts` — create 52 cards, shuffle (Fisher-Yates), deal 13 × 4
-- [ ] `trick.ts` — `getTrickWinner()`, `getPlayableCards()`
-- [ ] `bidding.ts` — bid order, trump assignment to highest bidder
-- [ ] `scoring.ts` — round score (met bid = +points, missed = -penalty), cumulative team scores
-- [ ] `engine.ts` — full game loop orchestrating the above
+- [x] `deck.ts` — create 52 cards, shuffle (Fisher-Yates), deal 13 × 4
+- [x] `trick.ts` — `getTrickWinner()`, `getPlayableCards()`
+- [x] `bidding.ts` — bid order, trump assignment to highest bidder
+- [x] `scoring.ts` — round score (met bid = +points, missed = -penalty), cumulative team scores
+- [x] `engine.ts` — full game loop orchestrating the above
 
 ### Tests (run with `bun test`)
-- [ ] Creates exactly 52 unique cards
-- [ ] Shuffle changes order
-- [ ] Deal gives exactly 13 cards to each of 4 players, no duplicates
-- [ ] Highest trump wins trick
-- [ ] Highest lead-suit card wins when no trump played
-- [ ] Suit-following is enforced by `getPlayableCards`
-- [ ] Any card playable when void in lead suit
-- [ ] Positive score when bid met
-- [ ] Penalty when bid missed
-- [ ] Cumulative scores add correctly
+- [x] Creates exactly 52 unique cards
+- [x] Shuffle changes order
+- [x] Deal gives exactly 13 cards to each of 4 players, no duplicates
+- [x] Highest trump wins trick
+- [x] Highest lead-suit card wins when no trump played
+- [x] Suit-following is enforced by `getPlayableCards`
+- [x] Any card playable when void in lead suit
+- [x] Positive score when bid met
+- [x] Penalty when bid missed
+- [x] Cumulative scores add correctly
 
 **Done when:** All tests pass. Do not proceed until they do.
 
