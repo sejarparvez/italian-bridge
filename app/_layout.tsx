@@ -15,7 +15,7 @@ export default function TabLayout() {
 
   return (
     <GluestackUIProvider mode='system'>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar hidden />
       <Stack screenOptions={{ headerShown: false }} />
     </GluestackUIProvider>
   );

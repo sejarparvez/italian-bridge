@@ -95,10 +95,10 @@ export function playCard(
 
   if (newTrickCards.size >= 4) {
     const winner = getTrickWinner(newTrickCards, state.trump);
-    const trickWins = [...(state as any).trickWins ?? [], winner];
+    const newTrickWins = [...state.trickWins, winner];
     
     if (newPlayers.every((p) => p.hand.length === 0)) {
-      return endRound(state, newPlayers, newTrickCards);
+      return endRound(state, newPlayers, newTrickCards, newTrickWins);
     }
 
     return {
@@ -106,7 +106,7 @@ export function playCard(
       players: newPlayers,
       trick: { cards: newTrickCards, leader },
       currentPlayer: winner,
-      trickWins,
+      trickWins: newTrickWins,
       phase: 'playing',
     };
   }
@@ -122,11 +122,9 @@ export function playCard(
 function endRound(
   state: GameState,
   players: Player[],
-  finalTrick: Map<PlayerId, Card>
+  finalTrick: Map<PlayerId, Card>,
+  trickWins: PlayerId[]
 ): GameState {
-  const trickWins = (state as any).trickWins ?? [];
-  trickWins.push(getTrickWinner(finalTrick, state.trump));
-
   const roundResult = calculateRoundScore(state.bids, trickWins, players);
   const newScores = updateCumulativeScore(state.scores, roundResult);
   const gameOver = isGameOver(newScores);

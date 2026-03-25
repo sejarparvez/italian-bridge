@@ -82,13 +82,13 @@ Each phase must be **fully working** before moving to the next. The rule: if you
 ## Phase 5 — Zustand Store + First Playable Game
 **Goal:** A complete, playable game from start to finish. Ugly is fine.
 
-- [ ] `gameStore.ts` — connect engine to Zustand, expose `playCard`, `advanceAI`
-- [ ] `settingsStore.ts` — sound toggle, difficulty, animation speed
-- [ ] Bot turn scheduling with `setTimeout` delays (~900ms per bot)
-- [ ] **Bidding screen** (`/bid`) — number picker for human, bots auto-bid with delay
-- [ ] **Game screen** (`/game`) — tap a card to play it, bots respond, trick clears after 1.2s
-- [ ] **Result screen** (`/result`) — show round scores, Next Round button
-- [ ] Wire up the full flow: Home → Bidding → Game → Result → repeat
+- [x] `gameStore.ts` — connect engine to Zustand, expose `playCard`, `advanceAI`
+- [x] `settingsStore.ts` — sound toggle, difficulty, animation speed
+- [x] Bot turn scheduling with `setTimeout` delays (~900ms per bot)
+- [x] **Bidding screen** (`/bid`) — number picker for human, bots auto-bid with delay
+- [x] **Game screen** (`/game`) — tap a card to play it, bots respond, trick clears after 1.2s
+- [x] **Result screen** (`/result`) — show round scores, Next Round button
+- [x] Wire up the full flow: Home → Bidding → Game → Result → repeat
 
 **Done when:** You can play a complete game of Partner Call Break end-to-end. No animations yet. No sound. Just working.
 
