@@ -4,6 +4,8 @@ import { getPlayableCards, getTrickWinner, getNextPlayer } from '../trick';
 import { getBidOrder, estimateTricks, getDeclarer, getTeamBid, chooseTrump, getTeamTricks } from '../bidding';
 import { calculateRoundScore, updateCumulativeScore, isGameOver } from '../scoring';
 import { createGame, placeBid, playCard, startNewRound } from '../engine';
+import { getBotBid } from '../ai/bidAI';
+import { getBotPlay } from '../ai/playAI';
 import { Card, PlayerId, Suit, Rank, Bid } from '../types';
 
 describe('deck', () => {
@@ -214,4 +216,74 @@ describe('engine', () => {
     const updatedPlayer = game.players[0];
     expect(updatedPlayer.hand.length).toBe(12);
   });
+});
+
+describe('AI bidding', () => {
+  it('getBotBid returns value between 1 and 13', () => {
+    const hand: Card[] = [
+      { suit: 'spades', rank: 'A' },
+      { suit: 'spades', rank: 'K' },
+      { suit: 'hearts', rank: 'Q' },
+    ];
+    
+    const easyBid = getBotBid(hand, 'easy');
+    const mediumBid = getBotBid(hand, 'medium');
+    const hardBid = getBotBid(hand, 'hard');
+    
+    expect(easyBid).toBeGreaterThanOrEqual(1);
+    expect(easyBid).toBeLessThanOrEqual(13);
+    expect(mediumBid).toBeGreaterThanOrEqual(1);
+    expect(mediumBid).toBeLessThanOrEqual(13);
+    expect(hardBid).toBeGreaterThanOrEqual(1);
+    expect(hardBid).toBeLessThanOrEqual(13);
+  });
+});
+
+describe('AI play validity', () => {
+  const difficulties: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard'];
+  
+  for (const difficulty of difficulties) {
+    it(`${difficulty}: AI always plays a valid card (1000 random hands)`, () => {
+      let violations = 0;
+      
+      for (let i = 0; i < 1000; i++) {
+        const players = deal(4);
+        const playerIndex = Math.floor(Math.random() * 4);
+        const player = players[playerIndex];
+        
+        const trump: Suit = ['spades', 'hearts', 'diamonds', 'clubs'][Math.floor(Math.random() * 4)] as Suit;
+        
+        const trickMap = new Map<PlayerId, Card>();
+        if (Math.random() > 0.5) {
+          const leaderId = Math.floor(Math.random() * 4) as PlayerId;
+          const leaderHand = players[leaderId].hand;
+          if (leaderHand.length > 0) {
+            trickMap.set(leaderId, leaderHand[0]);
+          }
+        }
+        
+        const context = {
+          hand: player.hand,
+          trick: trickMap.size > 0 ? trickMap : null,
+          trump,
+          currentPlayer: player.id,
+          players,
+          playedCards: new Set<string>(),
+        };
+        
+        const playedCard = getBotPlay(context, difficulty);
+        
+        const playable = getPlayableCards(player.hand, trickMap.size > 0 ? trickMap : null, trump);
+        const isValid = playable.some(
+          (c) => c.suit === playedCard.suit && c.rank === playedCard.rank
+        );
+        
+        if (!isValid) {
+          violations++;
+        }
+      }
+      
+      expect(violations).toBe(0);
+    });
+  }
 });

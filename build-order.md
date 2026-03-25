@@ -66,14 +66,14 @@ Each phase must be **fully working** before moving to the next. The rule: if you
 ## Phase 4 — AI Bots
 **Goal:** All three bot seats can bid and play cards without breaking the rules.
 
-- [ ] `bidAI.ts` — estimate tricks from hand (high cards + voids), apply difficulty offset
-- [ ] `playAI.ts` — Easy: random valid card
-- [ ] `playAI.ts` — Medium: win trick if beneficial, save high cards when partner leads
-- [ ] `playAI.ts` — Hard: card memory (`playedCards` set), infer voids, optimal trump use
+- [x] `bidAI.ts` — estimate tricks from hand (high cards + voids), apply difficulty offset
+- [x] `playAI.ts` — Easy: random valid card
+- [x] `playAI.ts` — Medium: win trick if beneficial, save high cards when partner leads
+- [x] `playAI.ts` — Hard: card memory (`playedCards` set), infer voids, optimal trump use
 
 ### Tests
-- [ ] AI always plays a valid card (1000 random hands, zero violations)
-- [ ] AI bid always between 1 and 13
+- [x] AI always plays a valid card (1000 random hands, zero violations)
+- [x] AI bid always between 1 and 13
 
 **Done when:** Fuzz test passes for all three difficulty levels.
 
