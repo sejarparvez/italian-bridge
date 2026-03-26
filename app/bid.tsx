@@ -23,6 +23,11 @@ export default function BidScreen() {
 
   const playerHand = state.players.bottom.hand;
 
+  const handlePassBid = () => {
+    const { passBid } = useGameStore.getState();
+    passBid();
+  };
+
   const handleConfirmBid = () => {
     if (selectedBid !== null) {
       placePlayerBid(selectedBid);
@@ -185,16 +190,21 @@ export default function BidScreen() {
               </Pressable>
             ))}
           </View>
-          <Pressable
-            onPress={handleConfirmBid}
-            disabled={selectedBid === null}
-            style={[
-              styles.confirmButton,
-              selectedBid === null && styles.confirmButtonDisabled,
-            ]}
-          >
-            <Text style={styles.confirmText}>CONFIRM BID</Text>
-          </Pressable>
+          <View style={styles.buttonRow}>
+            <Pressable onPress={handlePassBid} style={styles.passButton}>
+              <Text style={styles.passText}>PASS</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleConfirmBid}
+              disabled={selectedBid === null}
+              style={[
+                styles.confirmButton,
+                selectedBid === null && styles.confirmButtonDisabled,
+              ]}
+            >
+              <Text style={styles.confirmText}>CONFIRM BID</Text>
+            </Pressable>
+          </View>
         </MotiView>
       )}
     </View>
@@ -349,6 +359,24 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.display.semibold,
     color: COLORS.feltDark,
     letterSpacing: 1,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  passButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.goldDark,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginLeft: 16,
+  },
+  passText: {
+    fontSize: 14,
+    fontFamily: Fonts.display.regular,
+    color: COLORS.textSecondary,
   },
   trumpPickerContainer: {
     flex: 1,

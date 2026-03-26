@@ -8,6 +8,7 @@ import {
   advanceToNextRound,
   revealTrump,
   placeBid,
+  passBid,
 } from '../game/engine';
 import { getBotBid, selectBotTrump } from '../game/ai/bidAI';
 import { getBotPlay } from '../game/ai/playAI';
@@ -20,6 +21,7 @@ interface GameStore {
   setAnimSpeed: (speed: number) => void;
   startNewGame: () => void;
   placePlayerBid: (bid: number) => void;
+  passBid: () => void;
   selectPlayerTrump: (suit: Suit) => void;
   playPlayerCard: (cardId: string) => void;
   runBotBids: () => void;
@@ -44,6 +46,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
     let newState = placeBid(state, 'bottom', bid);
     set({ state: newState });
     
+    setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
+  },
+
+  passBid: () => {
+    const { state } = get();
+    const newState = passBid(state, 'bottom');
+    set({ state: newState });
     setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
   },
 

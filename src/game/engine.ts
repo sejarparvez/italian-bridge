@@ -8,7 +8,7 @@ import {
 } from './types';
 import { createDeck, shuffleDeck, dealCards, dealRemainingCards, DealResult } from './deck';
 import { getTrickWinner, addCardToTrick, createEmptyTrick, isValidCard } from './trick';
-import { placeBid, selectTrump, getEstimatedBid, BID_MIN, BID_MAX } from './bidding';
+import { placeBid, selectTrump, passBid, getEstimatedBid, BID_MIN, BID_MAX } from './bidding';
 import { calculateRoundScores, updateTeamScores } from './scoring';
 
 const SEAT_ORDER: SeatPosition[] = ['bottom', 'left', 'top', 'right'];
@@ -188,5 +188,5 @@ export function startNewGame(): GameState {
 export { getEstimatedBid, BID_MIN, BID_MAX };
 export { createDeck, shuffleDeck, dealCards, dealRemainingCards };
 export { getTrickWinner, addCardToTrick, createEmptyTrick, isValidCard };
-export { placeBid, selectTrump };
+export { placeBid, selectTrump, passBid };
 export { calculateRoundScores, updateTeamScores };

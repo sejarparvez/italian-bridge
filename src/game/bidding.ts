@@ -83,6 +83,33 @@ export function selectTrump(
   };
 }
 
+export function passBid(
+  state: GameState,
+  seat: SeatPosition
+): GameState {
+  const newPlayers = { ...state.players };
+  newPlayers[seat] = { ...newPlayers[seat], bid: 0 };
+
+  const nextIndex = state.currentBidderIndex + 1;
+  const allBidsPlaced = nextIndex >= state.biddingOrder.length;
+  
+  if (allBidsPlaced) {
+    return {
+      ...state,
+      players: newPlayers,
+      phase: 'dealing2',
+      currentSeat: state.highestBidder ?? 'bottom',
+    };
+  }
+
+  return {
+    ...state,
+    players: newPlayers,
+    currentBidderIndex: nextIndex,
+    currentSeat: state.biddingOrder[nextIndex],
+  };
+}
+
 export function getEstimatedBid(hand: Card[], difficulty: 'easy' | 'medium' | 'hard'): number {
   const highCards = hand.filter(c => c.value >= 11).length;
   const voids = countVoids(hand);
