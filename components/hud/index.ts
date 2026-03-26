@@ -1,1 +1,0 @@
-export { ScoreBar } from './ScoreBar';

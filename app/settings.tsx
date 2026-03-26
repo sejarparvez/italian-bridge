@@ -15,6 +15,10 @@ import {
 import { MotiView } from 'moti';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Box } from '@/components/ui/box';
+import { HStack } from '@/components/ui/hstack';
+import { Switch } from '@/components/ui/switch';
+import { VStack } from '@/components/ui/vstack';
 
 const SETTING_ICONS: Record<string, React.ReactNode> = {
   Difficulty: <Swords size={20} color='#C9A84C' />,
@@ -47,13 +51,18 @@ function SettingRow({
       transition={{ delay, type: 'spring', damping: 15, stiffness: 100 }}
     >
       <Pressable onPress={onPress} style={styles.settingRow}>
-        <View style={styles.settingLeft}>
-          <View style={styles.iconContainer}>{Icon}</View>
-          <View style={styles.textContainer}>
+        <HStack space='md' className='items-center' style={{ flex: 1 }}>
+          <Box
+            className='w-9 h-9 rounded-lg items-center justify-center'
+            style={styles.iconContainer}
+          >
+            {Icon}
+          </Box>
+          <VStack className='flex-1'>
             <Text style={styles.settingTitle}>{title}</Text>
             {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
-          </View>
-        </View>
+          </VStack>
+        </HStack>
         <ChevronRight size={22} color='#C9A84C' style={styles.chevron} />
       </Pressable>
     </MotiView>
@@ -82,18 +91,19 @@ function ToggleRow({
       transition={{ delay, type: 'spring', damping: 15, stiffness: 100 }}
     >
       <Pressable onPress={onPress} style={styles.settingRow}>
-        <View style={styles.settingLeft}>
-          <View style={styles.iconContainer}>{Icon}</View>
-          <View style={styles.textContainer}>
+        <HStack space='md' className='items-center' style={{ flex: 1 }}>
+          <Box
+            className='w-9 h-9 rounded-lg items-center justify-center'
+            style={styles.iconContainer}
+          >
+            {Icon}
+          </Box>
+          <VStack className='flex-1'>
             <Text style={styles.settingTitle}>{title}</Text>
             {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
-          </View>
-        </View>
-        <View style={[styles.toggle, enabled && styles.toggleEnabled]}>
-          <View
-            style={[styles.toggleKnob, enabled && styles.toggleKnobEnabled]}
-          />
-        </View>
+          </VStack>
+        </HStack>
+        <Switch value={enabled} onValueChange={onPress} />
       </Pressable>
     </MotiView>
   );
@@ -136,7 +146,7 @@ export default function SettingsScreen() {
           transition={{ delay: 100, type: 'spring', damping: 15 }}
         >
           <Text style={styles.sectionTitle}>Game</Text>
-          <View style={styles.section}>
+          <Box className='rounded-2xl border border-gold-200/20 bg-felt-mid/60 mb-7 overflow-hidden shadow-lg shadow-black/20'>
             <SettingRow title='Difficulty' subtitle='Normal' delay={200} />
             <View style={styles.divider} />
             <ToggleRow
@@ -149,7 +159,7 @@ export default function SettingsScreen() {
             <ToggleRow title='Music' subtitle='On' delay={400} enabled />
             <View style={styles.divider} />
             <ToggleRow title='Vibration' subtitle='On' delay={500} enabled />
-          </View>
+          </Box>
         </MotiView>
 
         <MotiView
@@ -158,11 +168,11 @@ export default function SettingsScreen() {
           transition={{ delay: 300, type: 'spring', damping: 15 }}
         >
           <Text style={styles.sectionTitle}>Display</Text>
-          <View style={styles.section}>
+          <Box className='rounded-2xl border border-gold-200/20 bg-felt-mid/60 mb-7 overflow-hidden shadow-lg shadow-black/20'>
             <SettingRow title='Card Back' subtitle='Classic' delay={600} />
             <View style={styles.divider} />
             <SettingRow title='Animation Speed' subtitle='Normal' delay={700} />
-          </View>
+          </Box>
         </MotiView>
 
         <MotiView
@@ -171,11 +181,11 @@ export default function SettingsScreen() {
           transition={{ delay: 500, type: 'spring', damping: 15 }}
         >
           <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.section}>
+          <Box className='rounded-2xl border border-gold-200/20 bg-felt-mid/60 mb-7 overflow-hidden shadow-lg shadow-black/20'>
             <SettingRow title='How to Play' delay={800} />
             <View style={styles.divider} />
             <SettingRow title='Version' subtitle='1.0.0' delay={900} />
-          </View>
+          </Box>
         </MotiView>
       </ScrollView>
     </View>
@@ -224,19 +234,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 4,
   },
-  section: {
-    backgroundColor: 'rgba(26, 74, 46, 0.6)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(201, 168, 76, 0.2)',
-    marginBottom: 28,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -244,17 +241,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
-  settingLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
     backgroundColor: 'rgba(201, 168, 76, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
   },
-  textContainer: { flex: 1 },
   settingTitle: { fontSize: 16, fontWeight: '500', color: '#E8D5A3' },
   settingSubtitle: {
     fontSize: 13,
@@ -267,20 +256,4 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(201, 168, 76, 0.1)',
     marginLeft: 66,
   },
-  toggle: {
-    width: 48,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(232, 213, 163, 0.2)',
-    padding: 2,
-    justifyContent: 'center',
-  },
-  toggleEnabled: { backgroundColor: '#C9A84C' },
-  toggleKnob: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#E8D5A3',
-  },
-  toggleKnobEnabled: { alignSelf: 'flex-end', backgroundColor: '#0D2B1A' },
 });
