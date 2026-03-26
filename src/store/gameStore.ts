@@ -29,12 +29,17 @@ interface GameStore {
   advanceAI: () => void;
   clearTrick: () => void;
   nextRound: () => void;
+  getState: () => GameStore;
 }
 
+const initialState = createInitialState();
+
 export const useGameStore = create<GameStore>((set, get) => ({
-  state: createInitialState(),
+  state: initialState,
   difficulty: 'medium',
   animSpeed: 1,
+
+  getState: () => get(),
 
   setDifficulty: (difficulty) => set({ difficulty }),
   setAnimSpeed: (animSpeed) => set({ animSpeed }),
