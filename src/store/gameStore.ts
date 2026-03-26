@@ -42,31 +42,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
   startNewGame: () => set({ state: createInitialState() }),
 
   placePlayerBid: (bid) => {
-    const { state, difficulty } = get();
-    let newState = placeBid(state, 'bottom', bid);
+    let newState = placeBid(get().state, 'bottom', bid);
     set({ state: newState });
-    
     setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
   },
 
   passBid: () => {
-    const { state } = get();
-    const newState = passBid(state, 'bottom');
+    const newState = passBid(get().state, 'bottom');
     set({ state: newState });
     setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
   },
 
   selectPlayerTrump: (suit) => {
-    const { state } = get();
-    set({ state: selectTrump(state, suit) });
+    const newState = selectTrump(get().state, suit);
+    set({ state: newState });
   },
 
   playPlayerCard: (cardId) => {
-    const { state } = get();
-    const card = state.players.bottom.hand.find(c => c.id === cardId);
+    const card = get().state.players.bottom.hand.find(c => c.id === cardId);
     if (!card) return;
 
-    let newState = playCard(state, 'bottom', card);
+    let newState = playCard(get().state, 'bottom', card);
     
     if (newState.trumpSuit && !newState.trumpRevealed && 
         newState.currentTrick.cards.some(c => c.card.suit === newState.trumpSuit)) {
@@ -97,7 +93,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       const seat = botSeats[index];
       const hand = currentState.players[seat].hand;
-      const bid = getBotBid(hand, difficulty);
+      
+      const highCards = hand.filter(c => c.value >= 11).length;
+      const shouldPass = highCards <= 1 && Math.random() > 0.5;
+      
+      const bid = shouldPass ? 0 : getBotBid(hand, difficulty);
       currentState = placeBid(currentState, seat, bid);
       set({ state: currentState });
 

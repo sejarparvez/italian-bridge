@@ -23,6 +23,20 @@ export default function BidScreen() {
 
   const playerHand = state.players.bottom.hand;
 
+  if (playerHand.length === 0) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <LinearGradient
+          colors={[COLORS.feltDark, COLORS.feltMid, COLORS.feltDark]}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading cards...</Text>
+        </View>
+      </View>
+    );
+  }
+
   const handlePassBid = () => {
     const { passBid } = useGameStore.getState();
     passBid();
@@ -214,6 +228,16 @@ export default function BidScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: COLORS.goldLight,
+    fontFamily: Fonts.body.regular,
   },
   header: {
     paddingHorizontal: 20,
