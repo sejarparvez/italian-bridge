@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useGameStore } from '@/src/store/gameStore';
 
 function CardDecoration({
   delay,
@@ -126,8 +127,10 @@ export default function HomeScreen() {
         <View style={styles.buttonsContainer}>
           <AnimatedButton
             title='New Game'
-            // @ts-expect-error - expo-router type mismatch
-            onPress={() => router.push('/game')}
+            onPress={() => {
+              useGameStore.getState().startNewGame();
+              router.push('/bid');
+            }}
             delay={600}
           />
           <AnimatedButton
