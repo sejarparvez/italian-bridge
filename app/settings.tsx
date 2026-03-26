@@ -18,7 +18,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
-import { Switch } from '@/components/ui/switch';
 import { VStack } from '@/components/ui/vstack';
 
 const SETTING_ICONS: Record<string, React.ReactNode> = {
@@ -31,6 +30,23 @@ const SETTING_ICONS: Record<string, React.ReactNode> = {
   'How to Play': <BookOpen size={20} color='#C9A84C' />,
   Version: <Info size={20} color='#C9A84C' />,
 };
+
+function CustomSwitch({
+  value,
+  onValueChange,
+}: {
+  value: boolean;
+  onValueChange: (val: boolean) => void;
+}) {
+  return (
+    <Pressable
+      onPress={() => onValueChange(!value)}
+      style={[styles.toggle, value && styles.toggleEnabled]}
+    >
+      <View style={[styles.toggleKnob, value && styles.toggleKnobEnabled]} />
+    </Pressable>
+  );
+}
 
 function SettingRow({
   title,
@@ -110,7 +126,7 @@ function ToggleRow({
             {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
           </VStack>
         </HStack>
-        <Switch value={enabled} onValueChange={setEnabled} />
+        <CustomSwitch value={enabled} onValueChange={setEnabled} />
       </Pressable>
     </MotiView>
   );
@@ -263,4 +279,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(201, 168, 76, 0.1)',
     marginLeft: 66,
   },
+  toggle: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(232, 213, 163, 0.2)',
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleEnabled: { backgroundColor: '#C9A84C' },
+  toggleKnob: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E8D5A3',
+  },
+  toggleKnobEnabled: { alignSelf: 'flex-end', backgroundColor: '#0D2B1A' },
 });
