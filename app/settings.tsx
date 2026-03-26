@@ -31,7 +31,7 @@ const SETTING_ICONS: Record<string, React.ReactNode> = {
   Version: <Info size={20} color='#C9A84C' />,
 };
 
-function CustomSwitch({
+function AnimatedSwitch({
   value,
   onValueChange,
 }: {
@@ -43,7 +43,13 @@ function CustomSwitch({
       onPress={() => onValueChange(!value)}
       style={[styles.toggle, value && styles.toggleEnabled]}
     >
-      <View style={[styles.toggleKnob, value && styles.toggleKnobEnabled]} />
+      <MotiView
+        animate={{
+          translateX: value ? 22 : 0,
+        }}
+        transition={{ type: 'spring', damping: 15, stiffness: 200 }}
+        style={[styles.toggleKnob, value && styles.toggleKnobEnabled]}
+      />
     </Pressable>
   );
 }
@@ -60,6 +66,7 @@ function SettingRow({
   onPress?: () => void;
 }) {
   const Icon = SETTING_ICONS[title];
+  const [pressed, setPressed] = useState(false);
 
   return (
     <MotiView
@@ -67,20 +74,48 @@ function SettingRow({
       animate={{ opacity: 1, translateX: 0 }}
       transition={{ delay, type: 'spring', damping: 15, stiffness: 100 }}
     >
-      <Pressable onPress={onPress} style={styles.settingRow}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        style={[styles.settingRow, pressed && styles.settingRowPressed]}
+      >
         <HStack space='md' className='items-center' style={{ flex: 1 }}>
           <Box
             className='w-9 h-9 rounded-lg items-center justify-center'
-            style={styles.iconContainer}
+            style={[
+              styles.iconContainer,
+              pressed && styles.iconContainerPressed,
+            ]}
           >
             {Icon}
           </Box>
           <VStack className='flex-1'>
-            <Text style={styles.settingTitle}>{title}</Text>
-            {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+            <Text
+              style={[
+                styles.settingTitle,
+                pressed && styles.settingTitlePressed,
+              ]}
+            >
+              {title}
+            </Text>
+            {subtitle && (
+              <Text
+                style={[
+                  styles.settingSubtitle,
+                  pressed && styles.settingSubtitlePressed,
+                ]}
+              >
+                {subtitle}
+              </Text>
+            )}
           </VStack>
         </HStack>
-        <ChevronRight size={22} color='#C9A84C' style={styles.chevron} />
+        <ChevronRight
+          size={22}
+          color={pressed ? '#E8D5A3' : '#C9A84C'}
+          style={[styles.chevron, pressed && styles.chevronPressed]}
+        />
       </Pressable>
     </MotiView>
   );
@@ -101,6 +136,7 @@ function ToggleRow({
 }) {
   const [enabled, setEnabled] = useState(initialEnabled);
   const Icon = SETTING_ICONS[title];
+  const [pressed, setPressed] = useState(false);
 
   const handlePress = () => {
     setEnabled(!enabled);
@@ -113,20 +149,44 @@ function ToggleRow({
       animate={{ opacity: 1, translateX: 0 }}
       transition={{ delay, type: 'spring', damping: 15, stiffness: 100 }}
     >
-      <Pressable onPress={handlePress} style={styles.settingRow}>
+      <Pressable
+        onPress={handlePress}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        style={[styles.settingRow, pressed && styles.settingRowPressed]}
+      >
         <HStack space='md' className='items-center' style={{ flex: 1 }}>
           <Box
             className='w-9 h-9 rounded-lg items-center justify-center'
-            style={styles.iconContainer}
+            style={[
+              styles.iconContainer,
+              pressed && styles.iconContainerPressed,
+            ]}
           >
             {Icon}
           </Box>
           <VStack className='flex-1'>
-            <Text style={styles.settingTitle}>{title}</Text>
-            {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+            <Text
+              style={[
+                styles.settingTitle,
+                pressed && styles.settingTitlePressed,
+              ]}
+            >
+              {title}
+            </Text>
+            {subtitle && (
+              <Text
+                style={[
+                  styles.settingSubtitle,
+                  pressed && styles.settingSubtitlePressed,
+                ]}
+              >
+                {subtitle}
+              </Text>
+            )}
           </VStack>
         </HStack>
-        <CustomSwitch value={enabled} onValueChange={setEnabled} />
+        <AnimatedSwitch value={enabled} onValueChange={setEnabled} />
       </Pressable>
     </MotiView>
   );
@@ -263,17 +323,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 14,
     paddingHorizontal: 16,
+    backgroundColor: 'transparent',
+  },
+  settingRowPressed: {
+    backgroundColor: 'rgba(201, 168, 76, 0.1)',
   },
   iconContainer: {
     backgroundColor: 'rgba(201, 168, 76, 0.1)',
   },
+  iconContainerPressed: {
+    backgroundColor: 'rgba(201, 168, 76, 0.25)',
+  },
   settingTitle: { fontSize: 16, fontWeight: '500', color: '#E8D5A3' },
+  settingTitlePressed: { color: '#C9A84C' },
   settingSubtitle: {
     fontSize: 13,
     color: 'rgba(232, 213, 163, 0.5)',
     marginTop: 2,
   },
+  settingSubtitlePressed: {
+    color: 'rgba(232, 213, 163, 0.7)',
+  },
   chevron: { opacity: 0.7 },
+  chevronPressed: { opacity: 1 },
   divider: {
     height: 1,
     backgroundColor: 'rgba(201, 168, 76, 0.1)',
@@ -294,5 +366,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#E8D5A3',
   },
-  toggleKnobEnabled: { alignSelf: 'flex-end', backgroundColor: '#0D2B1A' },
+  toggleKnobEnabled: { backgroundColor: '#0D2B1A' },
 });
