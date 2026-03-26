@@ -192,9 +192,131 @@ function ToggleRow({
   );
 }
 
+function SelectRow({
+  title,
+  options,
+  delay,
+  selectedIndex,
+  onSelect,
+}: {
+  title: string;
+  options: string[];
+  delay: number;
+  selectedIndex: number;
+  onSelect: (index: number) => void;
+}) {
+  const Icon = SETTING_ICONS[title];
+  const [pressed, setPressed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <MotiView
+      from={{ opacity: 0, translateX: -20 }}
+      animate={{ opacity: 1, translateX: 0 }}
+      transition={{ delay, type: 'spring', damping: 15, stiffness: 100 }}
+    >
+      <Pressable
+        onPress={() => setExpanded(!expanded)}
+        onPressIn={() => setPressed(true)}
+        onPressOut={() => setPressed(false)}
+        style={[styles.settingRow, pressed && styles.settingRowPressed]}
+      >
+        <HStack space='md' className='items-center' style={{ flex: 1 }}>
+          <Box
+            className='w-9 h-9 rounded-lg items-center justify-center'
+            style={[
+              styles.iconContainer,
+              pressed && styles.iconContainerPressed,
+            ]}
+          >
+            {Icon}
+          </Box>
+          <VStack className='flex-1'>
+            <Text
+              style={[
+                styles.settingTitle,
+                pressed && styles.settingTitlePressed,
+              ]}
+            >
+              {title}
+            </Text>
+            <Text
+              style={[
+                styles.settingSubtitle,
+                pressed && styles.settingSubtitlePressed,
+              ]}
+            >
+              {options[selectedIndex]}
+            </Text>
+          </VStack>
+        </HStack>
+        <MotiView
+          animate={{ rotate: expanded ? '90deg' : '0deg' }}
+          transition={{ type: 'spring', damping: 15 }}
+        >
+          <ChevronRight
+            size={22}
+            color={pressed ? '#E8D5A3' : '#C9A84C'}
+            style={[styles.chevron, pressed && styles.chevronPressed]}
+          />
+        </MotiView>
+      </Pressable>
+
+      {expanded && (
+        <MotiView
+          from={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          transition={{ type: 'spring', damping: 15 }}
+          style={styles.optionsContainer}
+        >
+          {options.map((option, index) => (
+            <Pressable
+              key={option}
+              onPress={() => {
+                onSelect(index);
+                setExpanded(false);
+              }}
+              style={[
+                styles.optionRow,
+                selectedIndex === index && styles.optionRowSelected,
+              ]}
+            >
+              <View
+                style={[
+                  styles.radioOuter,
+                  selectedIndex === index && styles.radioOuterSelected,
+                ]}
+              >
+                {selectedIndex === index && <View style={styles.radioInner} />}
+              </View>
+              <Text
+                style={[
+                  styles.optionText,
+                  selectedIndex === index && styles.optionTextSelected,
+                ]}
+              >
+                {option}
+              </Text>
+            </Pressable>
+          ))}
+        </MotiView>
+      )}
+    </MotiView>
+  );
+}
+
 export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  const [difficultyIndex, setDifficultyIndex] = useState(1);
+  const [cardBackIndex, setCardBackIndex] = useState(0);
+  const [animationSpeedIndex, setAnimationSpeedIndex] = useState(1);
+
+  const handleHowToPlay = () => {
+    // @ts-expect-error - expo-router navigation
+    router.push('/how-to-play');
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -230,7 +352,13 @@ export default function SettingsScreen() {
         >
           <Text style={styles.sectionTitle}>Game</Text>
           <Box className='rounded-2xl border border-gold-200/20 bg-felt-mid/60 mb-7 overflow-hidden shadow-lg shadow-black/20'>
-            <SettingRow title='Difficulty' subtitle='Normal' delay={200} />
+            <SelectRow
+              title='Difficulty'
+              options={['Easy', 'Normal', 'Hard']}
+              delay={200}
+              selectedIndex={difficultyIndex}
+              onSelect={setDifficultyIndex}
+            />
             <View style={styles.divider} />
             <ToggleRow
               title='Sound Effects'
@@ -252,9 +380,21 @@ export default function SettingsScreen() {
         >
           <Text style={styles.sectionTitle}>Display</Text>
           <Box className='rounded-2xl border border-gold-200/20 bg-felt-mid/60 mb-7 overflow-hidden shadow-lg shadow-black/20'>
-            <SettingRow title='Card Back' subtitle='Classic' delay={600} />
+            <SelectRow
+              title='Card Back'
+              options={['Classic', 'Modern', 'Retro']}
+              delay={600}
+              selectedIndex={cardBackIndex}
+              onSelect={setCardBackIndex}
+            />
             <View style={styles.divider} />
-            <SettingRow title='Animation Speed' subtitle='Normal' delay={700} />
+            <SelectRow
+              title='Animation Speed'
+              options={['Slow', 'Normal', 'Fast']}
+              delay={700}
+              selectedIndex={animationSpeedIndex}
+              onSelect={setAnimationSpeedIndex}
+            />
           </Box>
         </MotiView>
 
@@ -265,7 +405,11 @@ export default function SettingsScreen() {
         >
           <Text style={styles.sectionTitle}>About</Text>
           <Box className='rounded-2xl border border-gold-200/20 bg-felt-mid/60 mb-7 overflow-hidden shadow-lg shadow-black/20'>
-            <SettingRow title='How to Play' delay={800} />
+            <SettingRow
+              title='How to Play'
+              delay={800}
+              onPress={handleHowToPlay}
+            />
             <View style={styles.divider} />
             <SettingRow title='Version' subtitle='1.0.0' delay={900} />
           </Box>
@@ -367,4 +511,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8D5A3',
   },
   toggleKnobEnabled: { backgroundColor: '#0D2B1A' },
+  optionsContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 4,
+  },
+  optionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  optionRowSelected: {
+    backgroundColor: 'rgba(201, 168, 76, 0.1)',
+  },
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(232, 213, 163, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioOuterSelected: {
+    borderColor: '#C9A84C',
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#C9A84C',
+  },
+  optionText: {
+    fontSize: 15,
+    color: 'rgba(232, 213, 163, 0.6)',
+    marginLeft: 12,
+  },
+  optionTextSelected: {
+    color: '#E8D5A3',
+    fontWeight: '500',
+  },
 });
