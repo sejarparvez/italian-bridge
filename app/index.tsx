@@ -197,14 +197,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 36,
-    fontWeight: '300',
+    fontStyle: 'italic',
+    fontWeight: '700',
     color: '#E8D5A3',
     letterSpacing: 6,
     textTransform: 'uppercase',
   },
   titleHighlight: {
     fontSize: 40,
-    fontWeight: '700',
+    fontWeight: '900',
     color: '#C9A84C',
     letterSpacing: 8,
     textTransform: 'uppercase',

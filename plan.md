@@ -331,18 +331,41 @@ export interface GameState {
 
 ### Core Game Flow
 ```
-1. DEALING     → Shuffle 52 cards, deal 13 to each seat
-2. BIDDING     → Clockwise; each player bids 1–13;
-                 highest bidder picks trump suit
-3. PLAYING     → 13 tricks:
-                 - Must follow lead suit if possible
-                 - Void: play trump or discard
-                 - Highest trump wins; else highest lead-suit card
-                 - Trick winner leads next
-4. SCORING     → BT team: combined tricks vs combined bid
-                 Met bid → +points | Failed → -penalty
-5. REPEAT      → N rounds; highest cumulative score wins
+1. DEAL 1      → Shuffle 52 cards, deal 5 to each seat (4 players)
+2. BIDDING    → Clockwise; each player bids 7-10 using only 5 cards
+                 highest bidder selects trump suit (hidden from others)
+3. DEAL 2     → Deal remaining 8 cards to each player (total 13)
+4. TRUMP REVEAL→ When a player plays a trump card, reveal the hidden trump
+5. PLAYING    → 5 tricks:
+                - Must follow lead suit if possible
+                - Void: play trump or discard
+                - Highest trump wins; else highest lead-suit card
+                - Trick winner leads next
+6. SCORING    → Bidder's team: tricks vs bid
+                 - Bid met → +bid points
+                 - Bid failed → -bid points
+                 - Bid 10 + met → +3 bonus
+                Opponents: need 4 tricks minimum
+                 - Got ≥4 → 0 (no points)
+                 - Got <4 → -4 points
+7. REPEAT     → 5 rounds; highest cumulative score wins
 ```
+
+### Scoring Rules (Detailed)
+
+**Bidder's Team:**
+- If tricks ≥ bid: score = +bid (e.g., bid 7, got 8 tricks = +7)
+- If tricks < bid: score = -bid (e.g., bid 7, got 5 tricks = -7)
+- Special: Bid 10 and met → +10 + 3 bonus = +13
+
+**Opponents:**
+- Must get at least 4 tricks to avoid penalty
+- If tricks ≥ 4: score = 0 (no points gained or lost)
+- If tricks < 4: score = -4 (fixed penalty)
+
+**Example:**
+- Bidder (team BT): bid 8, got 9 tricks → +8 points
+- Opponents (team LR): got 3 tricks → -4 points
 
 ### Trick Resolution
 ```typescript

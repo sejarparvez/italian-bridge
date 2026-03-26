@@ -1,26 +1,26 @@
 'use client';
-import React from 'react';
 import { createModal } from '@gluestack-ui/core/modal/creator';
-import { Pressable, View, ScrollView, ViewStyle } from 'react-native';
+import type { VariantProps } from '@gluestack-ui/utils/nativewind-utils';
 import {
-  Motion,
+  tva,
+  useStyleContext,
+  withStyleContext,
+} from '@gluestack-ui/utils/nativewind-utils';
+import {
   AnimatePresence,
   createMotionAnimatedComponent,
-  MotionComponentProps,
+  Motion,
+  type MotionComponentProps,
 } from '@legendapp/motion';
-import { tva } from '@gluestack-ui/utils/nativewind-utils';
-import {
-  withStyleContext,
-  useStyleContext,
-} from '@gluestack-ui/utils/nativewind-utils';
 import { cssInterop } from 'nativewind';
-import type { VariantProps } from '@gluestack-ui/utils/nativewind-utils';
+import React from 'react';
+import { Pressable, ScrollView, View, type ViewStyle } from 'react-native';
 
 type IAnimatedPressableProps = React.ComponentProps<typeof Pressable> &
   MotionComponentProps<typeof Pressable, ViewStyle, unknown, unknown, unknown>;
 
 const AnimatedPressable = createMotionAnimatedComponent(
-  Pressable
+  Pressable,
 ) as React.ComponentType<IAnimatedPressableProps>;
 const SCOPE = 'MODAL';
 
@@ -115,11 +115,11 @@ const Modal = React.forwardRef<React.ComponentRef<typeof UIModal>, IModalProps>(
     <UIModal
       ref={ref}
       {...props}
-      pointerEvents="box-none"
+      pointerEvents='box-none'
       className={modalStyle({ size, class: className })}
       context={{ size }}
     />
-  )
+  ),
 );
 
 const ModalBackdrop = React.forwardRef<
@@ -192,7 +192,7 @@ const ModalContent = React.forwardRef<
         size,
         class: className,
       })}
-      pointerEvents="auto"
+      pointerEvents='auto'
     />
   );
 });
@@ -268,9 +268,9 @@ ModalCloseButton.displayName = 'ModalCloseButton';
 export {
   Modal,
   ModalBackdrop,
-  ModalContent,
-  ModalCloseButton,
-  ModalHeader,
   ModalBody,
+  ModalCloseButton,
+  ModalContent,
   ModalFooter,
+  ModalHeader,
 };

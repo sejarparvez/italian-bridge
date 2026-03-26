@@ -314,7 +314,6 @@ export default function SettingsScreen() {
   const [animationSpeedIndex, setAnimationSpeedIndex] = useState(1);
 
   const handleHowToPlay = () => {
-    // @ts-expect-error - expo-router navigation
     router.push('/how-to-play');
   };
 
