@@ -16,7 +16,7 @@ Each phase must be **fully working** before moving to the next. The rule: if you
 - [x] Set up NativeWind v4 (`tailwind.config.js`, babel plugin, `global.css`)
 - [x] Run `npx gluestack-ui init` (provider only, components added later as needed)
 - [x] Extend `tailwind.config.js` with `felt`, `gold`, `card` color tokens
-- [ ] Load Cinzel + Crimson Text fonts via `expo-font` (defer to Phase 7)
+- [x] Load Cinzel + Crimson Text fonts via `expo-font`
 
 **Done when:** App opens in landscape, shows a dark green background and gold-colored text. Nothing else.
 

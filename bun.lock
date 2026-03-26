@@ -5,6 +5,8 @@
     "": {
       "name": "italian-bridge",
       "dependencies": {
+        "@expo-google-fonts/cinzel": "^0.4.2",
+        "@expo-google-fonts/crimson-text": "^0.4.0",
         "@expo/html-elements": "^0.10.1",
         "@gluestack-ui/core": "^3.0.10",
         "@gluestack-ui/utils": "^3.0.11",
@@ -268,6 +270,10 @@
     "@emotion/is-prop-valid": ["@emotion/is-prop-valid@0.8.8", "", { "dependencies": { "@emotion/memoize": "0.7.4" } }, "sha512-u5WtneEAr5IDG2Wv65yhunPSMLIpuKsbuOktRojfrEiEvRyC85LgPMZI63cr7NUqT8ZIGdSVg8ZKGxIug4lXcA=="],
 
     "@emotion/memoize": ["@emotion/memoize@0.7.4", "", {}, "sha512-Ja/Vfqe3HpuzRsG1oBtWTHk2PGZ7GR+2Vz5iYGelAw8dx32K0y7PjVuxK6z1nMpZOqAFsRUPCkK1YjJ56qJlgw=="],
+
+    "@expo-google-fonts/cinzel": ["@expo-google-fonts/cinzel@0.4.2", "", {}, "sha512-UAlyuHCGjmKpMt2MoCKYueHz8ZEzjHO1VEol2G7NcPW54UH+85SWIGzpor05YNqUvr/aoqS8Qrfnswxg1RsNMw=="],
+
+    "@expo-google-fonts/crimson-text": ["@expo-google-fonts/crimson-text@0.4.0", "", {}, "sha512-KTurGCs3QubCY33dE5WqCGFAawqPCEsA/sqdkiuQ0536pNxf7nlGwg/0rxDXK39LH0hheBEuvqnPZLWPotbITg=="],
 
     "@expo-google-fonts/material-symbols": ["@expo-google-fonts/material-symbols@0.4.27", "", {}, "sha512-cnb3DZnWUWpezGFkJ8y4MT5f/lw6FcgDzeJzic+T+vpQHLHG1cg3SC3i1w1i8Bk4xKR4HPY3t9iIRNvtr5ml8A=="],
 

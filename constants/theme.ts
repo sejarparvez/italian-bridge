@@ -3,7 +3,6 @@
  */
 
 import '@/global.css';
-import { Platform } from 'react-native';
 
 export const COLORS = {
   feltDark: '#0D2B1A',
@@ -29,21 +28,19 @@ export const COLORS = {
 };
 
 export const Fonts = {
-  display: Platform.select({
-    ios: 'System',
-    android: 'serif',
-    default: 'serif',
-  }),
-  body: Platform.select({
-    ios: 'System',
-    android: 'serif',
-    default: 'serif',
-  }),
-  mono: Platform.select({
-    ios: 'Menlo',
-    android: 'monospace',
-    default: 'monospace',
-  }),
+  display: {
+    regular: 'Cinzel_400Regular',
+    medium: 'Cinzel_500Medium',
+    semibold: 'Cinzel_600SemiBold',
+    bold: 'Cinzel_700Bold',
+    extrabold: 'Cinzel_800ExtraBold',
+    black: 'Cinzel_900Black',
+  },
+  body: {
+    regular: 'CrimsonText_400Regular',
+    semibold: 'CrimsonText_600SemiBold',
+    bold: 'CrimsonText_700Bold',
+  },
 };
 
 export const Spacing = {
@@ -56,5 +53,5 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+export const BottomTabInset = 80;
 export const MaxContentWidth = 800;
