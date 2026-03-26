@@ -13,6 +13,7 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { MotiView } from 'moti';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Box } from '@/components/ui/box';
@@ -73,7 +74,7 @@ function ToggleRow({
   title,
   subtitle,
   delay,
-  enabled = true,
+  enabled: initialEnabled = true,
   onPress,
 }: {
   title: string;
@@ -82,7 +83,13 @@ function ToggleRow({
   enabled?: boolean;
   onPress?: () => void;
 }) {
+  const [enabled, setEnabled] = useState(initialEnabled);
   const Icon = SETTING_ICONS[title];
+
+  const handlePress = () => {
+    setEnabled(!enabled);
+    onPress?.();
+  };
 
   return (
     <MotiView
@@ -90,7 +97,7 @@ function ToggleRow({
       animate={{ opacity: 1, translateX: 0 }}
       transition={{ delay, type: 'spring', damping: 15, stiffness: 100 }}
     >
-      <Pressable onPress={onPress} style={styles.settingRow}>
+      <Pressable onPress={handlePress} style={styles.settingRow}>
         <HStack space='md' className='items-center' style={{ flex: 1 }}>
           <Box
             className='w-9 h-9 rounded-lg items-center justify-center'
@@ -103,7 +110,7 @@ function ToggleRow({
             {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
           </VStack>
         </HStack>
-        <Switch value={enabled} onValueChange={onPress} />
+        <Switch value={enabled} onValueChange={setEnabled} />
       </Pressable>
     </MotiView>
   );
