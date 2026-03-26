@@ -10,7 +10,7 @@ interface GameStore {
   
   initGame: () => void;
   newRound: () => void;
-  submitBid: (tricks: number) => void;
+  submitBid: (tricks: number | null) => void;
   advanceBotBid: () => void;
   playCard: (card: Card) => void;
   advanceBot: () => void;
@@ -35,7 +35,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ state: startNewRound(state) });
   },
 
-  submitBid: (tricks: number) => {
+  submitBid: (tricks: number | null) => {
     const { state, difficulty } = get();
     let newState = placeBid(state, state.currentPlayer, tricks);
     set({ state: newState });
@@ -53,7 +53,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const botPlayer = state.players.find((p) => p.id === state.currentPlayer);
     if (!botPlayer) return;
     
-    const bid = getBotBid(botPlayer.hand, difficulty);
+    const bid = aiBid(state);
+    if (bid === undefined || bid === null) {
+      let newState = placeBid(state, state.currentPlayer, null);
+      set({ state: newState });
+      
+      if (newState.phase === 'bidding' && newState.currentPlayer !== 0) {
+        setTimeout(() => get().advanceBotBid(), 600);
+      }
+      return;
+    }
+    
     let newState = placeBid(state, state.currentPlayer, bid);
     set({ state: newState });
     

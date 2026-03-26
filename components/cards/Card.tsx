@@ -21,6 +21,7 @@ interface CardProps {
   suit: Suit;
   rank: Rank;
   width?: number;
+  highlighted?: boolean;
 }
 
 const SUIT_SYMBOLS: Record<Suit, string> = {
@@ -53,7 +54,12 @@ const RANK_ORDER: Record<Rank, number> = {
   '2': 2,
 };
 
-export function Card({ suit, rank, width = 60 }: CardProps) {
+export function Card({
+  suit,
+  rank,
+  width = 60,
+  highlighted = false,
+}: CardProps) {
   const height = width * 1.4;
   const fontSize = width * 0.35;
   const suitSize = width * 0.4;
@@ -65,11 +71,13 @@ export function Card({ suit, rank, width = 60 }: CardProps) {
       style={{
         width,
         height,
-        shadowColor: '#000',
+        shadowColor: highlighted ? COLORS.goldPrimary : '#000',
         shadowOffset: { width: 2, height: 2 },
-        shadowOpacity: 0.55,
-        shadowRadius: 4,
-        elevation: 5,
+        shadowOpacity: highlighted ? 0.8 : 0.55,
+        shadowRadius: highlighted ? 8 : 4,
+        elevation: highlighted ? 10 : 5,
+        borderWidth: highlighted ? 2 : 0,
+        borderColor: highlighted ? COLORS.goldPrimary : 'transparent',
       }}
     >
       <View

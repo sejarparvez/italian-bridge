@@ -1,6 +1,10 @@
 import { Bid, Card, Player, PlayerId, Suit, SuitOrNull, Team } from './types';
 import { getRankValue } from './deck';
 
+export const MIN_BID = 7;
+export const MAX_BID = 10;
+export const OPPONENT_TARGET = 4;
+
 export function getBidOrder(startingPlayer: PlayerId): PlayerId[] {
   const order: PlayerId[] = [];
   for (let i = 0; i < 4; i++) {
@@ -121,4 +125,24 @@ export function getTeamBid(bids: Bid[], team: Team): number {
     }
   }
   return total;
+}
+
+export function getValidBids(bids: Bid[]): (number | null)[] {
+  const highestBid = getHighestBid(bids);
+  const validBids: (number | null)[] = [];
+  
+  if (!highestBid) {
+    for (let b = MIN_BID; b <= MAX_BID; b++) {
+      validBids.push(b);
+    }
+    validBids.push(null);
+    return validBids;
+  }
+  
+  for (let b = highestBid.tricks + 1; b <= MAX_BID; b++) {
+    validBids.push(b);
+  }
+  validBids.push(null);
+  
+  return validBids;
 }

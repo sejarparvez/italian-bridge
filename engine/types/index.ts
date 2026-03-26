@@ -56,10 +56,12 @@ export interface GameState {
   currentPlayer: PlayerId;
   trick: Trick | null;
   trump: SuitOrNull;
+  trumpRevealed: boolean;
   bids: Bid[];
   roundNumber: number;
   scores: { us: number; them: number };
   phase: 'bidding' | 'playing' | 'result';
   trickWins: PlayerId[];
   roundResult: RoundResult | null;
+  remainingDeck: Card[];
 }

@@ -22,10 +22,9 @@ export function shuffle(deck: Card[]): Card[] {
   return shuffled;
 }
 
-export function deal(numPlayers: number = 4): Player[] {
+export function deal(numPlayers: number = 4, cardsPerPlayer: number = 13): Player[] {
   const deck = shuffle(createDeck());
   const players: Player[] = [];
-  const cardsPerPlayer = Math.floor(deck.length / numPlayers);
 
   for (let i = 0; i < numPlayers; i++) {
     const start = i * cardsPerPlayer;
@@ -35,6 +34,23 @@ export function deal(numPlayers: number = 4): Player[] {
   }
 
   return players;
+}
+
+export function dealPartial(): { players: Player[], remainingDeck: Card[] } {
+  const deck = shuffle(createDeck());
+  const players: Player[] = [];
+  const cardsPerPlayer = 5;
+
+  for (let i = 0; i < 4; i++) {
+    const start = i * cardsPerPlayer;
+    const hand = deck.slice(start, start + cardsPerPlayer);
+    const team: Team = i % 2 === 0 ? 'us' : 'them';
+    players.push({ id: i as PlayerId, team, hand });
+  }
+
+  const remainingDeck = deck.slice(4 * cardsPerPlayer);
+
+  return { players, remainingDeck };
 }
 
 export const RANK_ORDER: Record<Rank, number> = {

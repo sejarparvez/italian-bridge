@@ -1,5 +1,6 @@
-import { Card, PlayerId, Suit } from '../types';
+import { Card, PlayerId, Suit, Bid } from '../types';
 import { getRankValue } from '../deck';
+import { MIN_BID, MAX_BID, getValidBids } from '../bidding';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
@@ -50,22 +51,36 @@ export function estimateTricksAdvanced(hand: Card[]): number {
   return Math.round(tricks);
 }
 
-export function getBotBid(hand: Card[], difficulty: Difficulty): number {
+export function getBotBid(hand: Card[], difficulty: Difficulty, bids: Bid[] = []): number | null {
   const baseEstimate = estimateTricksAdvanced(hand);
+  const validBids = getValidBids(bids);
+  const bidOptions = validBids.filter((b): b is number => b !== null);
+  
+  if (bidOptions.length === 0) return null;
+  
+  if (baseEstimate < MIN_BID) {
+    return null;
+  }
   
   let bid: number;
   
   switch (difficulty) {
     case 'easy':
-      bid = baseEstimate + Math.floor(Math.random() * 3) - 1;
-      break;
-    case 'medium':
       bid = baseEstimate + Math.floor(Math.random() * 2) - 1;
       break;
+    case 'medium':
+      bid = baseEstimate;
+      break;
     case 'hard':
-      bid = Math.round(baseEstimate);
+      bid = baseEstimate + 1;
       break;
   }
   
-  return Math.max(1, Math.min(bid, 13));
+  const validBid = Math.max(MIN_BID, Math.min(bid, MAX_BID));
+  
+  if (!bidOptions.includes(validBid)) {
+    return bidOptions[bidOptions.length - 1];
+  }
+  
+  return validBid;
 }

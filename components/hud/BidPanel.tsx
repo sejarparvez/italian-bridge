@@ -32,7 +32,7 @@ export function BidPanel({
               ? { backgroundColor: COLORS.goldPrimary }
               : {
                   backgroundColor: COLORS.feltMid,
-                  borderColor: COLORS.goldPrimary + '30',
+                  borderColor: `${COLORS.goldPrimary}30`,
                 }
           }
           onPress={() => value > min && onChange(value - 1)}
@@ -41,7 +41,7 @@ export function BidPanel({
           <Text
             className='text-3xl font-bold'
             style={{
-              color: value > min ? COLORS.feltDark : COLORS.goldPrimary + '60',
+              color: value > min ? COLORS.feltDark : `${COLORS.goldPrimary}60`,
             }}
           >
             −
@@ -73,7 +73,7 @@ export function BidPanel({
               ? { backgroundColor: COLORS.goldPrimary }
               : {
                   backgroundColor: COLORS.feltMid,
-                  borderColor: COLORS.goldPrimary + '30',
+                  borderColor: `${COLORS.goldPrimary}30`,
                 }
           }
           onPress={() => value < max && onChange(value + 1)}
@@ -82,7 +82,7 @@ export function BidPanel({
           <Text
             className='text-3xl font-bold'
             style={{
-              color: value < max ? COLORS.feltDark : COLORS.goldPrimary + '60',
+              color: value < max ? COLORS.feltDark : `${COLORS.goldPrimary}60`,
             }}
           >
             +

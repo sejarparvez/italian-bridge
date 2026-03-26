@@ -1,13 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { Card, CardBack } from '@/components/cards';
+import { Card } from '@/components/cards';
+import { ScoreBar } from '@/components/hud';
 import { BidPanel } from '@/components/hud/BidPanel';
 import { GameTable } from '@/components/table';
 import { COLORS } from '@/constants/theme';
 import { estimateTricksAdvanced } from '@/engine/ai/bidAI';
 import { useGameStore } from '@/store';
 
+// biome-ignore lint/suspicious/noExplicitAny: this is fien
 function getInitialBid(hand: any[]): number {
   if (!hand || hand.length === 0) return 5;
   return Math.max(1, Math.min(estimateTricksAdvanced(hand), 13));
@@ -24,71 +26,100 @@ export default function BidScreen() {
       initGame();
       setIsFirstRender(false);
     }
-  }, [isFirstRender]);
+  }, [isFirstRender, initGame]);
 
   useEffect(() => {
     if (state.phase === 'playing') {
       router.replace('/game');
     }
-  }, [state.phase]);
+  }, [state.phase, router.replace]);
 
   const handleConfirm = () => {
     submitBid(bid);
   };
 
-  const _currentBidder = state.players[state.currentPlayer];
   const isHumanTurn = state.currentPlayer === 0;
+
+  const getPlayerName = (id: number): string => {
+    switch (id) {
+      case 0:
+        return 'You';
+      case 1:
+        return 'Right';
+      case 2:
+        return 'Partner';
+      case 3:
+        return 'Left';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  const playerMap = {
+    bottom: {
+      ...state.players[0],
+      seat: 'bottom' as const,
+      isHuman: true,
+      name: getPlayerName(0),
+      bid: null,
+      tricksTaken: 0,
+    },
+    top: {
+      ...state.players[2],
+      seat: 'top' as const,
+      isHuman: false,
+      name: getPlayerName(2),
+      bid: null,
+      tricksTaken: 0,
+    },
+    left: {
+      ...state.players[3],
+      seat: 'left' as const,
+      isHuman: false,
+      name: getPlayerName(3),
+      bid: null,
+      tricksTaken: 0,
+    },
+    right: {
+      ...state.players[1],
+      seat: 'right' as const,
+      isHuman: false,
+      name: getPlayerName(1),
+      bid: null,
+      tricksTaken: 0,
+    },
+  };
 
   return (
     <View className='flex-1 bg-felt-dark'>
-      <GameTable>
-        <View className='absolute top-4 left-0 right-0 flex-row justify-center'>
-          <Text className='text-gold-light text-lg font-bold'>
-            Round {state.roundNumber}
-          </Text>
-        </View>
-
-        <View className='absolute top-16 left-0 right-0 items-center'>
-          <Text className='text-gold text-sm'>Partner</Text>
-          <CardBack width={50} />
-        </View>
-
-        <View className='absolute bottom-32 left-8 items-center'>
-          <Text className='text-gold text-sm'>Left</Text>
-          <View className='rotate-90'>
-            <CardBack width={40} />
-          </View>
-        </View>
-
-        <View className='absolute bottom-32 right-8 items-center'>
-          <Text className='text-gold text-sm'>Right</Text>
-          <View className='-rotate-90'>
-            <CardBack width={40} />
-          </View>
-        </View>
-
+      <ScoreBar
+        usScore={state.scores.us}
+        themScore={state.scores.them}
+        roundNumber={state.roundNumber}
+      />
+      <GameTable players={playerMap}>
         <View className='absolute inset-0 items-center justify-center'>
-          <View className='bg-felt-mid/90 border-2 border-gold-primary rounded-2xl p-8 items-center min-w-80'>
+          <View className='bg-felt-dark/95 border border-gold-primary/50 rounded-2xl p-6 items-center min-w-72'>
             {!isHumanTurn ? (
               <>
-                <Text className='text-gold-light text-lg mb-2'>
+                <Text className='text-gold-light text-base mb-1'>
                   {state.currentPlayer === 1
-                    ? 'Right Bot'
+                    ? 'Right'
                     : state.currentPlayer === 2
                       ? 'Partner'
-                      : 'Left Bot'}{' '}
+                      : 'Left'}{' '}
                   is bidding...
                 </Text>
-                <Text className='text-gold text-3xl font-bold mt-4'>...</Text>
+                <Text className='text-gold text-2xl font-bold mt-2'>...</Text>
               </>
             ) : (
               <>
-                <Text className='text-gold-light text-lg mb-4 font-semibold tracking-wide'>
+                <Text className='text-gold-light text-sm mb-3 font-medium tracking-wide'>
                   Your turn to bid
                 </Text>
-                <BidPanel value={bid} onChange={setBid} />
+                <BidPanel value={bid} onChange={setBid} min={1} max={13} />
                 <Pressable
-                  className='mt-6 px-10 py-4 rounded-lg border-2'
+                  className='mt-4 px-8 py-3 rounded-lg border-2'
                   style={{
                     backgroundColor: COLORS.goldPrimary,
                     borderColor: COLORS.goldLight,
@@ -96,7 +127,7 @@ export default function BidScreen() {
                   onPress={handleConfirm}
                 >
                   <Text
-                    className='text-xl font-bold tracking-widest'
+                    className='text-lg font-bold tracking-widest'
                     style={{ color: COLORS.feltDark }}
                   >
                     CONFIRM BID
@@ -107,16 +138,12 @@ export default function BidScreen() {
           </View>
         </View>
 
-        <View className='absolute bottom-8 right-0 left-0 items-center'>
-          <Text className='text-gold text-sm mb-2'>Your Hand</Text>
-          <View className='flex-row flex-wrap justify-center gap-1 max-w-2xl'>
+        <View className='absolute bottom-4 left-0 right-0 items-center'>
+          <Text className='text-gold text-xs mb-1'>Your Hand</Text>
+          <View className='flex-row flex-wrap justify-center -space-x-2 px-2'>
             {state.players[0].hand.slice(0, 6).map((card, i) => (
-              <Card key={i} suit={card.suit} rank={card.rank} width={35} />
-            ))}
-          </View>
-          <View className='flex-row flex-wrap justify-center gap-1 max-w-2xl mt-1'>
-            {state.players[0].hand.slice(6).map((card, i) => (
-              <Card key={i + 6} suit={card.suit} rank={card.rank} width={35} />
+              // biome-ignore lint/suspicious/noArrayIndexKey:  this is fine
+              <Card key={i} suit={card.suit} rank={card.rank} width={38} />
             ))}
           </View>
         </View>

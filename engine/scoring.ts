@@ -1,39 +1,64 @@
 import { Bid, Player, PlayerId, RoundResult, Team } from './types';
-import { getTeamTricks, getTeamBid } from './bidding';
-
-const BID_BONUS = 1;
-const PENALTY_PER_TRICK_SHORT = -1;
+import { getTeamTricks, getTeamBid, getHighestBid, getDeclarer, OPPONENT_TARGET } from './bidding';
 
 export function calculateRoundScore(
   bids: Bid[],
   trickWins: PlayerId[],
   players: Player[]
 ): RoundResult {
-  const usBid = getTeamBid(bids, 'us');
-  const themBid = getTeamBid(bids, 'them');
-
-  const usMade = getTeamTricks(players, 'us', trickWins);
-  const themMade = getTeamTricks(players, 'them', trickWins);
-
-  const usScore = calculateTeamScore(usMade, usBid);
-  const themScore = calculateTeamScore(themMade, themBid);
-
-  return {
-    teamUs: usScore,
-    teamThem: themScore,
-    usMade,
-    usBid,
-    themMade,
-    themBid,
-  };
-}
-
-function calculateTeamScore(made: number, bid: number): number {
-  if (made >= bid) {
-    return made + BID_BONUS;
+  const highestBid = getHighestBid(bids);
+  
+  if (!highestBid) {
+    return {
+      teamUs: 0,
+      teamThem: 0,
+      usMade: 0,
+      usBid: 0,
+      themMade: 0,
+      themBid: 0,
+    };
   }
-  const shortfall = bid - made;
-  return made + (shortfall * PENALTY_PER_TRICK_SHORT);
+
+  const declarer = highestBid.player;
+  const declarerTeam: Team = declarer % 2 === 0 ? 'us' : 'them';
+  const opponentTeam: Team = declarerTeam === 'us' ? 'them' : 'us';
+  const bidAmount = highestBid.tricks;
+
+  const declarerMade = getTeamTricks(players, declarerTeam, trickWins);
+  const opponentMade = getTeamTricks(players, opponentTeam, trickWins);
+
+  let declarerScore = 0;
+  let opponentScore = 0;
+
+  if (declarerMade >= bidAmount) {
+    declarerScore = bidAmount === 10 ? 13 : bidAmount;
+  } else {
+    declarerScore = -bidAmount;
+  }
+
+  if (opponentMade < OPPONENT_TARGET) {
+    opponentScore = -OPPONENT_TARGET;
+  }
+
+  if (declarerTeam === 'us') {
+    return {
+      teamUs: declarerScore,
+      teamThem: opponentScore,
+      usMade: declarerMade,
+      usBid: bidAmount,
+      themMade: opponentMade,
+      themBid: OPPONENT_TARGET,
+    };
+  } else {
+    return {
+      teamUs: opponentScore,
+      teamThem: declarerScore,
+      usMade: opponentMade,
+      usBid: OPPONENT_TARGET,
+      themMade: declarerMade,
+      themBid: bidAmount,
+    };
+  }
 }
 
 export function updateCumulativeScore(

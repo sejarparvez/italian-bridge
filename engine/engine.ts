@@ -1,22 +1,24 @@
 import { Bid, Card, GameState, Player, PlayerId, Suit, SuitOrNull } from './types';
-import { deal } from './deck';
+import { deal, dealPartial } from './deck';
 import { getPlayableCards, getTrickWinner, getNextPlayer } from './trick';
-import { getBidOrder, estimateTricks, getDeclarer, chooseTrump, getTeamBid } from './bidding';
+import { getBidOrder, estimateTricks, getDeclarer, chooseTrump, getTeamBid, getHighestBid, getValidBids, MIN_BID } from './bidding';
 import { calculateRoundScore, updateCumulativeScore, isGameOver, getWinner } from './scoring';
 
 export function createGame(): GameState {
-  const players = deal(4);
+  const { players, remainingDeck } = dealPartial();
   return {
     players,
     currentPlayer: 0,
     trick: null,
     trump: null,
+    trumpRevealed: false,
     bids: [],
     roundNumber: 1,
     scores: { us: 0, them: 0 },
     phase: 'bidding',
     trickWins: [],
     roundResult: null,
+    remainingDeck,
   };
 }
 
@@ -25,34 +27,36 @@ export function startBidding(state: GameState): GameState {
     ...state,
     phase: 'bidding',
     bids: [],
+    trumpRevealed: false,
   };
 }
 
 export function placeBid(
   state: GameState,
   playerId: PlayerId,
-  tricks: number
+  tricks: number | null
 ): GameState {
-  const newBids = [...state.bids, { player: playerId, tricks }];
+  const newBids = [...state.bids, { player: playerId, tricks: tricks ?? 0 }];
+  
+  const passCount = newBids.filter(b => b.tricks === 0).length;
+  
+  if (passCount >= 3 && newBids.some(b => b.tricks > 0)) {
+    const declarer = getDeclarer(newBids);
+    if (declarer !== null) {
+      return startPlaying(state, newBids, declarer);
+    }
+  }
   
   if (newBids.length >= 4) {
     const declarer = getDeclarer(newBids);
     if (declarer === null) {
       return startNewRound(state);
     }
-    const trump = chooseTrump(state.players, declarer);
-    return {
-      ...state,
-      bids: newBids,
-      trump,
-      phase: 'playing',
-      currentPlayer: declarer,
-      trick: null,
-    };
+    return startPlaying(state, newBids, declarer);
   }
 
   const bidOrder = getBidOrder(state.currentPlayer);
-  const nextBidder = bidOrder[newBids.length];
+  const nextBidder = bidOrder[newBids.length % 4];
 
   return {
     ...state,
@@ -61,10 +65,50 @@ export function placeBid(
   };
 }
 
-export function aiBid(state: GameState): number {
+function startPlaying(
+  state: GameState,
+  bids: Bid[],
+  declarer: PlayerId
+): GameState {
+  const trump = chooseTrump(state.players, declarer);
+  const fullHand = deal(4, 13);
+  const playersWithFullHand = state.players.map((p, i) => ({
+    ...p,
+    hand: fullHand[i].hand,
+  }));
+
+  return {
+    ...state,
+    players: playersWithFullHand,
+    bids,
+    trump,
+    trumpRevealed: false,
+    phase: 'playing',
+    currentPlayer: declarer,
+    trick: null,
+    remainingDeck: [],
+  };
+}
+
+export function aiBid(state: GameState): number | null {
   const player = state.players.find((p) => p.id === state.currentPlayer);
-  if (!player) return 1;
-  return Math.min(Math.max(estimateTricks(player.hand), 1), 13);
+  if (!player) return null;
+  
+  const validBids = getValidBids(state.bids);
+  const estimated = estimateTricks(player.hand);
+  
+  const bidOptions = validBids.filter((b): b is number => b !== null);
+  
+  if (bidOptions.length === 0) {
+    return null;
+  }
+  
+  if (estimated >= MIN_BID) {
+    const bestBid = Math.min(Math.max(estimated, 7), 10);
+    return bidOptions.includes(bestBid) ? bestBid : bidOptions[bidOptions.length - 1];
+  }
+  
+  return null;
 }
 
 export function playCard(
@@ -92,6 +136,9 @@ export function playCard(
   newTrickCards.set(playerId, card);
 
   const leader = state.trick?.leader ?? playerId;
+  
+  const isTrumpPlayed = card.suit === state.trump;
+  const shouldRevealTrump = !state.trumpRevealed && isTrumpPlayed;
 
   if (newTrickCards.size >= 4) {
     const winner = getTrickWinner(newTrickCards, state.trump);
@@ -108,6 +155,7 @@ export function playCard(
       currentPlayer: winner,
       trickWins: newTrickWins,
       phase: 'playing',
+      trumpRevealed: shouldRevealTrump || state.trumpRevealed,
     };
   }
 
@@ -116,6 +164,7 @@ export function playCard(
     players: newPlayers,
     trick: { cards: newTrickCards, leader },
     currentPlayer: getNextPlayer(playerId),
+    trumpRevealed: shouldRevealTrump || state.trumpRevealed,
   };
 }
 
@@ -141,17 +190,19 @@ function endRound(
 }
 
 export function startNewRound(state: GameState): GameState {
-  const players = deal(4);
+  const { players, remainingDeck } = dealPartial();
   return {
     ...state,
     players,
     currentPlayer: 0,
     trick: null,
     trump: null,
+    trumpRevealed: false,
     bids: [],
     roundNumber: state.roundNumber + 1,
     phase: 'bidding',
     trickWins: [],
+    remainingDeck,
   };
 }
 
