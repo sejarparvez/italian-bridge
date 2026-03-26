@@ -129,7 +129,9 @@ export default function HomeScreen() {
             title='New Game'
             onPress={() => {
               useGameStore.getState().startNewGame();
-              router.push('/bid');
+              setTimeout(() => {
+                router.replace('/bid');
+              }, 100);
             }}
             delay={600}
           />

@@ -6,7 +6,7 @@ interface FontLoaderProps {
 }
 
 export function FontLoader({ children }: FontLoaderProps) {
-  const { fontsLoaded, error } = useCustomFonts();
+  const { fontsLoaded } = useCustomFonts();
 
   if (!fontsLoaded) {
     return (
