@@ -1,18 +1,32 @@
-'use client';
-
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import { useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { COLORS, Fonts } from '@/constants/theme';
 import { Card } from '@/src/components/cards/Card';
 import { ALL_SUITS, SUIT_SYMBOLS, type Suit } from '@/src/constants/cards';
 import { useGameStore } from '@/src/store/gameStore';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.06;
+
+// Bid panel fixed height constants
+const BID_PANEL_HEIGHT = 180; // label + chips row + action row + gaps
+const HAND_HEIGHT = 80;
+const HAND_LABEL_HEIGHT = 24;
+
+const SUIT_META: Record<string, { color: string; label: string; bg: string }> =
+  {
+    hearts: { color: '#E8534A', label: 'Hearts', bg: 'rgba(232,83,74,0.12)' },
+    diamonds: {
+      color: '#E8534A',
+      label: 'Diamonds',
+      bg: 'rgba(232,83,74,0.12)',
+    },
+    clubs: { color: '#E8D5A3', label: 'Clubs', bg: 'rgba(232,213,163,0.08)' },
+    spades: { color: '#E8D5A3', label: 'Spades', bg: 'rgba(232,213,163,0.08)' },
+  };
 
 export default function BidScreen() {
   const router = useRouter();
@@ -20,27 +34,31 @@ export default function BidScreen() {
   const { state, placePlayerBid } = useGameStore();
   const [selectedBid, setSelectedBid] = useState<number | null>(null);
   const [showTrumpPicker, setShowTrumpPicker] = useState(false);
+  const [hoveredSuit, setHoveredSuit] = useState<string | null>(null);
 
   const playerHand = state.players.bottom.hand;
+
+  // Total space the bid panel + hand takes from bottom
+  const bidPanelTotalHeight = BID_PANEL_HEIGHT + insets.bottom + 16;
+  const handZoneHeight = HAND_HEIGHT + HAND_LABEL_HEIGHT + 16;
+  // tableArea paddingBottom must clear both the hand and the bid panel
+  const tableBottomPadding = bidPanelTotalHeight + handZoneHeight;
 
   if (playerHand.length === 0) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <LinearGradient
-          colors={[COLORS.feltDark, COLORS.feltMid, COLORS.feltDark]}
+          colors={['#061510', '#0D2B1A', '#061510']}
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading cards...</Text>
+          <Text style={styles.loadingText}>Dealing cards…</Text>
         </View>
       </View>
     );
   }
 
-  const handlePassBid = () => {
-    const { passBid } = useGameStore.getState();
-    passBid();
-  };
+  const handlePassBid = () => useGameStore.getState().passBid();
 
   const handleConfirmBid = () => {
     if (selectedBid !== null) {
@@ -50,42 +68,80 @@ export default function BidScreen() {
   };
 
   const handleSelectTrump = (suit: Suit) => {
-    const { selectPlayerTrump, runBotBids } = useGameStore.getState();
-    selectPlayerTrump(suit);
+    useGameStore.getState().selectPlayerTrump(suit);
     setShowTrumpPicker(false);
-    setTimeout(() => {
-      router.replace('/game');
-    }, 500);
+    setTimeout(() => router.replace('/game'), 500);
   };
 
+  // ── Trump Picker ──────────────────────────────────────────────────────────
   if (showTrumpPicker) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <LinearGradient
-          colors={[COLORS.feltDark, COLORS.feltMid, COLORS.feltDark]}
+          colors={['#061510', '#0D2B1A', '#061510']}
           style={StyleSheet.absoluteFill}
         />
+        <View style={styles.vignetteOverlay} />
         <MotiView
-          from={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 15 }}
+          from={{ opacity: 0, translateY: 30 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', damping: 16 }}
           style={styles.trumpPickerContainer}
         >
-          <Text style={styles.trumpTitle}>Select Trump Suit</Text>
-          <Text style={styles.trumpSubtitle}>
-            Highest bidder chooses the trump
-          </Text>
+          <View style={styles.decorativeRule}>
+            <View style={styles.ruleLine} />
+            <Text style={styles.ruleGem}>♦</Text>
+            <View style={styles.ruleLine} />
+          </View>
+          <Text style={styles.trumpTitle}>Choose Trump</Text>
+          <Text style={styles.trumpSubtitle}>You hold the highest bid</Text>
+          <View style={styles.decorativeRule}>
+            <View style={styles.ruleLine} />
+            <Text style={styles.ruleGem}>♦</Text>
+            <View style={styles.ruleLine} />
+          </View>
           <View style={styles.suitGrid}>
-            {ALL_SUITS.map((suit) => (
-              <Pressable
-                key={suit}
-                onPress={() => handleSelectTrump(suit)}
-                style={styles.suitButton}
-              >
-                <Text style={styles.suitEmoji}>{SUIT_SYMBOLS[suit]}</Text>
-                <Text style={styles.suitName}>{suit.toUpperCase()}</Text>
-              </Pressable>
-            ))}
+            {ALL_SUITS.map((suit, i) => {
+              const meta = SUIT_META[suit] ?? {
+                color: '#E8D5A3',
+                label: suit,
+                bg: 'rgba(255,255,255,0.05)',
+              };
+              return (
+                <MotiView
+                  key={suit}
+                  from={{ opacity: 0, translateY: 20 }}
+                  animate={{ opacity: 1, translateY: 0 }}
+                  transition={{ delay: i * 80, type: 'spring', damping: 15 }}
+                >
+                  <Pressable
+                    onPressIn={() => setHoveredSuit(suit)}
+                    onPressOut={() => setHoveredSuit(null)}
+                    onPress={() => handleSelectTrump(suit as Suit)}
+                    style={[
+                      styles.suitCard,
+                      hoveredSuit === suit && styles.suitCardHovered,
+                      { backgroundColor: meta.bg },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.suitSymbolLarge, { color: meta.color }]}
+                    >
+                      {SUIT_SYMBOLS[suit]}
+                    </Text>
+                    <Text style={[styles.suitCardLabel, { color: meta.color }]}>
+                      {meta.label.toUpperCase()}
+                    </Text>
+                    <View
+                      style={[
+                        styles.suitCardBorder,
+                        { borderColor: `${meta.color}50` },
+                      ]}
+                    />
+                  </Pressable>
+                </MotiView>
+              );
+            })}
           </View>
         </MotiView>
       </View>
@@ -100,124 +156,159 @@ export default function BidScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <LinearGradient
-        colors={[COLORS.feltDark, COLORS.feltMid, COLORS.feltDark]}
+        colors={['#061510', '#0D2B1A', '#061510']}
         style={StyleSheet.absoluteFill}
       />
+      <View style={styles.vignetteOverlay} />
 
+      {/* ── Header ── */}
       <MotiView
-        from={{ opacity: 0, translateY: -20 }}
+        from={{ opacity: 0, translateY: -16 }}
         animate={{ opacity: 1, translateY: 0 }}
         transition={{ type: 'spring', damping: 15 }}
         style={styles.header}
       >
-        <Text style={styles.title}>Place Your Bid</Text>
-        <Text style={styles.subtitle}>Bid between 7 - 10</Text>
+        <View style={styles.decorativeRule}>
+          <View style={styles.ruleLine} />
+          <Text style={styles.ruleGem}>♠</Text>
+          <View style={styles.ruleLine} />
+        </View>
+        <Text style={styles.title}>BIDDING</Text>
+        <Text style={styles.subtitle}>Place your bid between 7 – 10</Text>
       </MotiView>
 
-      <View style={styles.bidInfo}>
-        {currentBidder && currentBid > 0 && (
-          <Text style={styles.currentBidText}>
-            Current highest: {currentBid} by {state.players[currentBidder].name}
+      {/* ── Current Bid Banner ── */}
+      {currentBidder && currentBid > 0 && (
+        <MotiView
+          from={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={styles.currentBidBanner}
+        >
+          <Text style={styles.currentBidLabel}>LEADING BID</Text>
+          <Text style={styles.currentBidValue}>{currentBid}</Text>
+          <Text style={styles.currentBidBy}>
+            by {state.players[currentBidder].name}
           </Text>
-        )}
-      </View>
+        </MotiView>
+      )}
 
-      <View style={styles.tableArea}>
-        <View style={styles.playerTop}>
-          <Text style={styles.botName}>{state.players.top.name}</Text>
-          <Text style={styles.botBid}>
-            {state.players.top.bid !== null
-              ? `Bid: ${state.players.top.bid}`
-              : '...'}
-          </Text>
+      {/* ── Table (bots) ── */}
+      <View style={[styles.tableArea, { paddingBottom: tableBottomPadding }]}>
+        <View style={styles.botSlotTop}>
+          <BotBidBubble
+            name={state.players.top.name}
+            bid={state.players.top.bid}
+          />
         </View>
-
         <View style={styles.middleRow}>
-          <View style={styles.playerLeft}>
-            <Text style={styles.botName}>{state.players.left.name}</Text>
-            <Text style={styles.botBid}>
-              {state.players.left.bid !== null
-                ? `Bid: ${state.players.left.bid}`
-                : '...'}
-            </Text>
+          <BotBidBubble
+            name={state.players.left.name}
+            bid={state.players.left.bid}
+          />
+          <View style={styles.centerCrest}>
+            <Text style={styles.crestSuit}>♣</Text>
+            <Text style={styles.crestSuit}>♥</Text>
+            <Text style={styles.crestSuit}>♦</Text>
+            <Text style={styles.crestSuit}>♠</Text>
           </View>
-
-          <View style={styles.centerArea}>
-            <View style={styles.dealerBadge}>
-              <Text style={styles.dealerText}>DEALER</Text>
-            </View>
-          </View>
-
-          <View style={styles.playerRight}>
-            <Text style={styles.botName}>{state.players.right.name}</Text>
-            <Text style={styles.botBid}>
-              {state.players.right.bid !== null
-                ? `Bid: ${state.players.right.bid}`
-                : '...'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.playerBottom}>
-          <Text style={styles.playerLabel}>Your Hand</Text>
-          <View style={styles.handContainer}>
-            {playerHand.map((card, index) => (
-              <MotiView
-                key={card.id}
-                from={{ opacity: 0, translateY: 20 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                transition={{ delay: index * 50, type: 'spring', damping: 15 }}
-                style={[styles.cardInHand, { left: index * (CARD_WIDTH + 5) }]}
-              >
-                <Card card={card} />
-              </MotiView>
-            ))}
-          </View>
+          <BotBidBubble
+            name={state.players.right.name}
+            bid={state.players.right.bid}
+          />
         </View>
       </View>
 
+      {/* ── Your Hand — sits ABOVE the bid panel, NOT inside tableArea ── */}
+      <View style={[styles.yourHandZone, { bottom: bidPanelTotalHeight }]}>
+        <Text style={styles.handLabel}>YOUR HAND</Text>
+        <View style={styles.handContainer}>
+          {playerHand.map((card, index) => (
+            <MotiView
+              key={card.id}
+              from={{ opacity: 0, translateY: 24 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ delay: index * 45, type: 'spring', damping: 15 }}
+              style={[styles.cardInHand, { left: index * (CARD_WIDTH + 5) }]}
+            >
+              <Card card={card} />
+            </MotiView>
+          ))}
+        </View>
+      </View>
+
+      {/* ── Bid Panel — always at absolute bottom ── */}
       {isPlayerTurn && (
         <MotiView
-          from={{ opacity: 0, translateY: 50 }}
+          from={{ opacity: 0, translateY: 60 }}
           animate={{ opacity: 1, translateY: 0 }}
-          transition={{ type: 'spring', damping: 15, delay: 300 }}
-          style={[styles.bidPicker, { paddingBottom: insets.bottom + 20 }]}
+          transition={{ type: 'spring', damping: 16, delay: 200 }}
+          style={[styles.bidPanel, { paddingBottom: insets.bottom + 16 }]}
         >
-          <View style={styles.bidOptions}>
-            {[7, 8, 9, 10].map((bid) => (
+          <LinearGradient
+            colors={['rgba(6,21,16,0)', 'rgba(6,21,16,0.98)', '#061510']}
+            style={StyleSheet.absoluteFill}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 0.25 }}
+          />
+          <View style={styles.bidPanelInner}>
+            <Text style={styles.bidPanelLabel}>SELECT BID</Text>
+            <View style={styles.bidOptionsRow}>
+              {[7, 8, 9, 10].map((bid) => {
+                const isSelected = selectedBid === bid;
+                return (
+                  <Pressable key={bid} onPress={() => setSelectedBid(bid)}>
+                    <MotiView
+                      animate={{
+                        scale: isSelected ? 1.1 : 1,
+                        backgroundColor: isSelected
+                          ? '#C9A84C'
+                          : 'rgba(255,255,255,0.04)',
+                        borderColor: isSelected
+                          ? '#D4AF37'
+                          : 'rgba(201,168,76,0.2)',
+                      }}
+                      transition={{ type: 'spring', damping: 14 }}
+                      style={styles.bidChip}
+                    >
+                      <Text
+                        style={[
+                          styles.bidChipNumber,
+                          isSelected && styles.bidChipNumberSelected,
+                        ]}
+                      >
+                        {bid}
+                      </Text>
+                    </MotiView>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.actionRow}>
+              <Pressable onPress={handlePassBid} style={styles.passBtn}>
+                <Text style={styles.passBtnText}>PASS</Text>
+              </Pressable>
               <Pressable
-                key={bid}
-                onPress={() => setSelectedBid(bid)}
+                onPress={handleConfirmBid}
+                disabled={selectedBid === null}
                 style={[
-                  styles.bidButton,
-                  selectedBid === bid && styles.bidButtonSelected,
+                  styles.confirmBtn,
+                  selectedBid === null && { opacity: 0.4 },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.bidText,
-                    selectedBid === bid && styles.bidTextSelected,
-                  ]}
+                <LinearGradient
+                  colors={
+                    selectedBid !== null
+                      ? ['#D4AF37', '#C9A84C', '#A8872A']
+                      : ['#555', '#444']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.confirmBtnGradient}
                 >
-                  {bid}
-                </Text>
+                  <Text style={styles.confirmBtnText}>CONFIRM BID</Text>
+                </LinearGradient>
               </Pressable>
-            ))}
-          </View>
-          <View style={styles.buttonRow}>
-            <Pressable onPress={handlePassBid} style={styles.passButton}>
-              <Text style={styles.passText}>PASS</Text>
-            </Pressable>
-            <Pressable
-              onPress={handleConfirmBid}
-              disabled={selectedBid === null}
-              style={[
-                styles.confirmButton,
-                selectedBid === null && styles.confirmButtonDisabled,
-              ]}
-            >
-              <Text style={styles.confirmText}>CONFIRM BID</Text>
-            </Pressable>
+            </View>
           </View>
         </MotiView>
       )}
@@ -225,221 +316,254 @@ export default function BidScreen() {
   );
 }
 
+function BotBidBubble({ name, bid }: { name: string; bid: number | null }) {
+  return (
+    <MotiView animate={{ opacity: 1 }} style={styles.botBubble}>
+      <Text style={styles.botBubbleName}>{name}</Text>
+      <MotiView
+        animate={{
+          backgroundColor:
+            bid !== null ? 'rgba(201,168,76,0.15)' : 'transparent',
+          borderColor:
+            bid !== null ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.1)',
+        }}
+        style={styles.botBidPill}
+      >
+        <Text
+          style={[styles.botBidValue, bid !== null && styles.botBidValueActive]}
+        >
+          {bid !== null ? bid : '·  ·  ·'}
+        </Text>
+      </MotiView>
+    </MotiView>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  vignetteOverlay: {
+    position: 'absolute',
+    inset: 0,
+    borderWidth: 40,
+    borderColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 0,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontSize: 18, color: '#E8D5A3', letterSpacing: 2 },
+
+  // ── Decorative ──
+  decorativeRule: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    width: '70%',
+    marginVertical: 8,
   },
-  loadingText: {
-    fontSize: 18,
-    color: COLORS.goldLight,
-    fontFamily: Fonts.body.regular,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    alignItems: 'center',
-  },
+  ruleLine: { flex: 1, height: 1, backgroundColor: 'rgba(201,168,76,0.25)' },
+  ruleGem: { color: '#C9A84C', fontSize: 11 },
+
+  // ── Header ──
+  header: { alignItems: 'center', paddingTop: 16, paddingHorizontal: 24 },
   title: {
-    fontSize: 28,
-    fontFamily: Fonts.display.bold,
-    color: COLORS.goldLight,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
+    fontSize: 30,
+    color: '#E8D5A3',
+    fontWeight: '900',
+    letterSpacing: 8,
+    textShadowColor: 'rgba(201,168,76,0.35)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 14,
   },
   subtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
+    fontSize: 12,
+    color: 'rgba(232,213,163,0.4)',
+    letterSpacing: 1.5,
     marginTop: 4,
   },
-  bidInfo: {
-    alignItems: 'center',
+
+  // ── Current Bid Banner ──
+  currentBidBanner: {
+    marginHorizontal: 24,
+    marginTop: 8,
+    backgroundColor: 'rgba(201,168,76,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,168,76,0.2)',
+    borderRadius: 12,
     paddingVertical: 8,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
-  currentBidText: {
-    fontSize: 16,
-    color: COLORS.goldPrimary,
-    fontFamily: Fonts.body.regular,
+  currentBidLabel: {
+    fontSize: 10,
+    color: 'rgba(201,168,76,0.6)',
+    letterSpacing: 1.5,
+    fontWeight: '700',
   },
+  currentBidValue: { fontSize: 22, color: '#C9A84C', fontWeight: '900' },
+  currentBidBy: { fontSize: 12, color: 'rgba(232,213,163,0.5)' },
+
+  // ── Table (bots only) ──
   tableArea: {
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
-  playerTop: {
-    alignItems: 'center',
-    paddingTop: 10,
-  },
-  botName: {
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    fontFamily: Fonts.body.semibold,
-  },
-  botBid: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
+  botSlotTop: { alignItems: 'center', paddingTop: 8 },
   middleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     flex: 1,
   },
-  playerLeft: {
-    alignItems: 'center',
-    width: 80,
+  centerCrest: { alignItems: 'center', gap: 0 },
+  crestSuit: { fontSize: 16, color: 'rgba(201,168,76,0.15)', lineHeight: 20 },
+
+  // Bot Bubble
+  botBubble: { alignItems: 'center', gap: 4 },
+  botBubbleName: {
+    fontSize: 13,
+    color: '#E8D5A3',
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
-  playerRight: {
-    alignItems: 'center',
-    width: 80,
-  },
-  centerArea: {
-    alignItems: 'center',
-  },
-  dealerBadge: {
-    backgroundColor: COLORS.goldDark,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  botBidPill: {
+    borderWidth: 1,
     borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
   },
-  dealerText: {
-    fontSize: 12,
-    color: COLORS.goldLight,
-    fontFamily: Fonts.display.semibold,
-    letterSpacing: 1,
+  botBidValue: {
+    fontSize: 16,
+    color: 'rgba(232,213,163,0.3)',
+    fontWeight: '700',
   },
-  playerBottom: {
-    alignItems: 'center',
-    paddingBottom: 10,
-  },
-  playerLabel: {
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    fontFamily: Fonts.body.semibold,
-    marginBottom: 8,
-  },
-  handContainer: {
-    flexDirection: 'row',
-    height: 80,
-  },
-  cardInHand: {
+  botBidValueActive: { color: '#C9A84C' },
+
+  // ── Your Hand — absolutely positioned above bid panel ──
+  yourHandZone: {
     position: 'absolute',
-  },
-  bidPicker: {
-    position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.feltDark,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.goldDark,
-    paddingTop: 16,
-    paddingHorizontal: 20,
     alignItems: 'center',
+    paddingBottom: 8,
   },
-  bidOptions: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+  handLabel: {
+    fontSize: 10,
+    color: 'rgba(232,213,163,0.35)',
+    letterSpacing: 2,
+    marginBottom: 8,
   },
-  bidButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.feltMid,
-    borderWidth: 2,
-    borderColor: COLORS.goldDark,
+  handContainer: { flexDirection: 'row', height: 80 },
+  cardInHand: { position: 'absolute' },
+
+  // ── Bid Panel ──
+  bidPanel: { position: 'absolute', bottom: 0, left: 0, right: 0 },
+  bidPanelInner: {
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    gap: 14,
+  },
+  bidPanelLabel: {
+    fontSize: 10,
+    color: 'rgba(201,168,76,0.5)',
+    letterSpacing: 2.5,
+    fontWeight: '700',
+  },
+  bidOptionsRow: { flexDirection: 'row', gap: 14 },
+  bidChip: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#C9A84C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  bidButtonSelected: {
-    backgroundColor: COLORS.goldPrimary,
-    borderColor: COLORS.goldLight,
-  },
-  bidText: {
+  bidChipNumber: {
     fontSize: 24,
-    fontFamily: Fonts.display.bold,
-    color: COLORS.goldLight,
+    color: 'rgba(232,213,163,0.5)',
+    fontWeight: '700',
   },
-  bidTextSelected: {
-    color: COLORS.feltDark,
-  },
-  confirmButton: {
-    backgroundColor: COLORS.goldPrimary,
-    paddingHorizontal: 40,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  confirmButtonDisabled: {
-    opacity: 0.5,
-  },
-  confirmText: {
-    fontSize: 16,
-    fontFamily: Fonts.display.semibold,
-    color: COLORS.feltDark,
-    letterSpacing: 1,
-  },
-  buttonRow: {
+  bidChipNumberSelected: { color: '#061510', fontWeight: '900' },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    width: '100%',
   },
-  passButton: {
-    backgroundColor: 'transparent',
+  passBtn: {
     borderWidth: 1,
-    borderColor: COLORS.goldDark,
+    borderColor: 'rgba(201,168,76,0.2)',
     paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 6,
-    marginLeft: 16,
+    paddingVertical: 14,
+    borderRadius: 10,
   },
-  passText: {
+  passBtnText: {
+    fontSize: 13,
+    color: 'rgba(232,213,163,0.4)',
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  confirmBtn: { flex: 1, borderRadius: 10, overflow: 'hidden' },
+  confirmBtnGradient: { paddingVertical: 14, alignItems: 'center' },
+  confirmBtnText: {
     fontSize: 14,
-    fontFamily: Fonts.display.regular,
-    color: COLORS.textSecondary,
+    color: '#061510',
+    fontWeight: '900',
+    letterSpacing: 1.5,
   },
+
+  // ── Trump Picker ──
   trumpPickerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
+    paddingHorizontal: 32,
   },
   trumpTitle: {
     fontSize: 32,
-    fontFamily: Fonts.display.bold,
-    color: COLORS.goldLight,
-    marginBottom: 8,
+    color: '#E8D5A3',
+    fontWeight: '900',
+    letterSpacing: 5,
+    textShadowColor: 'rgba(201,168,76,0.4)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 16,
   },
   trumpSubtitle: {
-    fontSize: 16,
-    color: COLORS.textSecondary,
+    fontSize: 13,
+    color: 'rgba(232,213,163,0.4)',
+    letterSpacing: 2,
     marginBottom: 32,
   },
-  suitGrid: {
-    flexDirection: 'row',
-    gap: 20,
-  },
-  suitButton: {
-    width: 80,
-    height: 100,
-    backgroundColor: COLORS.feltMid,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.goldDark,
+  suitGrid: { flexDirection: 'row', gap: 14, marginTop: 32 },
+  suitCard: {
+    width: 72,
+    height: 96,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 10,
   },
-  suitEmoji: {
-    fontSize: 40,
-    marginBottom: 8,
+  suitCardHovered: { transform: [{ scale: 1.08 }, { translateY: -4 }] },
+  suitCardBorder: {
+    position: 'absolute',
+    inset: 0,
+    borderWidth: 1,
+    borderRadius: 14,
   },
-  suitName: {
-    fontSize: 12,
-    color: COLORS.goldLight,
-    fontFamily: Fonts.body.semibold,
-  },
+  suitSymbolLarge: { fontSize: 38 },
+  suitCardLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1.5 },
 });

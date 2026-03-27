@@ -1,7 +1,6 @@
-'use client';
-
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGameStore } from '@/src/store/gameStore';
@@ -13,6 +12,7 @@ function CardDecoration({
   right,
   suit,
   color,
+  accentColor,
 }: {
   delay: number;
   rotation: number;
@@ -20,34 +20,44 @@ function CardDecoration({
   right?: number;
   suit: string;
   color: string;
+  accentColor: string;
 }) {
   return (
     <MotiView
-      from={{ opacity: 0, translateY: -50, rotate: `${rotation + 20}deg` }}
+      from={{ opacity: 0, translateY: -80, rotate: `${rotation + 25}deg` }}
       animate={{ opacity: 1, translateY: 0, rotate: `${rotation}deg` }}
-      transition={{ delay, type: 'spring', damping: 15, stiffness: 100 }}
+      transition={{ delay, type: 'spring', damping: 18, stiffness: 90 }}
       style={[
+        styles.card,
         {
-          position: 'absolute',
-          width: 80,
-          height: 120,
-          backgroundColor: '#F5F0E8',
-          borderRadius: 6,
-          top: 80,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3,
-          shadowRadius: 8,
-          elevation: 6,
           ...(right !== undefined ? { right } : { left: startX }),
         },
       ]}
     >
-      <View style={styles.cardInner}>
-        <Text style={[styles.cardSuitTop, { color }]}>{suit}</Text>
-        <Text style={[styles.cardCenter, { color }]}>A</Text>
-        <Text style={[styles.cardSuitBottom, { color }]}>{suit}</Text>
+      {/* Card background shimmer layer */}
+      <View style={styles.cardShimmer} />
+
+      {/* Top left corner */}
+      <View style={styles.cardCornerTop}>
+        <Text style={[styles.cardCornerRank, { color }]}>A</Text>
+        <Text style={[styles.cardCornerSuit, { color }]}>{suit}</Text>
       </View>
+
+      {/* Center suit watermark */}
+      <View style={styles.cardCenterContainer}>
+        <Text style={[styles.cardWatermark, { color: accentColor }]}>
+          {suit}
+        </Text>
+      </View>
+
+      {/* Bottom right corner (rotated) */}
+      <View style={styles.cardCornerBottom}>
+        <Text style={[styles.cardCornerRank, { color }]}>A</Text>
+        <Text style={[styles.cardCornerSuit, { color }]}>{suit}</Text>
+      </View>
+
+      {/* Gloss overlay */}
+      <View style={styles.cardGloss} />
     </MotiView>
   );
 }
@@ -66,7 +76,7 @@ function AnimatedButton({
   return (
     <MotiView
       from={{ opacity: 0, translateY: 20 }}
-      animate={{ opacity: disabled ? 0.5 : 1, translateY: 0 }}
+      animate={{ opacity: disabled ? 0.4 : 1, translateY: 0 }}
       transition={{ delay, type: 'spring', damping: 15, stiffness: 100 }}
     >
       <Pressable
@@ -89,6 +99,14 @@ function AnimatedButton({
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [shouldNavigate, setShouldNavigate] = useState(false);
+
+  useEffect(() => {
+    if (shouldNavigate) {
+      router.replace('/bid');
+      setShouldNavigate(false);
+    }
+  }, [shouldNavigate, router.replace]);
 
   return (
     <View
@@ -99,17 +117,19 @@ export default function HomeScreen() {
     >
       <CardDecoration
         delay={200}
-        rotation={-15}
+        rotation={-18}
         startX={60}
         suit='♠'
-        color='#1A1A2E'
+        color='black'
+        accentColor='black'
       />
       <CardDecoration
-        delay={400}
-        rotation={10}
+        delay={350}
+        rotation={12}
         right={60}
         suit='♥'
-        color='#C0392B'
+        color='red'
+        accentColor='red'
       />
 
       <View style={styles.content}>
@@ -129,9 +149,7 @@ export default function HomeScreen() {
             title='New Game'
             onPress={() => {
               useGameStore.getState().startNewGame();
-              setTimeout(() => {
-                router.replace('/bid');
-              }, 100);
+              setShouldNavigate(true);
             }}
             delay={600}
           />
@@ -178,25 +196,76 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-  cardInner: {
-    flex: 1,
-    padding: 6,
-    justifyContent: 'space-between',
+
+  // ── Card styles ──────────────────────────────────────────
+  card: {
+    position: 'absolute',
+    width: 90,
+    height: 130,
+    top: 60,
+    backgroundColor: '#FAFAF7',
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    elevation: 16,
+    overflow: 'hidden',
+  },
+  cardShimmer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  cardCornerTop: {
+    position: 'absolute',
+    top: 8,
+    left: 9,
     alignItems: 'center',
   },
-  cardSuitTop: {
-    fontSize: 18,
-    alignSelf: 'flex-start',
-  },
-  cardCenter: {
-    fontSize: 32,
-    fontWeight: 'bold',
-  },
-  cardSuitBottom: {
-    fontSize: 18,
-    alignSelf: 'flex-end',
+  cardCornerBottom: {
+    position: 'absolute',
+    bottom: 8,
+    right: 9,
+    alignItems: 'center',
     transform: [{ rotate: '180deg' }],
   },
+  cardCornerRank: {
+    fontSize: 15,
+    fontWeight: '800',
+    lineHeight: 16,
+    letterSpacing: -0.5,
+  },
+  cardCornerSuit: {
+    fontSize: 12,
+    lineHeight: 13,
+  },
+  cardCenterContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardWatermark: {
+    fontSize: 52,
+    lineHeight: 56,
+  },
+  cardGloss: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+
+  // ── Title ────────────────────────────────────────────────
   titleContainer: {
     alignItems: 'center',
   },
@@ -218,6 +287,8 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 20,
   },
+
+  // ── Buttons ──────────────────────────────────────────────
   buttonsContainer: {
     marginTop: 48,
     gap: 12,
@@ -252,6 +323,8 @@ const styles = StyleSheet.create({
   buttonTextDisabled: {
     color: 'rgba(232, 213, 163, 0.5)',
   },
+
+  // ── Footer ───────────────────────────────────────────────
   footer: {
     position: 'absolute',
     bottom: 24,
