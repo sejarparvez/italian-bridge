@@ -1,14 +1,14 @@
+import { Card } from '@/src/components/cards/Card';
+import { SUIT_SYMBOLS } from '@/src/constants/cards';
+import type { SeatPosition } from '@/src/game/types';
+import { useGameStore } from '@/src/store/gameStore';
+import { sortHandAlternating } from '@/utils/card-sort';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import { useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card } from '@/src/components/cards/Card';
-import { SUIT_SYMBOLS } from '@/src/constants/cards';
-import type { SeatPosition } from '@/src/game/types';
-import { useGameStore } from '@/src/store/gameStore';
-import { sortHandAlternating } from '@/utils/card-sort';
 
 const { width, height } = Dimensions.get('window');
 
@@ -33,8 +33,9 @@ const getPlayerHandLayout = (count: number) => {
 export default function GameScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { state, playPlayerCard } = useGameStore();
+  const { state, playPlayerCard, startNewGame } = useGameStore();
   const [pressedCard, setPressedCard] = useState<string | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
 
   const handleCardPress = (cardId: string) => {
     if (state.currentSeat === 'bottom' && state.phase === 'playing') {
@@ -172,6 +173,50 @@ export default function GameScreen() {
       <View style={styles.feltRing} />
       <View style={styles.vignetteOverlay} />
 
+      {/* ── Menu Button ──────────────────────────────────────── */}
+      <Pressable
+        style={[styles.menuButton, { top: insets.top + 8 }]}
+        onPress={() => setShowMenu(!showMenu)}
+      >
+        <Text style={styles.menuButtonText}>☰</Text>
+      </Pressable>
+
+      {/* ── Menu Modal ──────────────────────────────────────── */}
+      {showMenu && (
+        <View style={[styles.menuModal, { top: insets.top + 52 }]}>
+          <Pressable
+            style={styles.menuItem}
+            onPress={() => {
+              setShowMenu(false);
+              router.replace('/');
+            }}
+          >
+            <Text style={styles.menuItemText}>🏠 Home</Text>
+          </Pressable>
+          <Pressable
+            style={styles.menuItem}
+            onPress={() => {
+              setShowMenu(false);
+              startNewGame();
+              router.replace('/bid');
+            }}
+          >
+            <Text style={styles.menuItemText}>🎮 New Game</Text>
+          </Pressable>
+          <Pressable
+            style={styles.menuItem}
+            onPress={() => {
+              setShowMenu(false);
+            }}
+          >
+            <Text style={styles.menuItemText}>📊 Scores</Text>
+          </Pressable>
+          <Pressable style={styles.menuItem} onPress={() => setShowMenu(false)}>
+            <Text style={styles.menuItemText}>✕ Close</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* ══════════════════════════════════════════════════════════
           MAIN TABLE AREA
       ══════════════════════════════════════════════════════════ */}
@@ -185,24 +230,6 @@ export default function GameScreen() {
             isActive={currentSeat === 'top'}
             position='top'
           />
-          <View style={styles.topFan}>
-            {players.top.hand.map((c, i) => (
-              <View
-                key={c.id}
-                style={[
-                  styles.opponentCard,
-                  {
-                    left: i * OPPONENT_OVERLAP,
-                    transform: [
-                      {
-                        rotate: `${(i - (players.top.hand.length - 1) / 2) * 4}deg`,
-                      },
-                    ],
-                  },
-                ]}
-              />
-            ))}
-          </View>
         </View>
 
         {/* ── MIDDLE ROW  (Left · Felt · Right) ─────────── */}
@@ -216,43 +243,14 @@ export default function GameScreen() {
               isActive={currentSeat === 'left'}
               position='left'
             />
-            <View style={styles.sideFan}>
-              {players.left.hand.map((c, i) => (
-                <View
-                  key={c.id}
-                  style={[
-                    styles.opponentCardV,
-                    { top: i * (OPPONENT_OVERLAP - 2) },
-                  ]}
-                />
-              ))}
-            </View>
           </View>
 
           {/* ── FELT / TRICK AREA ── */}
           <View style={styles.feltArea}>
             {/* Outer glow ring */}
             <View style={styles.feltGlowRing} />
-            {/* Felt circle with stats */}
-            <View style={styles.feltCircle}>
-              {trumpSuit ? (
-                <Text
-                  style={[
-                    styles.feltTrump,
-                    {
-                      color: ['hearts', 'diamonds'].includes(trumpSuit)
-                        ? '#E8534A'
-                        : '#E8D5A3',
-                    },
-                  ]}
-                >
-                  {SUIT_SYMBOLS[trumpSuit]}
-                </Text>
-              ) : (
-                <Text style={styles.feltWatermark}>♠</Text>
-              )}
-              <Text style={styles.feltRound}>R{round}</Text>
-            </View>
+            {/* Felt circle */}
+            <View style={styles.feltCircle} />
 
             {/* Trick cards — absolutely positioned relative to feltArea center */}
             <View style={styles.trickContainer} pointerEvents='none'>
@@ -307,22 +305,17 @@ export default function GameScreen() {
               isActive={currentSeat === 'right'}
               position='right'
             />
-            <View style={styles.sideFan}>
-              {players.right.hand.map((c, i) => (
-                <View
-                  key={c.id}
-                  style={[
-                    styles.opponentCardV,
-                    { top: i * (OPPONENT_OVERLAP - 2) },
-                  ]}
-                />
-              ))}
-            </View>
           </View>
         </View>
 
         {/* ── BOTTOM — YOU ──────────────────────────────── */}
         <View style={styles.bottomZone}>
+          {/* Left: Round */}
+          <View style={styles.bottomInfo}>
+            <Text style={styles.bottomInfoLabel}>R</Text>
+            <Text style={styles.bottomInfoValue}>{round}</Text>
+          </View>
+
           {/* ── Fanned hand ── */}
           <View style={[styles.handContainer, { height: 130 }]}>
             {playerHand.map((card, index) => {
@@ -359,6 +352,27 @@ export default function GameScreen() {
                 </MotiView>
               );
             })}
+          </View>
+
+          {/* Right: Trump */}
+          <View style={styles.bottomInfo}>
+            <Text style={styles.bottomInfoLabel}>TRUMP</Text>
+            {trumpSuit ? (
+              <Text
+                style={[
+                  styles.bottomInfoTrump,
+                  {
+                    color: ['hearts', 'diamonds'].includes(trumpSuit)
+                      ? '#E8534A'
+                      : '#E8D5A3',
+                  },
+                ]}
+              >
+                {SUIT_SYMBOLS[trumpSuit]}
+              </Text>
+            ) : (
+              <Text style={styles.bottomInfoValue}>—</Text>
+            )}
           </View>
 
           {/* Turn Banner - only show for bot turns */}
@@ -502,135 +516,12 @@ const styles = StyleSheet.create({
     left: width * 0.075,
   },
 
-  // ── Top Bar ──────────────────────────────────────────────────
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    zIndex: 10,
-  },
-  topBarRound: {
-    fontSize: 11,
-    color: '#C9A84C',
-    fontWeight: '700',
-  },
-  topBarScore: {
-    fontSize: 13,
-    color: 'rgba(232,213,163,0.7)',
-    fontWeight: '600',
-  },
-  topBarTeam: {
-    color: '#C9A84C',
-    fontWeight: '800',
-    fontSize: 10,
-  },
-  topBarSep: {
-    color: 'rgba(201,168,76,0.3)',
-  },
-  topBarTrump: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  topBarTurn: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#C9A84C',
-  },
-  pillBadge: {
-    backgroundColor: 'rgba(201,168,76,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.3)',
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  pillText: {
-    fontSize: 10,
-    color: '#C9A84C',
-    letterSpacing: 1.5,
-    fontWeight: '700',
-  },
-  scorePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.2)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  scoreLabel: {
-    fontSize: 10,
-    color: 'rgba(232,213,163,0.5)',
-    letterSpacing: 1,
-    fontWeight: '700',
-  },
-  scoreNum: { fontSize: 18, color: '#C9A84C', fontWeight: '800' },
-  scoreVertDivider: {
-    width: 1,
-    height: 18,
-    backgroundColor: 'rgba(201,168,76,0.25)',
-  },
-  trumpPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(201,168,76,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.35)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  trumpSymbol: { fontSize: 16 },
-  trumpLabel: {
-    fontSize: 10,
-    color: 'rgba(232,213,163,0.6)',
-    letterSpacing: 1.5,
-    fontWeight: '700',
-  },
-  trumpPillRevealed: {
-    backgroundColor: 'rgba(201,168,76,0.25)',
-    borderColor: '#C9A84C',
-  },
-  trumpLabelRevealed: {
-    color: '#C9A84C',
-  },
-  yourTurnPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(201,168,76,0.2)',
-    borderWidth: 1,
-    borderColor: '#C9A84C',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  yourTurnDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#C9A84C',
-  },
-  yourTurnText: {
-    fontSize: 11,
-    color: '#C9A84C',
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-
   // ── Table ────────────────────────────────────────────────────
   tableArea: {
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 8,
-    paddingBottom: 50,
+    paddingBottom: 10,
   },
 
   // TOP ZONE
@@ -638,7 +529,7 @@ const styles = StyleSheet.create({
   topFan: {
     flexDirection: 'row',
     height: OPPONENT_CARD_H,
-    width: OPPONENT_CARD_W + (13 - 1) * OPPONENT_OVERLAP,
+    width: OPPONENT_CARD_W + (7 - 1) * OPPONENT_OVERLAP,
     marginTop: -8,
   },
 
@@ -652,10 +543,11 @@ const styles = StyleSheet.create({
   },
 
   // SIDE ZONE
-  sideZone: { width: 90, alignItems: 'center' },
+  sideZone: { width: 80, alignItems: 'center' },
   sideFan: {
-    width: OPPONENT_CARD_H,
-    height: OPPONENT_CARD_W + (13 - 1) * (OPPONENT_OVERLAP - 2),
+    width: OPPONENT_CARD_H, // rotated — height becomes width
+    height: OPPONENT_CARD_W + (7 - 1) * (OPPONENT_OVERLAP - 2),
+    position: 'relative',
   },
 
   // Opponent card face-down rectangles
@@ -852,10 +744,72 @@ const styles = StyleSheet.create({
 
   // ── Bottom / You ─────────────────────────────────────────────
   bottomZone: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
     flex: 1,
+    paddingHorizontal: 16,
+  },
+  bottomInfo: {
+    alignItems: 'center',
     justifyContent: 'flex-end',
-    paddingBottom: -50,
+    width: 50,
+    paddingBottom: 10,
+  },
+  bottomInfoLabel: {
+    fontSize: 9,
+    color: 'rgba(232,213,163,0.5)',
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
+  bottomInfoValue: {
+    fontSize: 18,
+    color: '#C9A84C',
+    fontWeight: '800',
+  },
+  bottomInfoTrump: {
+    fontSize: 22,
+    flexDirection: 'row',
+    fontWeight: '700',
+  },
+  menuButton: {
+    position: 'absolute',
+    right: 12,
+    zIndex: 100,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,168,76,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuButtonText: {
+    fontSize: 18,
+    color: '#C9A84C',
+  },
+  menuModal: {
+    position: 'absolute',
+    right: 12,
+    zIndex: 200,
+    backgroundColor: 'rgba(6,21,16,0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(201,168,76,0.4)',
+    borderRadius: 12,
+    overflow: 'hidden',
+    minWidth: 140,
+  },
+  menuItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(201,168,76,0.15)',
+  },
+  menuItemText: {
+    fontSize: 14,
+    color: '#E8D5A3',
+    fontWeight: '500',
   },
   youStrip: {
     flexDirection: 'row',
@@ -882,8 +836,8 @@ const styles = StyleSheet.create({
   youStat: { fontSize: 11, color: 'rgba(232,213,163,0.5)' },
   youStatSep: { fontSize: 11, color: 'rgba(232,213,163,0.2)' },
 
-  handContainer: { width: '100%', position: 'relative' },
-  cardInHand: { position: 'absolute', bottom: -40 },
+  handContainer: { flex: 1, position: 'relative' },
+  cardInHand: { position: 'absolute', bottom: -20 },
 
   // ── Turn Banner ───────────────────────────────────────────────
   turnBanner: {
