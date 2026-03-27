@@ -122,10 +122,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newDeck = [...currentState.deck];
     
     const newPlayers = { ...currentState.players };
-    const botSeats: SeatPosition[] = ['left', 'top', 'right'];
+    const allSeats: SeatPosition[] = ['bottom', 'left', 'top', 'right'];
     
-    let cardIndex = 16;
-    for (const seat of botSeats) {
+    let cardIndex = 20;
+    for (const seat of allSeats) {
       for (let i = 0; i < 8; i++) {
         if (cardIndex < newDeck.length) {
           newPlayers[seat] = {
