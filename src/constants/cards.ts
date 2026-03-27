@@ -22,10 +22,10 @@ export const SUIT_SYMBOLS: Record<Suit, string> = {
 };
 
 export const SUIT_COLORS: Record<Suit, string> = {
-  spades: '#E8D5A3',
-  hearts: '#E05C5C',
-  diamonds: '#E05C5C',
-  clubs: '#E8D5A3',
+  spades: '#000000',
+  hearts: '#FF0000',
+  diamonds: '#FF0000',
+  clubs: '#000000',
 };
 
 export const ALL_SUITS: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Card as CardType, SUIT_SYMBOLS, SUIT_COLORS } from '../../constants/cards';
+import { StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../../../constants/theme';
+import { Card as CardType, SUIT_COLORS, SUIT_SYMBOLS } from '../../constants/cards';
 
 interface CardProps {
   card: CardType;

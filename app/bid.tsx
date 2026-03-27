@@ -1,18 +1,18 @@
+import { Card } from '@/src/components/cards/Card';
+import { ALL_SUITS, SUIT_SYMBOLS, type Suit } from '@/src/constants/cards';
+import { useGameStore } from '@/src/store/gameStore';
+import { sortHandAlternating } from '@/utils/card-sort';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import { useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card } from '@/src/components/cards/Card';
-import { ALL_SUITS, SUIT_SYMBOLS, type Suit } from '@/src/constants/cards';
-import { useGameStore } from '@/src/store/gameStore';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.06;
 
-// Bid panel fixed height constants
-const BID_PANEL_HEIGHT = 180; // label + chips row + action row + gaps
+const BID_PANEL_HEIGHT = 180;
 const HAND_HEIGHT = 80;
 const HAND_LABEL_HEIGHT = 24;
 
@@ -37,11 +37,10 @@ export default function BidScreen() {
   const [hoveredSuit, setHoveredSuit] = useState<string | null>(null);
 
   const playerHand = state.players.bottom.hand;
+  const sortedHand = sortHandAlternating(playerHand);
 
-  // Total space the bid panel + hand takes from bottom
   const bidPanelTotalHeight = BID_PANEL_HEIGHT + insets.bottom + 16;
   const handZoneHeight = HAND_HEIGHT + HAND_LABEL_HEIGHT + 16;
-  // tableArea paddingBottom must clear both the hand and the bid panel
   const tableBottomPadding = bidPanelTotalHeight + handZoneHeight;
 
   if (playerHand.length === 0) {
@@ -73,7 +72,6 @@ export default function BidScreen() {
     setTimeout(() => router.replace('/game'), 500);
   };
 
-  // ── Trump Picker ──────────────────────────────────────────────────────────
   if (showTrumpPicker) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -218,11 +216,11 @@ export default function BidScreen() {
         </View>
       </View>
 
-      {/* ── Your Hand — sits ABOVE the bid panel, NOT inside tableArea ── */}
+      {/* ── Your Hand ── */}
       <View style={[styles.yourHandZone, { bottom: bidPanelTotalHeight }]}>
         <Text style={styles.handLabel}>YOUR HAND</Text>
         <View style={styles.handContainer}>
-          {playerHand.map((card, index) => (
+          {sortedHand.map((card, index) => (
             <MotiView
               key={card.id}
               from={{ opacity: 0, translateY: 24 }}
@@ -236,7 +234,7 @@ export default function BidScreen() {
         </View>
       </View>
 
-      {/* ── Bid Panel — always at absolute bottom ── */}
+      {/* ── Bid Panel ── */}
       {isPlayerTurn && (
         <MotiView
           from={{ opacity: 0, translateY: 60 }}
@@ -350,8 +348,6 @@ const styles = StyleSheet.create({
   },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 18, color: '#E8D5A3', letterSpacing: 2 },
-
-  // ── Decorative ──
   decorativeRule: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -361,8 +357,6 @@ const styles = StyleSheet.create({
   },
   ruleLine: { flex: 1, height: 1, backgroundColor: 'rgba(201,168,76,0.25)' },
   ruleGem: { color: '#C9A84C', fontSize: 11 },
-
-  // ── Header ──
   header: { alignItems: 'center', paddingTop: 16, paddingHorizontal: 24 },
   title: {
     fontSize: 30,
@@ -379,8 +373,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     marginTop: 4,
   },
-
-  // ── Current Bid Banner ──
   currentBidBanner: {
     marginHorizontal: 24,
     marginTop: 8,
@@ -403,8 +395,6 @@ const styles = StyleSheet.create({
   },
   currentBidValue: { fontSize: 22, color: '#C9A84C', fontWeight: '900' },
   currentBidBy: { fontSize: 12, color: 'rgba(232,213,163,0.5)' },
-
-  // ── Table (bots only) ──
   tableArea: {
     flex: 1,
     justifyContent: 'space-between',
@@ -419,8 +409,6 @@ const styles = StyleSheet.create({
   },
   centerCrest: { alignItems: 'center', gap: 0 },
   crestSuit: { fontSize: 16, color: 'rgba(201,168,76,0.15)', lineHeight: 20 },
-
-  // Bot Bubble
   botBubble: { alignItems: 'center', gap: 4 },
   botBubbleName: {
     fontSize: 13,
@@ -440,8 +428,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   botBidValueActive: { color: '#C9A84C' },
-
-  // ── Your Hand — absolutely positioned above bid panel ──
   yourHandZone: {
     position: 'absolute',
     left: 0,
@@ -457,8 +443,6 @@ const styles = StyleSheet.create({
   },
   handContainer: { flexDirection: 'row', height: 80 },
   cardInHand: { position: 'absolute' },
-
-  // ── Bid Panel ──
   bidPanel: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   bidPanelInner: {
     paddingTop: 24,
@@ -519,8 +503,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1.5,
   },
-
-  // ── Trump Picker ──
   trumpPickerContainer: {
     flex: 1,
     justifyContent: 'center',
