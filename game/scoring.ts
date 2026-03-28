@@ -1,8 +1,8 @@
-import { TeamId, Player } from './types';
-import { SeatPosition } from './types';
+import { Player, SeatPosition, TeamId } from './types';
 
 export interface RoundScore {
   team: TeamId;
+  // BUG FIX: bid is the bid amount when this team was the bidding team, null otherwise
   bid: number | null;
   tricks: number;
   points: number;
@@ -22,20 +22,33 @@ export function calculateRoundScores(
   let btPoints = 0;
   let lrPoints = 0;
 
+  // BUG FIX: track which team bid so we can assign bid correctly in the return
+  let btBid: number | null = null;
+  let lrBid: number | null = null;
+
   if (highestBidder) {
     const bidderTeam = players[highestBidder].team;
     const bidderTricks = bidderTeam === btTeam ? btTricks : lrTricks;
     const opponentTricks = bidderTeam === btTeam ? lrTricks : btTricks;
 
+    // Assign bid label to the correct team
+    if (bidderTeam === btTeam) {
+      btBid = highestBid;
+    } else {
+      lrBid = highestBid;
+    }
+
     if (bidderTricks >= highestBid) {
+      // Bidder met their bid
       if (bidderTeam === btTeam) {
         btPoints = highestBid;
-        if (highestBid === 10) btPoints += 3;
+        if (highestBid === 10) btPoints += 3; // 10-bid bonus
       } else {
         lrPoints = highestBid;
         if (highestBid === 10) lrPoints += 3;
       }
     } else {
+      // Bidder failed — lose the bid amount
       if (bidderTeam === btTeam) {
         btPoints = -highestBid;
       } else {
@@ -43,19 +56,19 @@ export function calculateRoundScores(
       }
     }
 
+    // Opponent penalty: if opponents took fewer than 4 tricks
     if (opponentTricks < 4) {
-      const opponentPenalty = -4;
       if (bidderTeam === btTeam) {
-        lrPoints += opponentPenalty;
+        lrPoints += -4;
       } else {
-        btPoints += opponentPenalty;
+        btPoints += -4;
       }
     }
   }
 
   return [
-    { team: btTeam, bid: highestBid, tricks: btTricks, points: btPoints },
-    { team: lrTeam, bid: null, tricks: lrTricks, points: lrPoints },
+    { team: btTeam, bid: btBid, tricks: btTricks, points: btPoints },
+    { team: lrTeam, bid: lrBid, tricks: lrTricks, points: lrPoints },
   ];
 }
 

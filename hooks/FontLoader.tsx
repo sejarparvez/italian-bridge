@@ -1,12 +1,20 @@
+import { useEffect } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useCustomFonts } from './useFonts';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 interface FontLoaderProps {
   children: React.ReactNode;
+  onReady?: () => void;  // ✅ add this
 }
 
-export function FontLoader({ children }: FontLoaderProps) {
+export function FontLoader({ children, onReady }: FontLoaderProps) {
   const { fontsLoaded } = useCustomFonts();
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      onReady?.();  // ✅ call it once fonts are loaded
+    }
+  }, [fontsLoaded]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!fontsLoaded) {
     return (

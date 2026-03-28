@@ -1,13 +1,13 @@
-import { Card } from '@/src/components/cards/Card';
-import { ALL_SUITS, SUIT_SYMBOLS, type Suit } from '@/src/constants/cards';
-import { useGameStore } from '@/src/store/gameStore';
-import { sortHandAlternating } from '@/utils/card-sort';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import { useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Card } from '@/src/components/cards/Card';
+import { ALL_SUITS, SUIT_SYMBOLS, type Suit } from '@/src/constants/cards';
+import { useGameStore } from '@/store/gameStore';
+import { sortHandAlternating } from '@/utils/card-sort';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width * 0.06;
@@ -25,15 +25,19 @@ const SUIT_META: Record<string, { color: string; label: string; bg: string }> =
       bg: 'rgba(232,83,74,0.12)',
     },
     clubs: { color: '#E8D5A3', label: 'Clubs', bg: 'rgba(232,213,163,0.08)' },
-    spades: { color: '#E8D5A3', label: 'Spades', bg: 'rgba(232,213,163,0.08)' },
+    spades: {
+      color: '#E8D5A3',
+      label: 'Spades',
+      bg: 'rgba(232,213,163,0.08)',
+    },
   };
 
 export default function BidScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { state, placePlayerBid } = useGameStore();
+  const { state, placePlayerBid, passPlayerBid, selectPlayerTrump } =
+    useGameStore();
   const [selectedBid, setSelectedBid] = useState<number | null>(null);
-  const [showTrumpPicker, setShowTrumpPicker] = useState(false);
   const [hoveredSuit, setHoveredSuit] = useState<string | null>(null);
 
   const playerHand = state.players.bottom.hand;
@@ -42,6 +46,15 @@ export default function BidScreen() {
   const bidPanelTotalHeight = BID_PANEL_HEIGHT + insets.bottom + 16;
   const handZoneHeight = HAND_HEIGHT + HAND_LABEL_HEIGHT + 16;
   const tableBottomPadding = bidPanelTotalHeight + handZoneHeight;
+
+  // FIX: derive trump-picker visibility from store phase, not local state.
+  // Local `showTrumpPicker` was set to true immediately after placePlayerBid —
+  // before bots had bid — so it could show even when the human didn't win.
+  // It also reset to false on remount, losing the correct UI state.
+  // `phase === 'dealing2'` means all bids are in AND the human won (bot winners
+  // are handled automatically in dealRemainingCards).
+  const showTrumpPicker =
+    state.phase === 'dealing2' && state.highestBidder === 'bottom';
 
   if (playerHand.length === 0) {
     return (
@@ -57,18 +70,20 @@ export default function BidScreen() {
     );
   }
 
-  const handlePassBid = () => useGameStore.getState().passBid();
+  // FIX: renamed from handlePassBid to avoid confusion; calls passPlayerBid
+  // (the renamed store method). Old code called getState().passBid() which
+  // no longer exists after the store rename and would silently do nothing.
+  const handlePass = () => passPlayerBid();
 
   const handleConfirmBid = () => {
     if (selectedBid !== null) {
       placePlayerBid(selectedBid);
-      setShowTrumpPicker(true);
+      // Do NOT set any local showTrumpPicker here — phase drives it now.
     }
   };
 
   const handleSelectTrump = (suit: Suit) => {
-    useGameStore.getState().selectPlayerTrump(suit);
-    setShowTrumpPicker(false);
+    selectPlayerTrump(suit);
     setTimeout(() => router.replace('/game'), 500);
   };
 
@@ -253,8 +268,14 @@ export default function BidScreen() {
             <View style={styles.bidOptionsRow}>
               {[7, 8, 9, 10].map((bid) => {
                 const isSelected = selectedBid === bid;
+                // Disable bids that aren't higher than the current leading bid
+                const isDisabled = bid <= currentBid && currentBid > 0;
                 return (
-                  <Pressable key={bid} onPress={() => setSelectedBid(bid)}>
+                  <Pressable
+                    key={bid}
+                    onPress={() => !isDisabled && setSelectedBid(bid)}
+                    disabled={isDisabled}
+                  >
                     <MotiView
                       animate={{
                         scale: isSelected ? 1.1 : 1,
@@ -263,7 +284,9 @@ export default function BidScreen() {
                           : 'rgba(255,255,255,0.04)',
                         borderColor: isSelected
                           ? '#D4AF37'
-                          : 'rgba(201,168,76,0.2)',
+                          : isDisabled
+                            ? 'rgba(201,168,76,0.05)'
+                            : 'rgba(201,168,76,0.2)',
                       }}
                       transition={{ type: 'spring', damping: 14 }}
                       style={styles.bidChip}
@@ -272,6 +295,7 @@ export default function BidScreen() {
                         style={[
                           styles.bidChipNumber,
                           isSelected && styles.bidChipNumberSelected,
+                          isDisabled && styles.bidChipNumberDisabled,
                         ]}
                       >
                         {bid}
@@ -282,7 +306,9 @@ export default function BidScreen() {
               })}
             </View>
             <View style={styles.actionRow}>
-              <Pressable onPress={handlePassBid} style={styles.passBtn}>
+              {/* FIX: was calling getState().passBid() — method renamed to
+                  passPlayerBid in store. Now calls the destructured method. */}
+              <Pressable onPress={handlePass} style={styles.passBtn}>
                 <Text style={styles.passBtnText}>PASS</Text>
               </Pressable>
               <Pressable
@@ -310,27 +336,38 @@ export default function BidScreen() {
           </View>
         </MotiView>
       )}
+
+      {/* Waiting overlay — bots are bidding after human's turn */}
+      {state.phase === 'bidding' && state.currentSeat !== 'bottom' && (
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={styles.waitingOverlay}
+        >
+          <Text style={styles.waitingText}>Waiting for bids…</Text>
+        </MotiView>
+      )}
     </View>
   );
 }
 
 function BotBidBubble({ name, bid }: { name: string; bid: number | null }) {
+  // FIX: bid === 0 means passed — display "PASS" not "0"
+  const bidLabel = bid === null ? '·  ·  ·' : bid === 0 ? 'PASS' : String(bid);
+  const hasBid = bid !== null;
+
   return (
     <MotiView animate={{ opacity: 1 }} style={styles.botBubble}>
       <Text style={styles.botBubbleName}>{name}</Text>
       <MotiView
         animate={{
-          backgroundColor:
-            bid !== null ? 'rgba(201,168,76,0.15)' : 'transparent',
-          borderColor:
-            bid !== null ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.1)',
+          backgroundColor: hasBid ? 'rgba(201,168,76,0.15)' : 'transparent',
+          borderColor: hasBid ? 'rgba(201,168,76,0.4)' : 'rgba(201,168,76,0.1)',
         }}
         style={styles.botBidPill}
       >
-        <Text
-          style={[styles.botBidValue, bid !== null && styles.botBidValueActive]}
-        >
-          {bid !== null ? bid : '·  ·  ·'}
+        <Text style={[styles.botBidValue, hasBid && styles.botBidValueActive]}>
+          {bidLabel}
         </Text>
       </MotiView>
     </MotiView>
@@ -476,6 +513,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bidChipNumberSelected: { color: '#061510', fontWeight: '900' },
+  bidChipNumberDisabled: { color: 'rgba(232,213,163,0.15)' },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -548,4 +586,20 @@ const styles = StyleSheet.create({
   },
   suitSymbolLarge: { fontSize: 38 },
   suitCardLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1.5 },
+  waitingOverlay: {
+    position: 'absolute',
+    bottom: 24,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(6,21,16,0.85)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(201,168,76,0.2)',
+  },
+  waitingText: {
+    fontSize: 13,
+    color: 'rgba(232,213,163,0.5)',
+    letterSpacing: 1.5,
+  },
 });

@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach } from 'bun:test';
+import { beforeEach, describe, expect, it } from 'bun:test';
 import {
-  createDeck,
-  shuffleDeck,
-  dealCards,
-  dealRemainingCards,
-} from '../../src/game/deck';
-import { getTrickWinner, getPlayableCards } from '../../src/game/trick';
-import { calculateRoundScores } from '../../src/game/scoring';
-import { createInitialState, selectTrump, advanceToNextRound } from '../../src/game/engine';
+    createDeck,
+    dealCards,
+    dealRemainingCards,
+    shuffleDeck,
+} from '../../game/deck';
+import { advanceToNextRound, createInitialState, selectTrump } from '../../game/engine';
+import { calculateRoundScores } from '../../game/scoring';
+import { getPlayableCards, getTrickWinner } from '../../game/trick';
 import { Card, Suit } from '../../src/constants/cards';
 
 describe('deck.ts', () => {

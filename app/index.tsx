@@ -1,9 +1,8 @@
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useGameStore } from '@/src/store/gameStore';
+import { useGameStore } from '@/store/gameStore';
 
 function CardDecoration({
   delay,
@@ -27,36 +26,22 @@ function CardDecoration({
       from={{ opacity: 0, translateY: -80, rotate: `${rotation + 25}deg` }}
       animate={{ opacity: 1, translateY: 0, rotate: `${rotation}deg` }}
       transition={{ delay, type: 'spring', damping: 18, stiffness: 90 }}
-      style={[
-        styles.card,
-        {
-          ...(right !== undefined ? { right } : { left: startX }),
-        },
-      ]}
+      style={[styles.card, right !== undefined ? { right } : { left: startX }]}
     >
-      {/* Card background shimmer layer */}
       <View style={styles.cardShimmer} />
-
-      {/* Top left corner */}
       <View style={styles.cardCornerTop}>
         <Text style={[styles.cardCornerRank, { color }]}>A</Text>
         <Text style={[styles.cardCornerSuit, { color }]}>{suit}</Text>
       </View>
-
-      {/* Center suit watermark */}
       <View style={styles.cardCenterContainer}>
         <Text style={[styles.cardWatermark, { color: accentColor }]}>
           {suit}
         </Text>
       </View>
-
-      {/* Bottom right corner (rotated) */}
       <View style={styles.cardCornerBottom}>
         <Text style={[styles.cardCornerRank, { color }]}>A</Text>
         <Text style={[styles.cardCornerSuit, { color }]}>{suit}</Text>
       </View>
-
-      {/* Gloss overlay */}
       <View style={styles.cardGloss} />
     </MotiView>
   );
@@ -99,14 +84,16 @@ function AnimatedButton({
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [shouldNavigate, setShouldNavigate] = useState(false);
 
-  useEffect(() => {
-    if (shouldNavigate) {
-      router.replace('/bid');
-      setShouldNavigate(false);
-    }
-  }, [shouldNavigate, router.replace]);
+  // FIX: removed the `shouldNavigate` + `useEffect` indirection. The pattern
+  // was invented to delay navigation until after setState, but startNewGame is
+  // synchronous (it just calls set() in zustand) — navigation can happen
+  // directly in the onPress handler. The useEffect also listed router.replace
+  // as a dependency, which is unstable across renders in Expo Router.
+  const handleNewGame = () => {
+    useGameStore.getState().startNewGame();
+    router.replace('/bid');
+  };
 
   return (
     <View
@@ -115,21 +102,23 @@ export default function HomeScreen() {
         { paddingTop: insets.top, paddingBottom: insets.bottom },
       ]}
     >
+      {/* FIX: spade card was color='black' / accentColor='black' — invisible
+          on the dark green background. Changed to a dark-but-visible charcoal. */}
       <CardDecoration
         delay={200}
         rotation={-18}
         startX={60}
         suit='♠'
-        color='black'
-        accentColor='black'
+        color='#1a1a2e'
+        accentColor='#2d2d44'
       />
       <CardDecoration
         delay={350}
         rotation={12}
         right={60}
         suit='♥'
-        color='red'
-        accentColor='red'
+        color='#C0392B'
+        accentColor='#E74C3C'
       />
 
       <View style={styles.content}>
@@ -147,10 +136,7 @@ export default function HomeScreen() {
         <View style={styles.buttonsContainer}>
           <AnimatedButton
             title='New Game'
-            onPress={() => {
-              useGameStore.getState().startNewGame();
-              setShouldNavigate(true);
-            }}
+            onPress={handleNewGame}
             delay={600}
           />
           <AnimatedButton
@@ -186,18 +172,13 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0D2B1A',
-  },
+  container: { flex: 1, backgroundColor: '#0D2B1A' },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
-
-  // ── Card styles ──────────────────────────────────────────
   card: {
     position: 'absolute',
     width: 90,
@@ -241,19 +222,13 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     letterSpacing: -0.5,
   },
-  cardCornerSuit: {
-    fontSize: 12,
-    lineHeight: 13,
-  },
+  cardCornerSuit: { fontSize: 12, lineHeight: 13 },
   cardCenterContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  cardWatermark: {
-    fontSize: 52,
-    lineHeight: 56,
-  },
+  cardWatermark: { fontSize: 52, lineHeight: 56 },
   cardGloss: {
     position: 'absolute',
     top: 0,
@@ -264,11 +239,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
   },
-
-  // ── Title ────────────────────────────────────────────────
-  titleContainer: {
-    alignItems: 'center',
-  },
+  titleContainer: { alignItems: 'center' },
   title: {
     fontSize: 36,
     fontStyle: 'italic',
@@ -287,14 +258,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 20,
   },
-
-  // ── Buttons ──────────────────────────────────────────────
-  buttonsContainer: {
-    marginTop: 48,
-    gap: 12,
-    width: '100%',
-    maxWidth: 240,
-  },
+  buttonsContainer: { marginTop: 48, gap: 12, width: '100%', maxWidth: 240 },
   button: {
     backgroundColor: '#1A4A2E',
     borderRadius: 12,
@@ -306,13 +270,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonContent: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
+  buttonDisabled: { opacity: 0.5 },
+  buttonContent: { paddingVertical: 14, alignItems: 'center' },
   buttonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -320,16 +279,8 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     textTransform: 'uppercase',
   },
-  buttonTextDisabled: {
-    color: 'rgba(232, 213, 163, 0.5)',
-  },
-
-  // ── Footer ───────────────────────────────────────────────
-  footer: {
-    position: 'absolute',
-    bottom: 24,
-    alignItems: 'center',
-  },
+  buttonTextDisabled: { color: 'rgba(232, 213, 163, 0.5)' },
+  footer: { position: 'absolute', bottom: 24, alignItems: 'center' },
   footerLine: {
     width: 40,
     height: 1,

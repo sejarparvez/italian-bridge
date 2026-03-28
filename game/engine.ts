@@ -1,22 +1,22 @@
-import { Card, Suit } from '../constants/cards';
-import {
-  GameState,
-  SeatPosition,
-  Player,
-  GamePhase,
-  Trick,
-} from './types';
-import { createDeck, shuffleDeck, dealCards, dealRemainingCards, DealResult } from './deck';
-import { getTrickWinner, addCardToTrick, createEmptyTrick, isValidCard } from './trick';
-import { placeBid, selectTrump, passBid, getEstimatedBid, BID_MIN, BID_MAX } from './bidding';
+import { Card } from '../src/constants/cards';
+import { BID_MAX, BID_MIN, getEstimatedBid, passBid, placeBid, selectTrump } from './bidding';
+import { createDeck, dealCards, dealRemainingCards, shuffleDeck } from './deck';
 import { calculateRoundScores, updateTeamScores } from './scoring';
+import { addCardToTrick, createEmptyTrick, getTrickWinner, isValidCard } from './trick';
+import {
+    GameState,
+    Player,
+    SeatPosition
+} from './types';
 
 const SEAT_ORDER: SeatPosition[] = ['bottom', 'left', 'top', 'right'];
 const TOTAL_ROUNDS = 5;
+// Cards dealt in first deal; 8 more in second deal = 13 total per player
+const INITIAL_DEAL_COUNT = 5;
 
 export function createInitialState(): GameState {
   const deck = shuffleDeck(createDeck());
-  const initialDeal = dealCards(deck, 5);
+  const initialDeal = dealCards(deck, INITIAL_DEAL_COUNT);
 
   const players: Record<SeatPosition, Player> = {
     bottom: createPlayer('bottom', 'You', true),
@@ -68,7 +68,8 @@ export function playCard(
   seat: SeatPosition,
   card: Card
 ): GameState {
-  if (!isValidCard(card, state.players[seat].hand, state.currentTrick, state.trumpSuit)) {
+  // BUG FIX: pass trumpRevealed so isValidCard can enforce trump visibility rules
+  if (!isValidCard(card, state.players[seat].hand, state.currentTrick, state.trumpSuit, state.trumpRevealed)) {
     return state;
   }
 
@@ -79,7 +80,6 @@ export function playCard(
   };
 
   const newTrick = addCardToTrick(state.currentTrick, seat, card);
-
   const newTrickComplete = newTrick.cards.length === 4;
 
   let newState: GameState = {
@@ -99,6 +99,7 @@ export function playCard(
       ...winnerPlayer,
       tricksTaken: winnerPlayer.tricksTaken + 1,
     };
+
     newState = {
       ...newState,
       currentTrick: { ...newTrick, winningSeat: winner },
@@ -109,7 +110,10 @@ export function playCard(
       },
       currentSeat: winner,
       phase: 'trickEnd',
-      trumpRevealed: false,
+      // BUG FIX: removed erroneous `trumpRevealed: false` reset here.
+      // Trump is revealed once per round (via revealTrump()) and stays revealed
+      // until the round ends. Resetting it here would hide trump from the UI
+      // between tricks.
     };
 
     if (newState.completedTricks.length === 5) {
@@ -149,7 +153,15 @@ export function advanceToNextRound(state: GameState): GameState {
   }
 
   const newDeck = shuffleDeck(createDeck());
-  const newDeal = dealCards(newDeck, 5);
+  const newDeal = dealCards(newDeck, INITIAL_DEAL_COUNT);
+
+  // BUG FIX: rotate dealer each round so bidding order advances fairly.
+  // The previous first bidder moves to the end.
+  const prevFirst = state.biddingOrder[0];
+  const rotatedOrder: SeatPosition[] = [
+    ...state.biddingOrder.slice(1),
+    prevFirst,
+  ];
 
   const resetPlayers: Record<SeatPosition, Player> = {
     bottom: createPlayer('bottom', 'You', true),
@@ -167,8 +179,8 @@ export function advanceToNextRound(state: GameState): GameState {
     ...state,
     phase: 'bidding',
     players: resetPlayers,
-    currentSeat: 'bottom',
-    biddingOrder: ['bottom', 'left', 'top', 'right'],
+    currentSeat: rotatedOrder[0],
+    biddingOrder: rotatedOrder,
     currentBidderIndex: 0,
     highestBid: 0,
     highestBidder: null,
@@ -178,6 +190,7 @@ export function advanceToNextRound(state: GameState): GameState {
     completedTricks: [],
     round: nextRound,
     deck: newDeck,
+    // teamScores intentionally NOT reset — they accumulate across all rounds
   };
 }
 
@@ -185,8 +198,22 @@ export function startNewGame(): GameState {
   return createInitialState();
 }
 
-export { getEstimatedBid, BID_MIN, BID_MAX };
-export { createDeck, shuffleDeck, dealCards, dealRemainingCards };
-export { getTrickWinner, addCardToTrick, createEmptyTrick, isValidCard };
-export { placeBid, selectTrump, passBid };
-export { calculateRoundScores, updateTeamScores };
+export {
+    addCardToTrick,
+    BID_MAX,
+    BID_MIN,
+    calculateRoundScores,
+    createDeck,
+    createEmptyTrick,
+    dealCards,
+    dealRemainingCards,
+    getEstimatedBid,
+    getTrickWinner,
+    isValidCard,
+    passBid,
+    placeBid,
+    selectTrump,
+    shuffleDeck,
+    updateTeamScores
+};
+

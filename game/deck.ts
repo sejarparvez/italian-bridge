@@ -1,4 +1,4 @@
-import { Card, Rank, Suit, ALL_RANKS, ALL_SUITS, RANK_ORDER } from '../constants/cards';
+import { ALL_RANKS, ALL_SUITS, Card, RANK_ORDER } from '../src/constants/cards';
 
 export function createDeck(): Card[] {
   const deck: Card[] = [];
@@ -38,28 +38,33 @@ export function dealCards(deck: Card[], cardsPerPlayer: number): DealResult {
     left: [],
     right: [],
   };
-
   for (let i = 0; i < cardsPerPlayer; i++) {
     result.bottom.push(deck[i * 4]);
     result.top.push(deck[i * 4 + 1]);
     result.left.push(deck[i * 4 + 2]);
     result.right.push(deck[i * 4 + 3]);
   }
-
   return result;
 }
 
 export function dealRemainingCards(
   deck: Card[],
-  currentHands: DealResult
+  currentHands: DealResult,
+  initialCardsPerPlayer: number
 ): DealResult {
-  const remaining = deck.slice(16);
+  // After dealing initialCardsPerPlayer to 4 players, skip those cards
+  const dealtSoFar = initialCardsPerPlayer * 4;
+  const remaining = deck.slice(dealtSoFar);
+
+  // BUG FIX: idx must be captured by reference inside addCards so it advances
+  // across all four calls. Use a shared mutable counter object.
   let idx = 0;
 
-  const addCards = (hand: Card[], count: number): Card[] => [
-    ...hand,
-    ...remaining.slice(idx, idx + count).map(c => ({ ...c })),
-  ];
+  const addCards = (hand: Card[], count: number): Card[] => {
+    const newCards = remaining.slice(idx, idx + count).map(c => ({ ...c }));
+    idx += count; // advance so next player gets different cards
+    return [...hand, ...newCards];
+  };
 
   return {
     bottom: addCards(currentHands.bottom, 8),

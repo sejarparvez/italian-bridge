@@ -1,34 +1,41 @@
-import { Card } from '@/src/components/cards/Card';
-import { SUIT_SYMBOLS } from '@/src/constants/cards';
-import type { SeatPosition } from '@/src/game/types';
-import { useGameStore } from '@/src/store/gameStore';
-import { sortHandAlternating } from '@/utils/card-sort';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getPlayableCards } from '@/game/trick';
+import type { SeatPosition } from '@/game/types';
+import { Card } from '@/src/components/cards/Card';
+import { SUIT_SYMBOLS } from '@/src/constants/cards';
+import { useGameStore } from '@/store/gameStore';
+import { sortHandAlternating } from '@/utils/card-sort';
 
 const { width, height } = Dimensions.get('window');
 
-// ─── Layout constants ───────────────────────────────────────────
 const PLAYER_CARD_W = 56;
 const PLAYER_CARD_OVERLAP = 34;
 const OPPONENT_CARD_W = 34;
 const OPPONENT_CARD_H = 50;
 const OPPONENT_OVERLAP = 5;
 
-// Horizontal fan spread for player's hand
 const getPlayerHandLayout = (count: number) => {
   const visibleWidth = PLAYER_CARD_W + (count - 1) * PLAYER_CARD_OVERLAP;
   const startX = (width - visibleWidth) / 2;
   return Array.from({ length: count }, (_, i) => ({
     x: startX + i * PLAYER_CARD_OVERLAP,
-    rotate: (i - (count - 1) / 2) * 3.5, // gentle arc
-    y: Math.abs(i - (count - 1) / 2) * 2, // slight vertical arc
+    rotate: (i - (count - 1) / 2) * 3.5,
+    y: Math.abs(i - (count - 1) / 2) * 2,
   }));
 };
+
+function stableRotation(cardId: string): number {
+  let hash = 0;
+  for (let i = 0; i < cardId.length; i++) {
+    hash = (hash * 31 + cardId.charCodeAt(i)) & 0xffff;
+  }
+  return ((hash % 140) - 70) / 10;
+}
 
 export default function GameScreen() {
   const router = useRouter();
@@ -37,31 +44,66 @@ export default function GameScreen() {
   const [pressedCard, setPressedCard] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
 
+  // ── All derived state pulled up here so hooks are never conditional ──
+  const {
+    players,
+    currentTrick,
+    currentSeat,
+    trumpSuit,
+    trumpRevealed,
+    round,
+  } = state;
+
+  const isPlayerTurn = currentSeat === 'bottom';
+  const isPlayerActive = state.phase === 'playing' && isPlayerTurn;
+
+  // ✅ useMemo always called — no longer below an early return
+  const playableCardIds = useMemo<Set<string>>(() => {
+    if (!isPlayerActive) return new Set();
+    const playable = getPlayableCards(
+      players.bottom.hand,
+      currentTrick,
+      trumpSuit,
+      trumpRevealed,
+    );
+    return new Set(playable.map((c) => c.id));
+  }, [
+    isPlayerActive,
+    players.bottom.hand,
+    currentTrick,
+    trumpSuit,
+    trumpRevealed,
+  ]);
+
+  const playerHand = sortHandAlternating(players.bottom.hand);
+  const handLayouts = getPlayerHandLayout(playerHand.length);
+
+  const isGameOver =
+    state.phase === 'gameEnd' ||
+    (state.phase === 'roundEnd' && state.currentTrick.cards.length === 0);
+
+  // ── Handlers ──
   const handleCardPress = (cardId: string) => {
     if (state.currentSeat === 'bottom' && state.phase === 'playing') {
       playPlayerCard(cardId);
     }
   };
 
-  // Position of each trick card slot relative to table center
   const getTrickSlot = (player: SeatPosition) => {
-    const cx = 0;
-    const cy = 0;
     const off = 52;
     switch (player) {
       case 'bottom':
-        return { x: cx, y: cy + off };
+        return { x: 0, y: off };
       case 'top':
-        return { x: cx, y: cy - off };
+        return { x: 0, y: -off };
       case 'left':
-        return { x: cx - off, y: cy };
+        return { x: -off, y: 0 };
       case 'right':
-        return { x: cx + off, y: cy };
+        return { x: off, y: 0 };
     }
   };
 
-  // ── Game Over screen ─────────────────────────────────────────
-  const isGameOver = state.phase === 'roundEnd' || state.phase === 'gameEnd';
+  // ✅ Early return is now safe — all hooks already called above
   if (isGameOver) {
     return (
       <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -70,7 +112,6 @@ export default function GameScreen() {
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.vignetteOverlay} />
-
         <MotiView
           from={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -82,14 +123,12 @@ export default function GameScreen() {
             <Text style={styles.ruleGem}>◆</Text>
             <View style={styles.ruleLine} />
           </View>
-
           <Text style={styles.resultTitle}>
             {state.phase === 'gameEnd' ? 'GAME OVER' : 'ROUND COMPLETE'}
           </Text>
           <Text style={styles.resultSubtitle}>
             {state.phase === 'gameEnd' ? 'Final Standings' : 'Scores'}
           </Text>
-
           <View style={styles.scoreBoard}>
             <View style={styles.scoreBoardInner}>
               <View style={styles.scoreRow}>
@@ -109,13 +148,11 @@ export default function GameScreen() {
               </View>
             </View>
           </View>
-
           <View style={styles.decorativeRule}>
             <View style={styles.ruleLine} />
             <Text style={styles.ruleGem}>◆</Text>
             <View style={styles.ruleLine} />
           </View>
-
           <Pressable
             style={({ pressed }) => [
               styles.nextButton,
@@ -147,33 +184,16 @@ export default function GameScreen() {
     );
   }
 
-  // ── Main game ────────────────────────────────────────────────
-  const {
-    players,
-    currentTrick,
-    currentSeat,
-    trumpSuit,
-    trumpRevealed,
-    round,
-    completedTricks,
-  } = state;
-  const playerHand = sortHandAlternating(players.bottom.hand);
-  const handLayouts = getPlayerHandLayout(playerHand.length);
-  const isPlayerTurn = currentSeat === 'bottom';
-  const isPlayerActive = state.phase === 'playing' && isPlayerTurn;
-
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* ── Background ── */}
       <LinearGradient
         colors={['#061510', '#0D2B1A', '#061510']}
         style={StyleSheet.absoluteFill}
       />
-      {/* Felt texture ring */}
       <View style={styles.feltRing} />
       <View style={styles.vignetteOverlay} />
 
-      {/* ── Menu Button ──────────────────────────────────────── */}
+      {/* ── Menu Button ── */}
       <Pressable
         style={[styles.menuButton, { top: insets.top + 8 }]}
         onPress={() => setShowMenu(!showMenu)}
@@ -181,7 +201,7 @@ export default function GameScreen() {
         <Text style={styles.menuButtonText}>☰</Text>
       </Pressable>
 
-      {/* ── Menu Modal ──────────────────────────────────────── */}
+      {/* ── Menu Modal ── */}
       {showMenu && (
         <View style={[styles.menuModal, { top: insets.top + 52 }]}>
           <Pressable
@@ -203,25 +223,14 @@ export default function GameScreen() {
           >
             <Text style={styles.menuItemText}>🎮 New Game</Text>
           </Pressable>
-          <Pressable
-            style={styles.menuItem}
-            onPress={() => {
-              setShowMenu(false);
-            }}
-          >
-            <Text style={styles.menuItemText}>📊 Scores</Text>
-          </Pressable>
           <Pressable style={styles.menuItem} onPress={() => setShowMenu(false)}>
             <Text style={styles.menuItemText}>✕ Close</Text>
           </Pressable>
         </View>
       )}
 
-      {/* ══════════════════════════════════════════════════════════
-          MAIN TABLE AREA
-      ══════════════════════════════════════════════════════════ */}
       <View style={styles.tableArea}>
-        {/* ── TOP PLAYER ────────────────────────────────── */}
+        {/* ── TOP PLAYER ── */}
         <View style={styles.topZone}>
           <OpponentPortrait
             name={players.top.name}
@@ -232,9 +241,8 @@ export default function GameScreen() {
           />
         </View>
 
-        {/* ── MIDDLE ROW  (Left · Felt · Right) ─────────── */}
+        {/* ── MIDDLE ROW ── */}
         <View style={styles.middleRow}>
-          {/* LEFT PLAYER */}
           <View style={styles.sideZone}>
             <OpponentPortrait
               name={players.left.name}
@@ -245,26 +253,19 @@ export default function GameScreen() {
             />
           </View>
 
-          {/* ── FELT / TRICK AREA ── */}
+          {/* ── FELT AREA ── */}
           <View style={styles.feltArea}>
-            {/* Outer glow ring */}
             <View style={styles.feltGlowRing} />
-            {/* Felt circle */}
             <View style={styles.feltCircle} />
-
-            {/* Trick cards — absolutely positioned relative to feltArea center */}
             <View style={styles.trickContainer} pointerEvents='none'>
               {currentTrick.cards.map((tc) => {
                 const slot = getTrickSlot(tc.player);
+                const rotation = stableRotation(tc.card.id);
                 return (
                   <MotiView
                     key={tc.card.id}
                     from={{ opacity: 0, scale: 0.5 }}
-                    animate={{
-                      opacity: 1,
-                      scale: 1,
-                      rotate: `${(Math.random() * 14 - 7).toFixed(1)}deg`,
-                    }}
+                    animate={{ opacity: 1, scale: 1, rotate: `${rotation}deg` }}
                     transition={{ type: 'spring', damping: 14, stiffness: 130 }}
                     style={[
                       styles.trickCard,
@@ -281,8 +282,6 @@ export default function GameScreen() {
                 );
               })}
             </View>
-
-            {/* Winner badge */}
             {currentTrick.winningSeat && (
               <MotiView
                 from={{ opacity: 0, translateY: 6 }}
@@ -296,7 +295,6 @@ export default function GameScreen() {
             )}
           </View>
 
-          {/* RIGHT PLAYER */}
           <View style={styles.sideZone}>
             <OpponentPortrait
               name={players.right.name}
@@ -308,26 +306,26 @@ export default function GameScreen() {
           </View>
         </View>
 
-        {/* ── BOTTOM — YOU ──────────────────────────────── */}
+        {/* ── BOTTOM — YOU ── */}
         <View style={styles.bottomZone}>
-          {/* Left: Round */}
           <View style={styles.bottomInfo}>
             <Text style={styles.bottomInfoLabel}>R</Text>
             <Text style={styles.bottomInfoValue}>{round}</Text>
           </View>
 
-          {/* ── Fanned hand ── */}
           <View style={[styles.handContainer, { height: 130 }]}>
             {playerHand.map((card, index) => {
               const layout = handLayouts[index];
-              const isPlayable = isPlayerTurn;
+              const isPlayable = isPlayerActive && playableCardIds.has(card.id);
+              const isUnplayable =
+                isPlayerActive && !playableCardIds.has(card.id);
               const isPressed = pressedCard === card.id;
               return (
                 <MotiView
                   key={card.id}
                   from={{ opacity: 0, translateY: 60 }}
                   animate={{
-                    opacity: isPlayable ? 1 : 0.5,
+                    opacity: isUnplayable ? 0.35 : 1,
                     translateY: isPressed ? -22 : layout.y,
                     scale: isPressed ? 1.1 : 1,
                     rotate: `${layout.rotate}deg`,
@@ -344,7 +342,7 @@ export default function GameScreen() {
                     onPressOut={() => setPressedCard(null)}
                     onPress={() => {
                       setPressedCard(null);
-                      isPlayable && handleCardPress(card.id);
+                      if (isPlayable) handleCardPress(card.id);
                     }}
                   >
                     <Card card={card} />
@@ -354,10 +352,9 @@ export default function GameScreen() {
             })}
           </View>
 
-          {/* Right: Trump */}
           <View style={styles.bottomInfo}>
             <Text style={styles.bottomInfoLabel}>TRUMP</Text>
-            {trumpSuit ? (
+            {trumpSuit && trumpRevealed ? (
               <Text
                 style={[
                   styles.bottomInfoTrump,
@@ -375,7 +372,6 @@ export default function GameScreen() {
             )}
           </View>
 
-          {/* Turn Banner - only show for bot turns */}
           {!isPlayerActive && (
             <View
               style={[styles.turnBanner, { paddingBottom: insets.bottom + 8 }]}
@@ -397,10 +393,7 @@ export default function GameScreen() {
                       backgroundColor: 'rgba(201,168,76,0.3)',
                       opacity: [1, 0.5, 1],
                     }}
-                    transition={{
-                      loop: true,
-                      duration: 800,
-                    }}
+                    transition={{ loop: true, duration: 800 }}
                     style={styles.turnDot}
                   />
                   <Text style={styles.turnText}>
@@ -416,8 +409,6 @@ export default function GameScreen() {
   );
 }
 
-// ─── Opponent Portrait Card ──────────────────────────────────────
-// Replaces the old PlayerBubble with a portrait-style card like the reference image
 function OpponentPortrait({
   name,
   tricks,
@@ -427,13 +418,11 @@ function OpponentPortrait({
 }: {
   name: string;
   tricks: number;
-  bid: number | null | undefined;
+  bid: number | null;
   isActive: boolean;
   position: 'top' | 'left' | 'right';
 }) {
-  // First letter(s) as avatar since we don't have real portrait assets
   const initials = name.slice(0, 2).toUpperCase();
-
   return (
     <MotiView
       animate={{
@@ -443,7 +432,6 @@ function OpponentPortrait({
       transition={{ type: 'timing', duration: 300 }}
       style={styles.portrait}
     >
-      {/* Active glow ring */}
       {isActive && (
         <MotiView
           from={{ opacity: 0.5, scale: 1 }}
@@ -452,18 +440,13 @@ function OpponentPortrait({
           style={styles.portraitHalo}
         />
       )}
-
-      {/* Portrait "image" area — replace with <Image> if you have assets */}
       <View
         style={[styles.portraitImage, isActive && styles.portraitImageActive]}
       >
         <Text style={styles.portraitInitials}>{initials}</Text>
-        {/* Decorative corner filigree marks */}
         <Text style={styles.portraitCornerTL}>◈</Text>
         <Text style={styles.portraitCornerBR}>◈</Text>
       </View>
-
-      {/* Gold nameplate strip */}
       <LinearGradient
         colors={
           isActive
@@ -481,21 +464,19 @@ function OpponentPortrait({
           {name}
         </Text>
       </LinearGradient>
-
-      {/* Bid / tricks row */}
       <View style={styles.portraitStats}>
         <Text style={styles.portraitStat}>{tricks}</Text>
         <Text style={styles.portraitStatSep}>/</Text>
-        <Text style={styles.portraitStat}>{bid ?? '?'}</Text>
+        <Text style={styles.portraitStat}>
+          {bid === null ? '?' : bid === 0 ? '–' : bid}
+        </Text>
       </View>
     </MotiView>
   );
 }
 
-// ─── Styles ──────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1 },
-
   vignetteOverlay: {
     position: 'absolute',
     inset: 0,
@@ -503,8 +484,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.45)',
     borderRadius: 0,
   },
-
-  // Decorative felt ring behind everything
   feltRing: {
     position: 'absolute',
     width: width * 0.85,
@@ -515,16 +494,12 @@ const styles = StyleSheet.create({
     top: height / 2 - (width * 0.85) / 2,
     left: width * 0.075,
   },
-
-  // ── Table ────────────────────────────────────────────────────
   tableArea: {
     flex: 1,
     justifyContent: 'space-between',
     paddingHorizontal: 8,
     paddingBottom: 10,
   },
-
-  // TOP ZONE
   topZone: { alignItems: 'center' },
   topFan: {
     flexDirection: 'row',
@@ -532,8 +507,6 @@ const styles = StyleSheet.create({
     width: OPPONENT_CARD_W + (7 - 1) * OPPONENT_OVERLAP,
     marginTop: -8,
   },
-
-  // MIDDLE ROW
   middleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -541,16 +514,12 @@ const styles = StyleSheet.create({
     flex: 1,
     marginVertical: 4,
   },
-
-  // SIDE ZONE
   sideZone: { width: 80, alignItems: 'center' },
   sideFan: {
-    width: OPPONENT_CARD_H, // rotated — height becomes width
+    width: OPPONENT_CARD_H,
     height: OPPONENT_CARD_W + (7 - 1) * (OPPONENT_OVERLAP - 2),
     position: 'relative',
   },
-
-  // Opponent card face-down rectangles
   opponentCard: {
     position: 'absolute',
     width: OPPONENT_CARD_W,
@@ -567,7 +536,7 @@ const styles = StyleSheet.create({
   },
   opponentCardV: {
     position: 'absolute',
-    width: OPPONENT_CARD_H, // landscape orientation
+    width: OPPONENT_CARD_H,
     height: OPPONENT_CARD_W,
     backgroundColor: '#1A4A2E',
     borderRadius: 4,
@@ -579,8 +548,6 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 4,
   },
-
-  // ── Felt Area ────────────────────────────────────────────────
   feltArea: {
     flex: 1,
     alignItems: 'center',
@@ -606,23 +573,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-  },
-  feltWatermark: {
-    fontSize: 80,
-    color: 'rgba(201,168,76,0.05)',
-    fontWeight: '900',
-  },
-  feltTrump: {
-    fontSize: 56,
-    fontWeight: '900',
-  },
-  feltRound: {
-    position: 'absolute',
-    bottom: 8,
-    fontSize: 10,
-    color: 'rgba(201,168,76,0.4)',
-    fontWeight: '700',
-    letterSpacing: 1,
   },
   trickContainer: {
     position: 'absolute',
@@ -650,20 +600,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
-  trickCounter: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    alignItems: 'center',
-  },
-  trickCountNum: { fontSize: 14, color: '#C9A84C', fontWeight: '800' },
-  trickCountLabel: {
-    fontSize: 7,
-    color: 'rgba(201,168,76,0.5)',
-    letterSpacing: 1.5,
-  },
-
-  // ── Portrait ─────────────────────────────────────────────────
   portrait: {
     width: 72,
     borderRadius: 10,
@@ -700,7 +636,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1,
   },
-  // Decorative corner marks
   portraitCornerTL: {
     position: 'absolute',
     top: 3,
@@ -741,8 +676,6 @@ const styles = StyleSheet.create({
     color: 'rgba(201,168,76,0.35)',
     fontWeight: '400',
   },
-
-  // ── Bottom / You ─────────────────────────────────────────────
   bottomZone: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -762,16 +695,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     fontWeight: '700',
   },
-  bottomInfoValue: {
-    fontSize: 18,
-    color: '#C9A84C',
-    fontWeight: '800',
-  },
-  bottomInfoTrump: {
-    fontSize: 22,
-    flexDirection: 'row',
-    fontWeight: '700',
-  },
+  bottomInfoValue: { fontSize: 18, color: '#C9A84C', fontWeight: '800' },
+  bottomInfoTrump: { fontSize: 22, fontWeight: '700' },
   menuButton: {
     position: 'absolute',
     right: 12,
@@ -785,10 +710,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  menuButtonText: {
-    fontSize: 18,
-    color: '#C9A84C',
-  },
+  menuButtonText: { fontSize: 18, color: '#C9A84C' },
   menuModal: {
     position: 'absolute',
     right: 12,
@@ -806,40 +728,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(201,168,76,0.15)',
   },
-  menuItemText: {
-    fontSize: 14,
-    color: '#E8D5A3',
-    fontWeight: '500',
-  },
-  youStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    marginBottom: 10,
-  },
-  youName: {
-    fontSize: 12,
-    color: '#C9A84C',
-    fontWeight: '900',
-    letterSpacing: 2,
-  },
-  youStripDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: 'rgba(201,168,76,0.25)',
-  },
-  youStat: { fontSize: 11, color: 'rgba(232,213,163,0.5)' },
-  youStatSep: { fontSize: 11, color: 'rgba(232,213,163,0.2)' },
-
+  menuItemText: { fontSize: 14, color: '#E8D5A3', fontWeight: '500' },
   handContainer: { flex: 1, position: 'relative' },
   cardInHand: { position: 'absolute', bottom: -20 },
-
-  // ── Turn Banner ───────────────────────────────────────────────
   turnBanner: {
     position: 'absolute',
     bottom: 0,
@@ -861,8 +752,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.4,
   },
-
-  // ── Game Over ─────────────────────────────────────────────────
   resultContainer: {
     flex: 1,
     justifyContent: 'center',
