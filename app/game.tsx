@@ -1,9 +1,23 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import { Home, LayoutDashboard, RefreshCw, X } from 'lucide-react-native'; // Added Spade
 import { MotiView } from 'moti';
 import { useMemo, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Avatar, AvatarFallbackText } from '@/components/ui/avatar';
+import { Box } from '@/components/ui/box';
+
+// Gluestack UI
+import { Button, ButtonIcon } from '@/components/ui/button';
+import { HStack } from '@/components/ui/hstack';
+import { Icon } from '@/components/ui/icon';
+import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
+import { Text } from '@/components/ui/text';
+import { View } from '@/components/ui/view';
+import { VStack } from '@/components/ui/vstack';
+
+// Game Logic
 import { getPlayableCards } from '@/game/trick';
 import type { SeatPosition } from '@/game/types';
 import { Card } from '@/src/components/cards/Card';
@@ -12,39 +26,62 @@ import { useGameStore } from '@/store/gameStore';
 import { sortHandAlternating } from '@/utils/card-sort';
 
 const { width, height } = Dimensions.get('window');
+const IS_LANDSCAPE = width > height;
+const PLAYER_CARD_W = IS_LANDSCAPE ? 50 : 56;
+const PLAYER_CARD_OVERLAP = IS_LANDSCAPE ? 28 : 34;
+const TRICK_OFFSET = IS_LANDSCAPE ? 58 : 70;
+const FELT_SIZE = IS_LANDSCAPE
+  ? Math.min(height * 0.68, width * 0.44)
+  : height * 0.48;
+const CARD_H_RATIO = 1.4;
 
-const PLAYER_CARD_W = 56;
-const PLAYER_CARD_OVERLAP = 34;
-const OPPONENT_CARD_W = 34;
-const OPPONENT_CARD_H = 50;
-const OPPONENT_OVERLAP = 5;
-
-const getPlayerHandLayout = (count: number) => {
-  const visibleWidth = PLAYER_CARD_W + (count - 1) * PLAYER_CARD_OVERLAP;
-  const startX = (width - visibleWidth) / 2;
+const getHandLayout = (count: number) => {
+  const span = PLAYER_CARD_W + (count - 1) * PLAYER_CARD_OVERLAP;
+  const startX = (width - span) / 2;
   return Array.from({ length: count }, (_, i) => ({
     x: startX + i * PLAYER_CARD_OVERLAP,
-    rotate: (i - (count - 1) / 2) * 3.5,
-    y: Math.abs(i - (count - 1) / 2) * 2,
+    rotate: (i - (count - 1) / 2) * 3.2,
+    y: Math.abs(i - (count - 1) / 2) * 1.8,
   }));
 };
 
-function stableRotation(cardId: string): number {
-  let hash = 0;
-  for (let i = 0; i < cardId.length; i++) {
-    hash = (hash * 31 + cardId.charCodeAt(i)) & 0xffff;
-  }
-  return ((hash % 140) - 70) / 10;
+function stableRot(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
+  return ((h % 120) - 60) / 10;
+}
+
+function Pill({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <Box
+      className={`px-3 py-1 rounded-lg border items-center justify-center ${accent ? 'bg-gold-dark/10 border-gold-dark/40' : 'bg-white/5 border-gold-dark/10'}`}
+    >
+      <Text className='text-[8px] text-gold-dark/50 font-bold tracking-widest uppercase'>
+        {label}
+      </Text>
+      <Text
+        className={`font-black ${accent ? 'text-lg text-gold-dark' : 'text-md text-gold-light'}`}
+      >
+        {value}
+      </Text>
+    </Box>
+  );
 }
 
 export default function GameScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { state, playPlayerCard, startNewGame } = useGameStore();
-  const [pressedCard, setPressedCard] = useState<string | null>(null);
-  const [showMenu, setShowMenu] = useState(false);
+  const { state, playPlayerCard, startNewGame, nextRound } = useGameStore();
+  const [pressed, setPressed] = useState<string | null>(null);
 
-  // ── All derived state pulled up here so hooks are never conditional ──
   const {
     players,
     currentTrick,
@@ -53,20 +90,19 @@ export default function GameScreen() {
     trumpRevealed,
     round,
   } = state;
-
   const isPlayerTurn = currentSeat === 'bottom';
   const isPlayerActive = state.phase === 'playing' && isPlayerTurn;
 
-  // ✅ useMemo always called — no longer below an early return
-  const playableCardIds = useMemo<Set<string>>(() => {
+  const playableIds = useMemo<Set<string>>(() => {
     if (!isPlayerActive) return new Set();
-    const playable = getPlayableCards(
-      players.bottom.hand,
-      currentTrick,
-      trumpSuit,
-      trumpRevealed,
+    return new Set(
+      getPlayableCards(
+        players.bottom.hand,
+        currentTrick,
+        trumpSuit,
+        trumpRevealed,
+      ).map((c) => c.id),
     );
-    return new Set(playable.map((c) => c.id));
   }, [
     isPlayerActive,
     players.bottom.hand,
@@ -75,759 +111,403 @@ export default function GameScreen() {
     trumpRevealed,
   ]);
 
-  const playerHand = sortHandAlternating(players.bottom.hand);
-  const handLayouts = getPlayerHandLayout(playerHand.length);
-
-  const isGameOver =
+  const hand = sortHandAlternating(players.bottom.hand);
+  const layouts = getHandLayout(hand.length);
+  const isOver =
     state.phase === 'gameEnd' ||
-    (state.phase === 'roundEnd' && state.currentTrick.cards.length === 0);
+    (state.phase === 'roundEnd' && currentTrick.cards.length === 0);
 
-  // ── Handlers ──
-  const handleCardPress = (cardId: string) => {
-    if (state.currentSeat === 'bottom' && state.phase === 'playing') {
-      playPlayerCard(cardId);
-    }
+  const slotFor = (p: SeatPosition) => {
+    const o = TRICK_OFFSET;
+    return p === 'bottom'
+      ? { x: 0, y: o }
+      : p === 'top'
+        ? { x: 0, y: -o }
+        : p === 'left'
+          ? { x: -o, y: 0 }
+          : { x: o, y: 0 };
   };
 
-  const getTrickSlot = (player: SeatPosition) => {
-    const off = 52;
-    switch (player) {
-      case 'bottom':
-        return { x: 0, y: off };
-      case 'top':
-        return { x: 0, y: -off };
-      case 'left':
-        return { x: -off, y: 0 };
-      case 'right':
-        return { x: off, y: 0 };
-    }
-  };
+  if (isOver) {
+    const end = state.phase === 'gameEnd';
+    const bt = state.teamScores.BT,
+      lr = state.teamScores.LR;
+    const btWon = bt > lr;
 
-  // ✅ Early return is now safe — all hooks already called above
-  if (isGameOver) {
     return (
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View className='flex-1 bg-[#07130D]' style={{ paddingTop: insets.top }}>
         <LinearGradient
-          colors={['#061510', '#0D2B1A', '#061510']}
-          style={StyleSheet.absoluteFill}
+          colors={['#07130D', '#0C2016', '#07130D']}
+          className='absolute inset-0'
         />
-        <View style={styles.vignetteOverlay} />
         <MotiView
-          from={{ opacity: 0, scale: 0.9 }}
+          from={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', damping: 18 }}
-          style={styles.resultContainer}
+          className='flex-1 justify-center items-center px-8 gap-6'
         >
-          <View style={styles.decorativeRule}>
-            <View style={styles.ruleLine} />
-            <Text style={styles.ruleGem}>◆</Text>
-            <View style={styles.ruleLine} />
-          </View>
-          <Text style={styles.resultTitle}>
-            {state.phase === 'gameEnd' ? 'GAME OVER' : 'ROUND COMPLETE'}
-          </Text>
-          <Text style={styles.resultSubtitle}>
-            {state.phase === 'gameEnd' ? 'Final Standings' : 'Scores'}
-          </Text>
-          <View style={styles.scoreBoard}>
-            <View style={styles.scoreBoardInner}>
-              <View style={styles.scoreRow}>
-                <View style={styles.scoreTeamInfo}>
-                  <Text style={styles.teamBadge}>BT</Text>
-                  <Text style={styles.teamName}>You &amp; Alex</Text>
-                </View>
-                <Text style={styles.teamScore}>{state.teamScores.BT}</Text>
-              </View>
-              <View style={styles.scoreDividerH} />
-              <View style={styles.scoreRow}>
-                <View style={styles.scoreTeamInfo}>
-                  <Text style={styles.teamBadge}>LR</Text>
-                  <Text style={styles.teamName}>Jordan &amp; Sam</Text>
-                </View>
-                <Text style={styles.teamScore}>{state.teamScores.LR}</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.decorativeRule}>
-            <View style={styles.ruleLine} />
-            <Text style={styles.ruleGem}>◆</Text>
-            <View style={styles.ruleLine} />
-          </View>
-          <Pressable
-            style={({ pressed }) => [
-              styles.nextButton,
-              pressed && styles.nextButtonPressed,
-            ]}
+          <VStack className='w-full'>
+            <Text className='text-gold-dark font-bold tracking-[4px] text-xs mb-1 uppercase'>
+              {end ? 'Final Results' : 'Round Summary'}
+            </Text>
+            <Text className='text-4xl font-black text-gold-light tracking-tighter leading-none'>
+              {end ? 'Standings' : 'Scores'}
+            </Text>
+          </VStack>
+          <Box className='w-full bg-white/5 border border-gold-dark/20 rounded-3xl p-6 backdrop-blur-md'>
+            {[
+              { key: 'BT', names: 'You & Alex', score: bt, win: btWon },
+              { key: 'LR', names: 'Jordan & Sam', score: lr, win: !btWon },
+            ].map((row, i) => (
+              <VStack key={row.key}>
+                {i > 0 && <Box className='h-[1px] bg-gold-dark/10 my-4' />}
+                <HStack className='justify-between items-center'>
+                  <HStack space='md' className='items-center'>
+                    <Box
+                      className={`w-11 h-11 rounded-xl items-center justify-center border ${row.win ? 'bg-gold-dark border-gold-dark shadow-lg shadow-gold-dark/50' : 'bg-gold-dark/10 border-gold-dark/20'}`}
+                    >
+                      <Text
+                        className={`font-black text-sm ${row.win ? 'text-[#07130D]' : 'text-gold-dark'}`}
+                      >
+                        {row.key}
+                      </Text>
+                    </Box>
+                    <VStack>
+                      <Text
+                        className={`text-md ${row.win ? 'text-white font-bold' : 'text-white/60'}`}
+                      >
+                        {row.names}
+                      </Text>
+                      {row.win && (
+                        <Text className='text-[10px] text-gold-dark font-bold uppercase tracking-widest mt-0.5'>
+                          Winner
+                        </Text>
+                      )}
+                    </VStack>
+                  </HStack>
+                  <Text
+                    className={`text-4xl font-black ${row.win ? 'text-gold-dark' : 'text-white/10'}`}
+                  >
+                    {row.score}
+                  </Text>
+                </HStack>
+              </VStack>
+            ))}
+          </Box>
+          <Button
+            size='xl'
+            className='w-full bg-gold-dark h-16 rounded-2xl active:opacity-90 active:scale-[0.98]'
             onPress={() => {
-              if (state.phase === 'gameEnd') {
-                useGameStore.getState().startNewGame();
+              if (end) {
+                startNewGame();
                 router.replace('/');
               } else {
-                useGameStore.getState().nextRound();
+                nextRound();
                 router.replace('/bid');
               }
             }}
           >
-            <LinearGradient
-              colors={['#D4AF37', '#C9A84C', '#A8872A']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.nextButtonGradient}
-            >
-              <Text style={styles.nextButtonText}>
-                {state.phase === 'gameEnd' ? 'NEW GAME' : 'NEXT ROUND'}
-              </Text>
-            </LinearGradient>
-          </Pressable>
+            <Text className='text-[#07130D] font-black uppercase tracking-widest text-base'>
+              {end ? 'Start New Game' : 'Continue to Next Round'}
+            </Text>
+          </Button>
         </MotiView>
       </View>
     );
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
+    <View className='flex-1 bg-[#07130D]' style={{ paddingTop: insets.top }}>
       <LinearGradient
-        colors={['#061510', '#0D2B1A', '#061510']}
-        style={StyleSheet.absoluteFill}
+        colors={['#07130D', '#0C2016', '#07130D']}
+        className='absolute inset-0'
       />
-      <View style={styles.feltRing} />
-      <View style={styles.vignetteOverlay} />
 
-      {/* ── Menu Button ── */}
-      <Pressable
-        style={[styles.menuButton, { top: insets.top + 8 }]}
-        onPress={() => setShowMenu(!showMenu)}
+      {/* ── Header ── */}
+      <HStack
+        style={{ top: insets.top + 10 }}
+        className='absolute left-0 right-0 justify-between items-center px-4 z-50'
       >
-        <Text style={styles.menuButtonText}>☰</Text>
-      </Pressable>
-
-      {/* ── Menu Modal ── */}
-      {showMenu && (
-        <View style={[styles.menuModal, { top: insets.top + 52 }]}>
-          <Pressable
-            style={styles.menuItem}
-            onPress={() => {
-              setShowMenu(false);
-              router.replace('/');
-            }}
+        <HStack space='sm'>
+          <Pill label='RND' value={String(round)} />
+          {trumpSuit && trumpRevealed && (
+            <MotiView
+              from={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+            >
+              <Pill label='TRUMP' value={SUIT_SYMBOLS[trumpSuit]} accent />
+            </MotiView>
+          )}
+        </HStack>
+        <Menu
+          offset={10}
+          trigger={({ ...triggerProps }) => (
+            <Button
+              {...triggerProps}
+              variant='outline'
+              className='border-gold-dark/20 bg-gold-dark/5 h-12 w-12 rounded-full p-0 active:bg-gold-dark/20'
+            >
+              <ButtonIcon
+                as={LayoutDashboard}
+                size='xl'
+                className='text-gold-dark'
+              />
+            </Button>
+          )}
+          className='bg-[#0C1F14] border border-gold-dark/30 p-1.5 min-w-[170px] rounded-2xl shadow-2xl'
+        >
+          <MenuItem
+            key='home'
+            textValue='Home'
+            className='rounded-xl focus:bg-gold-dark/10 active:bg-gold-dark/10 gap-3 py-3.5 px-4'
+            onPress={() => router.replace('/')}
           >
-            <Text style={styles.menuItemText}>🏠 Home</Text>
-          </Pressable>
-          <Pressable
-            style={styles.menuItem}
+            <Icon as={Home} size='sm' className='text-gold-dark/70' />
+            <MenuItemLabel className='text-[#E8D5A3] font-semibold text-sm'>
+              Main Menu
+            </MenuItemLabel>
+          </MenuItem>
+
+          <MenuItem
+            key='new-game'
+            textValue='New Game'
+            className='rounded-xl focus:bg-gold-dark/10 active:bg-gold-dark/10 gap-3 py-3.5 px-4'
             onPress={() => {
-              setShowMenu(false);
               startNewGame();
               router.replace('/bid');
             }}
           >
-            <Text style={styles.menuItemText}>🎮 New Game</Text>
-          </Pressable>
-          <Pressable style={styles.menuItem} onPress={() => setShowMenu(false)}>
-            <Text style={styles.menuItemText}>✕ Close</Text>
-          </Pressable>
-        </View>
-      )}
+            <Icon as={RefreshCw} size='sm' className='text-gold-dark/70' />
+            <MenuItemLabel className='text-[#E8D5A3] font-semibold text-sm'>
+              Restart Game
+            </MenuItemLabel>
+          </MenuItem>
 
-      <View style={styles.tableArea}>
-        {/* ── TOP PLAYER ── */}
-        <View style={styles.topZone}>
-          <OpponentPortrait
+          <MenuItem
+            key='close'
+            textValue='Close'
+            className='rounded-xl gap-3 py-3.5 px-4 border-t border-gold-dark/10 mt-1'
+          >
+            <Icon as={X} size='sm' className='text-red-400/50' />
+            <MenuItemLabel className='text-red-400/70 font-semibold text-sm'>
+              Close Menu
+            </MenuItemLabel>
+          </MenuItem>
+        </Menu>
+      </HStack>
+
+      {/* ── Table Area ── */}
+      <View className='flex-1 justify-between pb-6'>
+        <Box
+          className='items-center'
+          style={{ paddingRight: width > 600 ? 300 : 0 }}
+        >
+          <Seat
             name={players.top.name}
             tricks={players.top.tricksTaken}
             bid={players.top.bid}
-            isActive={currentSeat === 'top'}
-            position='top'
+            active={currentSeat === 'top'}
           />
-        </View>
+        </Box>
 
-        {/* ── MIDDLE ROW ── */}
-        <View style={styles.middleRow}>
-          <View style={styles.sideZone}>
-            <OpponentPortrait
+        <HStack className='flex-1 items-center justify-between px-2'>
+          <Box className='w-20 items-center'>
+            <Seat
               name={players.left.name}
               tricks={players.left.tricksTaken}
               bid={players.left.bid}
-              isActive={currentSeat === 'left'}
-              position='left'
+              active={currentSeat === 'left'}
             />
-          </View>
+          </Box>
 
-          {/* ── FELT AREA ── */}
-          <View style={styles.feltArea}>
-            <View style={styles.feltGlowRing} />
-            <View style={styles.feltCircle} />
-            <View style={styles.trickContainer} pointerEvents='none'>
+          <Box className='flex-1 items-center justify-center relative'>
+            {/* ── Table Watermark & Glow ── */}
+            <MotiView
+              from={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'timing', duration: 1500 }}
+              className='absolute items-center justify-center'
+              pointerEvents='none'
+            >
+              {/* Using the Text Symbol for the Spade */}
+              <Text
+                style={{
+                  fontSize: FELT_SIZE * 1.3,
+                  color: '#D4AF37',
+                  opacity: 0.08,
+                  lineHeight: FELT_SIZE * 0.7, // Adjusts vertical centering
+                  textAlign: 'center',
+                  fontWeight: '900',
+                }}
+              >
+                {SUIT_SYMBOLS.spades}
+              </Text>
+
+              {/* Inner Table Glow - subtle circle to define the play area */}
+              <Box
+                style={{
+                  width: FELT_SIZE * 1.8,
+                  height: FELT_SIZE,
+                  borderRadius: FELT_SIZE / 2,
+                  borderWidth: 1,
+                  borderColor: '#D4AF37',
+                  opacity: 0.05,
+                  position: 'absolute',
+                }}
+              />
+            </MotiView>
+
+            {/* Trick Cards Container */}
+            <View
+              style={{ width: FELT_SIZE, height: FELT_SIZE }}
+              className='absolute items-center justify-center'
+              pointerEvents='none'
+            >
               {currentTrick.cards.map((tc) => {
-                const slot = getTrickSlot(tc.player);
-                const rotation = stableRotation(tc.card.id);
+                const s = slotFor(tc.player),
+                  r = stableRot(tc.card.id);
+                const tw = IS_LANDSCAPE ? 40 : 48;
                 return (
                   <MotiView
                     key={tc.card.id}
-                    from={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1, rotate: `${rotation}deg` }}
-                    transition={{ type: 'spring', damping: 14, stiffness: 130 }}
-                    style={[
-                      styles.trickCard,
-                      {
-                        transform: [
-                          { translateX: slot.x - 25 },
-                          { translateY: slot.y - 35 },
-                        ],
-                      },
-                    ]}
+                    animate={{
+                      opacity: 1,
+                      scale: 1,
+                      transform: [
+                        { translateX: s.x - tw / 2 },
+                        { translateY: s.y - (tw * CARD_H_RATIO) / 2 },
+                        { rotate: `${r}deg` },
+                      ],
+                    }}
+                    className='absolute'
                   >
-                    <Card card={tc.card} />
+                    <Card
+                      card={tc.card}
+                      width={tw}
+                      height={tw * CARD_H_RATIO}
+                    />
                   </MotiView>
                 );
               })}
             </View>
+
+            {/* Trick Winner Badge */}
             {currentTrick.winningSeat && (
               <MotiView
-                from={{ opacity: 0, translateY: 6 }}
-                animate={{ opacity: 1, translateY: 0 }}
-                style={styles.winnerBadge}
+                from={{ opacity: 0, transform: [{ translateY: 10 }] }}
+                animate={{ opacity: 1, transform: [{ translateY: 0 }] }}
+                className='absolute bottom-[-14] bg-gold-dark px-4 py-1.5 rounded-full shadow-lg'
               >
-                <Text style={styles.winnerBadgeText}>
-                  ♛ {players[currentTrick.winningSeat].name}
+                <Text className='text-[10px] text-[#07130D] font-black uppercase tracking-wider'>
+                  {players[currentTrick.winningSeat].name}
                 </Text>
               </MotiView>
             )}
-          </View>
+          </Box>
 
-          <View style={styles.sideZone}>
-            <OpponentPortrait
+          <Box className='w-20 items-center'>
+            <Seat
               name={players.right.name}
               tricks={players.right.tricksTaken}
               bid={players.right.bid}
-              isActive={currentSeat === 'right'}
-              position='right'
+              active={currentSeat === 'right'}
             />
-          </View>
-        </View>
+          </Box>
+        </HStack>
 
-        {/* ── BOTTOM — YOU ── */}
-        <View style={styles.bottomZone}>
-          <View style={styles.bottomInfo}>
-            <Text style={styles.bottomInfoLabel}>R</Text>
-            <Text style={styles.bottomInfoValue}>{round}</Text>
-          </View>
-
-          <View style={[styles.handContainer, { height: 130 }]}>
-            {playerHand.map((card, index) => {
-              const layout = handLayouts[index];
-              const isPlayable = isPlayerActive && playableCardIds.has(card.id);
-              const isUnplayable =
-                isPlayerActive && !playableCardIds.has(card.id);
-              const isPressed = pressedCard === card.id;
+        <Box className='relative w-full overflow-visible'>
+          <View
+            style={{ height: IS_LANDSCAPE ? 96 : 126 }}
+            className='relative w-full'
+          >
+            {hand.map((card, i) => {
+              const l = layouts[i],
+                canPlay = isPlayerActive && playableIds.has(card.id),
+                isPressed = pressed === card.id;
               return (
                 <MotiView
                   key={card.id}
-                  from={{ opacity: 0, translateY: 60 }}
                   animate={{
-                    opacity: isUnplayable ? 0.35 : 1,
-                    translateY: isPressed ? -22 : layout.y,
-                    scale: isPressed ? 1.1 : 1,
-                    rotate: `${layout.rotate}deg`,
+                    opacity: isPlayerActive && !canPlay ? 0.3 : 1,
+                    scale: isPressed ? 1.05 : 1,
+                    transform: [
+                      { translateY: isPressed ? -24 : l.y },
+                      { rotate: `${l.rotate}deg` },
+                    ],
                   }}
-                  transition={{
-                    delay: index * 35,
-                    type: 'spring',
-                    damping: 14,
-                  }}
-                  style={[styles.cardInHand, { left: layout.x }]}
+                  className='absolute'
+                  style={{ left: l.x, bottom: -18 }}
                 >
                   <Pressable
-                    onPressIn={() => isPlayable && setPressedCard(card.id)}
-                    onPressOut={() => setPressedCard(null)}
-                    onPress={() => {
-                      setPressedCard(null);
-                      if (isPlayable) handleCardPress(card.id);
-                    }}
+                    onPressIn={() => canPlay && setPressed(card.id)}
+                    onPressOut={() => setPressed(null)}
+                    onPress={() => canPlay && playPlayerCard(card.id)}
                   >
-                    <Card card={card} />
+                    <Card
+                      card={card}
+                      width={PLAYER_CARD_W}
+                      height={PLAYER_CARD_W * CARD_H_RATIO}
+                    />
+                    {canPlay && !isPressed && (
+                      <MotiView
+                        animate={{ opacity: [0, 0.8, 0] }}
+                        transition={{ loop: true, duration: 2000 }}
+                        className='absolute bottom-[-4] left-0 h-[3px] bg-gold-dark rounded-full shadow-sm shadow-gold-dark'
+                        style={{ width: PLAYER_CARD_W }}
+                      />
+                    )}
                   </Pressable>
                 </MotiView>
               );
             })}
           </View>
-
-          <View style={styles.bottomInfo}>
-            <Text style={styles.bottomInfoLabel}>TRUMP</Text>
-            {trumpSuit && trumpRevealed ? (
-              <Text
-                style={[
-                  styles.bottomInfoTrump,
-                  {
-                    color: ['hearts', 'diamonds'].includes(trumpSuit)
-                      ? '#E8534A'
-                      : '#E8D5A3',
-                  },
-                ]}
-              >
-                {SUIT_SYMBOLS[trumpSuit]}
-              </Text>
-            ) : (
-              <Text style={styles.bottomInfoValue}>—</Text>
-            )}
-          </View>
-
-          {!isPlayerActive && (
-            <View
-              style={[styles.turnBanner, { paddingBottom: insets.bottom + 8 }]}
-            >
-              <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <LinearGradient
-                  colors={[
-                    'transparent',
-                    'rgba(6,21,16,0.9)',
-                    'rgba(6,21,16,0.98)',
-                  ]}
-                  style={StyleSheet.absoluteFill}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                />
-                <View style={styles.turnInner}>
-                  <MotiView
-                    animate={{
-                      backgroundColor: 'rgba(201,168,76,0.3)',
-                      opacity: [1, 0.5, 1],
-                    }}
-                    transition={{ loop: true, duration: 800 }}
-                    style={styles.turnDot}
-                  />
-                  <Text style={styles.turnText}>
-                    {`${players[currentSeat].name}'s Turn`}
-                  </Text>
-                </View>
-              </MotiView>
-            </View>
-          )}
-        </View>
+        </Box>
       </View>
     </View>
   );
 }
 
-function OpponentPortrait({
+function Seat({
   name,
   tricks,
   bid,
-  isActive,
-  position,
+  active,
 }: {
   name: string;
   tricks: number;
   bid: number | null;
-  isActive: boolean;
-  position: 'top' | 'left' | 'right';
+  active: boolean;
 }) {
-  const initials = name.slice(0, 2).toUpperCase();
   return (
-    <MotiView
-      animate={{
-        borderColor: isActive ? '#C9A84C' : 'rgba(201,168,76,0.2)',
-        shadowOpacity: isActive ? 0.9 : 0.3,
-      }}
-      transition={{ type: 'timing', duration: 300 }}
-      style={styles.portrait}
+    <VStack
+      className={`items-center p-2 rounded-2xl border transition-all duration-300 ${active ? 'bg-gold-dark/10 border-gold-dark/30' : 'border-transparent opacity-60'}`}
     >
-      {isActive && (
+      {active && (
         <MotiView
-          from={{ opacity: 0.5, scale: 1 }}
-          animate={{ opacity: 0, scale: 1.5 }}
-          transition={{ loop: true, duration: 1100, type: 'timing' }}
-          style={styles.portraitHalo}
+          from={{ opacity: 0.3, scale: 0.9 }}
+          animate={{ opacity: 0, scale: 1.4 }}
+          transition={{ loop: true, duration: 1500 }}
+          className='absolute inset-0 bg-gold-dark/20 rounded-2xl'
         />
       )}
-      <View
-        style={[styles.portraitImage, isActive && styles.portraitImageActive]}
+      <Avatar
+        size='md'
+        className={`border-2 ${active ? 'border-gold-dark bg-gold-dark/30' : 'border-white/10 bg-white/5'}`}
       >
-        <Text style={styles.portraitInitials}>{initials}</Text>
-        <Text style={styles.portraitCornerTL}>◈</Text>
-        <Text style={styles.portraitCornerBR}>◈</Text>
-      </View>
-      <LinearGradient
-        colors={
-          isActive
-            ? ['#C9A84C', '#A8872A']
-            : ['rgba(201,168,76,0.25)', 'rgba(168,135,42,0.15)']
-        }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.portraitNameplate}
-      >
-        <Text
-          style={[styles.portraitName, isActive && styles.portraitNameActive]}
-          numberOfLines={1}
-        >
+        <AvatarFallbackText className='text-gold-light font-black text-xs uppercase'>
           {name}
-        </Text>
-      </LinearGradient>
-      <View style={styles.portraitStats}>
-        <Text style={styles.portraitStat}>{tricks}</Text>
-        <Text style={styles.portraitStatSep}>/</Text>
-        <Text style={styles.portraitStat}>
-          {bid === null ? '?' : bid === 0 ? '–' : bid}
-        </Text>
-      </View>
-    </MotiView>
+        </AvatarFallbackText>
+      </Avatar>
+      <Text
+        className={`text-[11px] mt-1.5 font-bold uppercase tracking-tight ${active ? 'text-gold-light' : 'text-white/40'}`}
+        numberOfLines={1}
+      >
+        {name}
+      </Text>
+      <Text
+        className={`text-[12px] font-black mt-0.5 ${active ? 'text-gold-dark' : 'text-gold-dark/40'}`}
+      >
+        {tricks} / {bid ?? '—'}
+      </Text>
+    </VStack>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  vignetteOverlay: {
-    position: 'absolute',
-    inset: 0,
-    borderWidth: 48,
-    borderColor: 'rgba(0,0,0,0.45)',
-    borderRadius: 0,
-  },
-  feltRing: {
-    position: 'absolute',
-    width: width * 0.85,
-    height: width * 0.85,
-    borderRadius: (width * 0.85) / 2,
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.06)',
-    top: height / 2 - (width * 0.85) / 2,
-    left: width * 0.075,
-  },
-  tableArea: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingBottom: 10,
-  },
-  topZone: { alignItems: 'center' },
-  topFan: {
-    flexDirection: 'row',
-    height: OPPONENT_CARD_H,
-    width: OPPONENT_CARD_W + (7 - 1) * OPPONENT_OVERLAP,
-    marginTop: -8,
-  },
-  middleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    flex: 1,
-    marginVertical: 4,
-  },
-  sideZone: { width: 80, alignItems: 'center' },
-  sideFan: {
-    width: OPPONENT_CARD_H,
-    height: OPPONENT_CARD_W + (7 - 1) * (OPPONENT_OVERLAP - 2),
-    position: 'relative',
-  },
-  opponentCard: {
-    position: 'absolute',
-    width: OPPONENT_CARD_W,
-    height: OPPONENT_CARD_H,
-    backgroundColor: '#1A4A2E',
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  opponentCardV: {
-    position: 'absolute',
-    width: OPPONENT_CARD_H,
-    height: OPPONENT_CARD_W,
-    backgroundColor: '#1A4A2E',
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  feltArea: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  feltGlowRing: {
-    position: 'absolute',
-    width: 210,
-    height: 210,
-    borderRadius: 105,
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.08)',
-    backgroundColor: 'transparent',
-  },
-  feltCircle: {
-    width: 186,
-    height: 186,
-    borderRadius: 93,
-    backgroundColor: 'rgba(8,28,18,0.75)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  trickContainer: {
-    position: 'absolute',
-    width: 186,
-    height: 186,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trickCard: { position: 'absolute' },
-  winnerBadge: {
-    position: 'absolute',
-    bottom: -16,
-    backgroundColor: '#C9A84C',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-    shadowColor: '#C9A84C',
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  winnerBadgeText: {
-    fontSize: 10,
-    color: '#061510',
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  portrait: {
-    width: 72,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: 'rgba(201,168,76,0.2)',
-    backgroundColor: 'rgba(6,21,16,0.85)',
-    overflow: 'hidden',
-    shadowColor: '#C9A84C',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  portraitHalo: {
-    position: 'absolute',
-    inset: -8,
-    borderRadius: 18,
-    backgroundColor: 'rgba(201,168,76,0.15)',
-    zIndex: -1,
-  },
-  portraitImage: {
-    height: 38,
-    backgroundColor: 'rgba(13,43,26,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(201,168,76,0.15)',
-    position: 'relative',
-  },
-  portraitImageActive: { backgroundColor: 'rgba(20,60,35,0.95)' },
-  portraitInitials: {
-    fontSize: 22,
-    color: 'rgba(232,213,163,0.5)',
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  portraitCornerTL: {
-    position: 'absolute',
-    top: 3,
-    left: 4,
-    fontSize: 8,
-    color: 'rgba(201,168,76,0.35)',
-  },
-  portraitCornerBR: {
-    position: 'absolute',
-    bottom: 3,
-    right: 4,
-    fontSize: 8,
-    color: 'rgba(201,168,76,0.35)',
-  },
-  portraitNameplate: {
-    paddingVertical: 5,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-  },
-  portraitName: {
-    fontSize: 11,
-    color: 'rgba(232,213,163,0.7)',
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  portraitNameActive: { color: '#061510' },
-  portraitStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 2,
-    paddingVertical: 5,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  portraitStat: { fontSize: 14, color: '#C9A84C', fontWeight: '800' },
-  portraitStatSep: {
-    fontSize: 12,
-    color: 'rgba(201,168,76,0.35)',
-    fontWeight: '400',
-  },
-  bottomZone: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  bottomInfo: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    width: 50,
-    paddingBottom: 10,
-  },
-  bottomInfoLabel: {
-    fontSize: 9,
-    color: 'rgba(232,213,163,0.5)',
-    letterSpacing: 1,
-    fontWeight: '700',
-  },
-  bottomInfoValue: { fontSize: 18, color: '#C9A84C', fontWeight: '800' },
-  bottomInfoTrump: { fontSize: 22, fontWeight: '700' },
-  menuButton: {
-    position: 'absolute',
-    right: 12,
-    zIndex: 100,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuButtonText: { fontSize: 18, color: '#C9A84C' },
-  menuModal: {
-    position: 'absolute',
-    right: 12,
-    zIndex: 200,
-    backgroundColor: 'rgba(6,21,16,0.95)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.4)',
-    borderRadius: 12,
-    overflow: 'hidden',
-    minWidth: 140,
-  },
-  menuItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(201,168,76,0.15)',
-  },
-  menuItemText: { fontSize: 14, color: '#E8D5A3', fontWeight: '500' },
-  handContainer: { flex: 1, position: 'relative' },
-  cardInHand: { position: 'absolute', bottom: -20 },
-  turnBanner: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingTop: 16,
-  },
-  turnInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingBottom: 4,
-  },
-  turnDot: { width: 8, height: 8, borderRadius: 4 },
-  turnText: {
-    fontSize: 13,
-    color: '#E8D5A3',
-    fontWeight: '600',
-    letterSpacing: 0.4,
-  },
-  resultContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
-  },
-  decorativeRule: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginVertical: 16,
-    width: '80%',
-  },
-  ruleLine: { flex: 1, height: 1, backgroundColor: 'rgba(201,168,76,0.3)' },
-  ruleGem: { color: '#C9A84C', fontSize: 10 },
-  resultTitle: {
-    fontSize: 32,
-    color: '#E8D5A3',
-    fontWeight: '900',
-    letterSpacing: 6,
-    textTransform: 'uppercase',
-    textShadowColor: 'rgba(201,168,76,0.4)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 16,
-  },
-  resultSubtitle: {
-    fontSize: 12,
-    color: 'rgba(232,213,163,0.45)',
-    letterSpacing: 3,
-    marginTop: 4,
-    marginBottom: 24,
-  },
-  scoreBoard: {
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.25)',
-    borderRadius: 16,
-    overflow: 'hidden',
-    width: '100%',
-    marginBottom: 8,
-  },
-  scoreBoardInner: { backgroundColor: 'rgba(0,0,0,0.3)', padding: 24 },
-  scoreRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  scoreTeamInfo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  teamBadge: {
-    fontSize: 10,
-    color: '#061510',
-    backgroundColor: '#C9A84C',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  teamName: { fontSize: 15, color: '#E8D5A3', fontWeight: '500' },
-  teamScore: { fontSize: 28, color: '#C9A84C', fontWeight: '900' },
-  scoreDividerH: {
-    height: 1,
-    backgroundColor: 'rgba(201,168,76,0.15)',
-    marginVertical: 14,
-  },
-  nextButton: {
-    marginTop: 8,
-    borderRadius: 12,
-    overflow: 'hidden',
-    width: '80%',
-  },
-  nextButtonPressed: { opacity: 0.85 },
-  nextButtonGradient: { paddingVertical: 16, alignItems: 'center' },
-  nextButtonText: {
-    fontSize: 15,
-    color: '#061510',
-    fontWeight: '900',
-    letterSpacing: 2,
-  },
-});

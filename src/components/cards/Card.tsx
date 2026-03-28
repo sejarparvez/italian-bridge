@@ -8,14 +8,21 @@ interface CardProps {
   faceDown?: boolean;
   selected?: boolean;
   onPress?: () => void;
+  width?: number;
+  height?: number;
 }
 
-export function Card({ card, faceDown = false, selected = false, onPress }: CardProps) {
+export function Card({ card, faceDown = false, selected = false, onPress, width, height }: CardProps) {
+  const cardWidth = width || 50;
+  const cardHeight = height || 70;
+  const fontSize = cardWidth * 0.24;
+  const suitSize = cardWidth * 0.4;
+
   if (faceDown) {
     return (
-      <View style={[styles.card, styles.cardBack]}>
+      <View style={[styles.card, styles.cardBack, { width: cardWidth, height: cardHeight }]}>
         <View style={styles.cardBackPattern}>
-          <View style={styles.cardBackDiamond} />
+          <View style={[styles.cardBackDiamond, { width: cardWidth * 0.4, height: cardWidth * 0.4 }]} />
         </View>
       </View>
     );
@@ -24,11 +31,11 @@ export function Card({ card, faceDown = false, selected = false, onPress }: Card
   const suitColor = SUIT_COLORS[card.suit];
 
   return (
-    <View style={[styles.card, selected && styles.cardSelected]}>
-      <View style={styles.cardInner}>
-        <Text style={[styles.rankTop, { color: suitColor }]}>{card.rank}</Text>
-        <Text style={[styles.suit, { color: suitColor }]}>{SUIT_SYMBOLS[card.suit]}</Text>
-        <Text style={[styles.rankBottom, { color: suitColor }]}>{card.rank}</Text>
+    <View style={[styles.card, selected && styles.cardSelected, { width: cardWidth, height: cardHeight }]}>
+      <View style={[styles.cardInner, { padding: cardWidth * 0.08 }]}>
+        <Text style={[styles.rankTop, { color: suitColor, fontSize }]}>{card.rank}</Text>
+        <Text style={[styles.suit, { color: suitColor, fontSize: suitSize }]}>{SUIT_SYMBOLS[card.suit]}</Text>
+        <Text style={[styles.rankBottom, { color: suitColor, fontSize }]}>{card.rank}</Text>
       </View>
     </View>
   );
@@ -36,8 +43,6 @@ export function Card({ card, faceDown = false, selected = false, onPress }: Card
 
 const styles = StyleSheet.create({
   card: {
-    width: 50,
-    height: 70,
     backgroundColor: COLORS.cardFace,
     borderRadius: 4,
     shadowColor: '#000',
@@ -54,20 +59,16 @@ const styles = StyleSheet.create({
   },
   cardInner: {
     flex: 1,
-    padding: 4,
     justifyContent: 'space-between',
   },
   rankTop: {
-    fontSize: 12,
     fontWeight: 'bold',
     alignSelf: 'flex-start',
   },
   suit: {
-    fontSize: 20,
     alignSelf: 'center',
   },
   rankBottom: {
-    fontSize: 12,
     fontWeight: 'bold',
     alignSelf: 'flex-end',
     transform: [{ rotate: '180deg' }],
@@ -83,8 +84,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardBackDiamond: {
-    width: 20,
-    height: 20,
     backgroundColor: COLORS.cardBackAccent,
     transform: [{ rotate: '45deg' }],
     opacity: 0.3,
