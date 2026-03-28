@@ -4,9 +4,9 @@ import { createDeck, dealCards, dealRemainingCards, shuffleDeck } from './deck';
 import { calculateRoundScores, updateTeamScores } from './scoring';
 import { addCardToTrick, createEmptyTrick, getTrickWinner, isValidCard } from './trick';
 import {
-    GameState,
-    Player,
-    SeatPosition
+  GameState,
+  Player,
+  SeatPosition
 } from './types';
 
 const SEAT_ORDER: SeatPosition[] = ['bottom', 'left', 'top', 'right'];
@@ -68,7 +68,7 @@ export function playCard(
   seat: SeatPosition,
   card: Card
 ): GameState {
-  // BUG FIX: pass trumpRevealed so isValidCard can enforce trump visibility rules
+
   if (!isValidCard(card, state.players[seat].hand, state.currentTrick, state.trumpSuit, state.trumpRevealed)) {
     return state;
   }
@@ -199,21 +199,21 @@ export function startNewGame(): GameState {
 }
 
 export {
-    addCardToTrick,
-    BID_MAX,
-    BID_MIN,
-    calculateRoundScores,
-    createDeck,
-    createEmptyTrick,
-    dealCards,
-    dealRemainingCards,
-    getEstimatedBid,
-    getTrickWinner,
-    isValidCard,
-    passBid,
-    placeBid,
-    selectTrump,
-    shuffleDeck,
-    updateTeamScores
+  addCardToTrick,
+  BID_MAX,
+  BID_MIN,
+  calculateRoundScores,
+  createDeck,
+  createEmptyTrick,
+  dealCards,
+  dealRemainingCards,
+  getEstimatedBid,
+  getTrickWinner,
+  isValidCard,
+  passBid,
+  placeBid,
+  selectTrump,
+  shuffleDeck,
+  updateTeamScores
 };
 

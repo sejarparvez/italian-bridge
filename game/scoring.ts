@@ -2,7 +2,6 @@ import { Player, SeatPosition, TeamId } from './types';
 
 export interface RoundScore {
   team: TeamId;
-  // BUG FIX: bid is the bid amount when this team was the bidding team, null otherwise
   bid: number | null;
   tricks: number;
   points: number;
@@ -22,7 +21,7 @@ export function calculateRoundScores(
   let btPoints = 0;
   let lrPoints = 0;
 
-  // BUG FIX: track which team bid so we can assign bid correctly in the return
+
   let btBid: number | null = null;
   let lrBid: number | null = null;
 

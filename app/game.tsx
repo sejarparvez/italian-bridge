@@ -1,23 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Home, LayoutDashboard, RefreshCw, X } from 'lucide-react-native'; // Added Spade
+import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import { useMemo, useState } from 'react';
-import { Dimensions, Pressable } from 'react-native';
+import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar, AvatarFallbackText } from '@/components/ui/avatar';
-import { Box } from '@/components/ui/box';
-
-// Gluestack UI
-import { Button, ButtonIcon } from '@/components/ui/button';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
 import { Text } from '@/components/ui/text';
-import { View } from '@/components/ui/view';
 import { VStack } from '@/components/ui/vstack';
 
-// Game Logic
 import { getPlayableCards } from '@/game/trick';
 import type { SeatPosition } from '@/game/types';
 import { Card } from '@/src/components/cards/Card';
@@ -25,33 +18,71 @@ import { SUIT_SYMBOLS } from '@/src/constants/cards';
 import { useGameStore } from '@/store/gameStore';
 import { sortHandAlternating } from '@/utils/card-sort';
 
-const { width, height } = Dimensions.get('window');
-const IS_LANDSCAPE = width > height;
-const PLAYER_CARD_W = IS_LANDSCAPE ? 50 : 56;
-const PLAYER_CARD_OVERLAP = IS_LANDSCAPE ? 28 : 34;
-const TRICK_OFFSET = IS_LANDSCAPE ? 58 : 70;
-const FELT_SIZE = IS_LANDSCAPE
-  ? Math.min(height * 0.68, width * 0.44)
-  : height * 0.48;
-const CARD_H_RATIO = 1.4;
+// ── Constants ────────────────────────────────────────────────────────────────
 
-const getHandLayout = (count: number) => {
-  const span = PLAYER_CARD_W + (count - 1) * PLAYER_CARD_OVERLAP;
-  const startX = (width - span) / 2;
-  return Array.from({ length: count }, (_, i) => ({
-    x: startX + i * PLAYER_CARD_OVERLAP,
-    rotate: (i - (count - 1) / 2) * 3.2,
-    y: Math.abs(i - (count - 1) / 2) * 1.8,
-  }));
-};
+const { width, height } = Dimensions.get('window');
+const SCREEN_H = Math.min(width, height); // landscape: short side
+const SCREEN_W = Math.max(width, height); // landscape: long side
+
+const CARD_W = SCREEN_H * 0.085;
+const CARD_H = CARD_W * 1.45;
+const CARD_OVERLAP = CARD_W * 0.52;
+const TRICK_CARD_W = SCREEN_H * 0.1;
+const TRICK_CARD_H = TRICK_CARD_W * 1.45;
+const TRICK_OFFSET = SCREEN_H * 0.18;
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
 function stableRot(id: string) {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
-  return ((h % 120) - 60) / 10;
+  return ((h % 100) - 50) / 10;
 }
 
-function Pill({
+function getHandLayout(count: number) {
+  const totalWidth = CARD_W + (count - 1) * CARD_OVERLAP;
+  const startX = (SCREEN_W - totalWidth) / 2;
+  return Array.from({ length: count }, (_, i) => {
+    const norm = count > 1 ? i / (count - 1) : 0.5; // 0..1
+    const center = norm - 0.5; // -0.5..0.5
+    return {
+      x: startX + i * CARD_OVERLAP,
+      rotate: center * 14, // max ±7 deg
+      y: Math.abs(center) * 10, // arc dip
+    };
+  });
+}
+
+const slotFor = (p: SeatPosition) => {
+  const o = TRICK_OFFSET;
+  return p === 'bottom'
+    ? { x: 0, y: o }
+    : p === 'top'
+      ? { x: 0, y: -o }
+      : p === 'left'
+        ? { x: -o * 1.2, y: 0 }
+        : { x: o * 1.2, y: 0 };
+};
+
+// ── Colours ──────────────────────────────────────────────────────────────────
+
+const C = {
+  bg: '#06110A',
+  felt: '#0A1C0F',
+  feltEdge: '#0D2414',
+  gold: '#C8A840',
+  goldDim: 'rgba(200,168,64,0.25)',
+  goldFaint: 'rgba(200,168,64,0.08)',
+  white10: 'rgba(255,255,255,0.10)',
+  white05: 'rgba(255,255,255,0.05)',
+  white03: 'rgba(255,255,255,0.03)',
+  activeGlow: 'rgba(200,168,64,0.18)',
+};
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+/** Compact HUD pill */
+function HudPill({
   label,
   value,
   accent,
@@ -61,20 +92,87 @@ function Pill({
   accent?: boolean;
 }) {
   return (
-    <Box
-      className={`px-3 py-1 rounded-lg border items-center justify-center ${accent ? 'bg-gold-dark/10 border-gold-dark/40' : 'bg-white/5 border-gold-dark/10'}`}
-    >
-      <Text className='text-[8px] text-gold-dark/50 font-bold tracking-widest uppercase'>
-        {label}
-      </Text>
-      <Text
-        className={`font-black ${accent ? 'text-lg text-gold-dark' : 'text-md text-gold-light'}`}
-      >
+    <View style={[styles.hudPill, accent && styles.hudPillAccent]}>
+      <Text style={styles.hudLabel}>{label}</Text>
+      <Text style={[styles.hudValue, accent && { color: C.gold }]}>
         {value}
       </Text>
-    </Box>
+    </View>
   );
 }
+
+/** Player seat — used for top / left / right opponents */
+function OpponentSeat({
+  name,
+  tricks,
+  bid,
+  active,
+  orientation = 'vertical',
+}: {
+  name: string;
+  tricks: number;
+  bid: number | null;
+  active: boolean;
+  orientation?: 'vertical' | 'horizontal';
+}) {
+  const isH = orientation === 'horizontal';
+  return (
+    <View
+      style={[
+        styles.seatWrap,
+        active && styles.seatActive,
+        isH && styles.seatH,
+      ]}
+    >
+      {/* Active pulse ring */}
+      {active && (
+        <MotiView
+          from={{ opacity: 0.6, scale: 0.85 }}
+          animate={{ opacity: 0, scale: 1.5 }}
+          transition={{ loop: true, duration: 1400, type: 'timing' }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      )}
+
+      {/* Avatar circle */}
+      <View style={[styles.avatar, active && styles.avatarActive]}>
+        <Text style={styles.avatarText}>{name[0].toUpperCase()}</Text>
+      </View>
+
+      <View
+        style={isH ? { marginLeft: 8 } : { marginTop: 5, alignItems: 'center' }}
+      >
+        <Text
+          style={[
+            styles.seatName,
+            active && { color: 'rgba(240,220,160,0.9)' },
+          ]}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+        {/* Tricks / bid badge */}
+        <View style={[styles.trickBadge, active && styles.trickBadgeActive]}>
+          <Text style={[styles.trickText, active && { color: C.gold }]}>
+            {tricks}
+            <Text style={{ opacity: 0.4 }}> / {bid ?? '—'}</Text>
+          </Text>
+        </View>
+      </View>
+
+      {/* Active turn indicator dot */}
+      {active && (
+        <MotiView
+          animate={{ opacity: [0.3, 1, 0.3] }}
+          transition={{ loop: true, duration: 900, type: 'timing' }}
+          style={styles.activeDot}
+        />
+      )}
+    </View>
+  );
+}
+
+// ── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function GameScreen() {
   const router = useRouter();
@@ -113,20 +211,12 @@ export default function GameScreen() {
 
   const hand = sortHandAlternating(players.bottom.hand);
   const layouts = getHandLayout(hand.length);
+
   const isOver =
     state.phase === 'gameEnd' ||
     (state.phase === 'roundEnd' && currentTrick.cards.length === 0);
 
-  const slotFor = (p: SeatPosition) => {
-    const o = TRICK_OFFSET;
-    return p === 'bottom'
-      ? { x: 0, y: o }
-      : p === 'top'
-        ? { x: 0, y: -o }
-        : p === 'left'
-          ? { x: -o, y: 0 }
-          : { x: o, y: 0 };
-  };
+  // ── End Screen ──────────────────────────────────────────────────────────
 
   if (isOver) {
     const end = state.phase === 'gameEnd';
@@ -135,67 +225,77 @@ export default function GameScreen() {
     const btWon = bt > lr;
 
     return (
-      <View className='flex-1 bg-[#07130D]' style={{ paddingTop: insets.top }}>
+      <View style={styles.root}>
         <LinearGradient
-          colors={['#07130D', '#0C2016', '#07130D']}
-          className='absolute inset-0'
+          colors={[C.bg, C.felt, C.bg]}
+          style={StyleSheet.absoluteFillObject}
         />
         <MotiView
-          from={{ opacity: 0, scale: 0.95 }}
+          from={{ opacity: 0, scale: 0.96 }}
           animate={{ opacity: 1, scale: 1 }}
-          className='flex-1 justify-center items-center px-8 gap-6'
+          style={styles.endWrap}
         >
-          <VStack className='w-full'>
-            <Text className='text-gold-dark font-bold tracking-[4px] text-xs mb-1 uppercase'>
+          {/* Title */}
+          <VStack style={{ marginBottom: 20 }}>
+            <Text style={styles.endSubtitle}>
               {end ? 'Final Results' : 'Round Summary'}
             </Text>
-            <Text className='text-4xl font-black text-gold-light tracking-tighter leading-none'>
-              {end ? 'Standings' : 'Scores'}
-            </Text>
+            <Text style={styles.endTitle}>{end ? 'Standings' : 'Scores'}</Text>
           </VStack>
-          <Box className='w-full bg-white/5 border border-gold-dark/20 rounded-3xl p-6 backdrop-blur-md'>
+
+          {/* Score card */}
+          <View style={styles.scoreCard}>
             {[
               { key: 'BT', names: 'You & Alex', score: bt, win: btWon },
               { key: 'LR', names: 'Jordan & Sam', score: lr, win: !btWon },
             ].map((row, i) => (
-              <VStack key={row.key}>
-                {i > 0 && <Box className='h-[1px] bg-gold-dark/10 my-4' />}
-                <HStack className='justify-between items-center'>
-                  <HStack space='md' className='items-center'>
-                    <Box
-                      className={`w-11 h-11 rounded-xl items-center justify-center border ${row.win ? 'bg-gold-dark border-gold-dark shadow-lg shadow-gold-dark/50' : 'bg-gold-dark/10 border-gold-dark/20'}`}
+              <View key={row.key}>
+                {i > 0 && <View style={styles.scoreDivider} />}
+                <HStack
+                  style={{
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    paddingVertical: 14,
+                  }}
+                >
+                  <HStack style={{ alignItems: 'center', gap: 12 }}>
+                    <View
+                      style={[styles.teamBadge, row.win && styles.teamBadgeWin]}
                     >
                       <Text
-                        className={`font-black text-sm ${row.win ? 'text-[#07130D]' : 'text-gold-dark'}`}
+                        style={[styles.teamKey, row.win && { color: C.bg }]}
                       >
                         {row.key}
                       </Text>
-                    </Box>
+                    </View>
                     <VStack>
                       <Text
-                        className={`text-md ${row.win ? 'text-white font-bold' : 'text-white/60'}`}
+                        style={[
+                          styles.teamName,
+                          row.win && { color: 'white', opacity: 1 },
+                        ]}
                       >
                         {row.names}
                       </Text>
-                      {row.win && (
-                        <Text className='text-[10px] text-gold-dark font-bold uppercase tracking-widest mt-0.5'>
-                          Winner
-                        </Text>
-                      )}
+                      {row.win && <Text style={styles.winnerTag}>Winner</Text>}
                     </VStack>
                   </HStack>
                   <Text
-                    className={`text-4xl font-black ${row.win ? 'text-gold-dark' : 'text-white/10'}`}
+                    style={[
+                      styles.scoreNum,
+                      !row.win && { color: 'rgba(255,255,255,0.12)' },
+                    ]}
                   >
                     {row.score}
                   </Text>
                 </HStack>
-              </VStack>
+              </View>
             ))}
-          </Box>
-          <Button
-            size='xl'
-            className='w-full bg-gold-dark h-16 rounded-2xl active:opacity-90 active:scale-[0.98]'
+          </View>
+
+          {/* CTA */}
+          <Pressable
+            style={styles.ctaBtn}
             onPress={() => {
               if (end) {
                 startNewGame();
@@ -206,308 +306,680 @@ export default function GameScreen() {
               }
             }}
           >
-            <Text className='text-[#07130D] font-black uppercase tracking-widest text-base'>
-              {end ? 'Start New Game' : 'Continue to Next Round'}
+            <Text style={styles.ctaText}>
+              {end ? 'New Game' : 'Next Round'}
             </Text>
-          </Button>
+          </Pressable>
         </MotiView>
       </View>
     );
   }
 
+  // ── Game Screen ──────────────────────────────────────────────────────────
+
   return (
-    <View className='flex-1 bg-[#07130D]' style={{ paddingTop: insets.top }}>
+    <View
+      style={[
+        styles.root,
+        { paddingLeft: insets.left, paddingRight: insets.right },
+      ]}
+    >
+      {/* Felt background */}
       <LinearGradient
-        colors={['#07130D', '#0C2016', '#07130D']}
-        className='absolute inset-0'
+        colors={[C.bg, '#0B1E10', C.bg]}
+        style={StyleSheet.absoluteFillObject}
       />
 
-      {/* ── Header ── */}
-      <HStack
-        style={{ top: insets.top + 10 }}
-        className='absolute left-0 right-0 justify-between items-center px-4 z-50'
-      >
-        <HStack space='sm'>
-          <Pill label='RND' value={String(round)} />
+      {/* Subtle table oval */}
+      <View style={styles.tableOval} pointerEvents='none' />
+
+      {/* ── HUD — top bar ── */}
+      <View style={[styles.hud, { top: insets.top + 8 }]}>
+        <HStack style={{ gap: 8, alignItems: 'center' }}>
+          <HudPill label='RND' value={String(round)} />
           {trumpSuit && trumpRevealed && (
             <MotiView
-              from={{ opacity: 0, scale: 0.8 }}
+              from={{ opacity: 0, scale: 0.7 }}
               animate={{ opacity: 1, scale: 1 }}
             >
-              <Pill label='TRUMP' value={SUIT_SYMBOLS[trumpSuit]} accent />
+              <HudPill label='TRUMP' value={SUIT_SYMBOLS[trumpSuit]} accent />
+            </MotiView>
+          )}
+          {/* Turn indicator */}
+          {isPlayerActive && (
+            <MotiView
+              from={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              style={styles.yourTurnBadge}
+            >
+              <MotiView
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ loop: true, duration: 1000, type: 'timing' }}
+                style={styles.yourTurnDot}
+              />
+              <Text style={styles.yourTurnText}>Your turn</Text>
             </MotiView>
           )}
         </HStack>
+
+        {/* Menu */}
         <Menu
           offset={10}
           trigger={({ ...triggerProps }) => (
-            <Button
-              {...triggerProps}
-              variant='outline'
-              className='border-gold-dark/20 bg-gold-dark/5 h-12 w-12 rounded-full p-0 active:bg-gold-dark/20'
-            >
-              <ButtonIcon
-                as={LayoutDashboard}
-                size='xl'
-                className='text-gold-dark'
-              />
-            </Button>
+            <Pressable {...triggerProps} style={styles.menuBtn}>
+              <Icon as={Settings} size='sm' style={{ color: C.gold }} />
+            </Pressable>
           )}
-          className='bg-[#0C1F14] border border-gold-dark/30 p-1.5 min-w-[170px] rounded-2xl shadow-2xl'
+          style={styles.menuDropdown}
         >
           <MenuItem
             key='home'
             textValue='Home'
-            className='rounded-xl focus:bg-gold-dark/10 active:bg-gold-dark/10 gap-3 py-3.5 px-4'
+            style={styles.menuItem}
             onPress={() => router.replace('/')}
           >
-            <Icon as={Home} size='sm' className='text-gold-dark/70' />
-            <MenuItemLabel className='text-[#E8D5A3] font-semibold text-sm'>
-              Main Menu
-            </MenuItemLabel>
+            <Icon
+              as={Home}
+              size='sm'
+              style={{ color: 'rgba(200,168,64,0.6)' }}
+            />
+            <MenuItemLabel style={styles.menuLabel}>Main Menu</MenuItemLabel>
           </MenuItem>
-
           <MenuItem
             key='new-game'
             textValue='New Game'
-            className='rounded-xl focus:bg-gold-dark/10 active:bg-gold-dark/10 gap-3 py-3.5 px-4'
+            style={styles.menuItem}
             onPress={() => {
               startNewGame();
               router.replace('/bid');
             }}
           >
-            <Icon as={RefreshCw} size='sm' className='text-gold-dark/70' />
-            <MenuItemLabel className='text-[#E8D5A3] font-semibold text-sm'>
-              Restart Game
-            </MenuItemLabel>
+            <Icon
+              as={RefreshCw}
+              size='sm'
+              style={{ color: 'rgba(200,168,64,0.6)' }}
+            />
+            <MenuItemLabel style={styles.menuLabel}>Restart Game</MenuItemLabel>
           </MenuItem>
-
           <MenuItem
             key='close'
             textValue='Close'
-            className='rounded-xl gap-3 py-3.5 px-4 border-t border-gold-dark/10 mt-1'
+            style={[styles.menuItem, styles.menuItemDanger]}
           >
-            <Icon as={X} size='sm' className='text-red-400/50' />
-            <MenuItemLabel className='text-red-400/70 font-semibold text-sm'>
+            <Icon as={X} size='sm' style={{ color: 'rgba(248,113,113,0.5)' }} />
+            <MenuItemLabel
+              style={[styles.menuLabel, { color: 'rgba(248,113,113,0.7)' }]}
+            >
               Close Menu
             </MenuItemLabel>
           </MenuItem>
         </Menu>
-      </HStack>
+      </View>
 
-      {/* ── Table Area ── */}
-      <View className='flex-1 justify-between pb-6'>
-        <Box
-          className='items-center'
-          style={{ paddingRight: width > 600 ? 300 : 0 }}
-        >
-          <Seat
-            name={players.top.name}
-            tricks={players.top.tricksTaken}
-            bid={players.top.bid}
-            active={currentSeat === 'top'}
+      {/* ── TABLE: left player | center felt | right player ── */}
+      <HStack style={styles.tableRow}>
+        {/* Left opponent */}
+        <View style={styles.sideSlot}>
+          <OpponentSeat
+            name={players.left.name}
+            tricks={players.left.tricksTaken}
+            bid={players.left.bid}
+            active={currentSeat === 'left'}
           />
-        </Box>
+        </View>
 
-        <HStack className='flex-1 items-center justify-between px-2'>
-          <Box className='w-20 items-center'>
-            <Seat
-              name={players.left.name}
-              tricks={players.left.tricksTaken}
-              bid={players.left.bid}
-              active={currentSeat === 'left'}
+        {/* Center felt area */}
+        <View style={styles.feltCenter}>
+          {/* Top opponent */}
+          <View style={styles.topSlot}>
+            <OpponentSeat
+              name={players.top.name}
+              tricks={players.top.tricksTaken}
+              bid={players.top.bid}
+              active={currentSeat === 'top'}
+              orientation='horizontal'
             />
-          </Box>
+          </View>
 
-          <Box className='flex-1 items-center justify-center relative'>
-            {/* ── Table Watermark & Glow ── */}
-            <MotiView
-              from={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: 'timing', duration: 1500 }}
-              className='absolute items-center justify-center'
-              pointerEvents='none'
-            >
-              {/* Using the Text Symbol for the Spade */}
-              <Text
-                style={{
-                  fontSize: FELT_SIZE * 1.3,
-                  color: '#D4AF37',
-                  opacity: 0.08,
-                  lineHeight: FELT_SIZE * 0.7, // Adjusts vertical centering
-                  textAlign: 'center',
-                  fontWeight: '900',
-                }}
-              >
-                {SUIT_SYMBOLS.spades}
-              </Text>
+          {/* Watermark spade */}
+          <Text style={styles.watermark} pointerEvents='none'>
+            {SUIT_SYMBOLS.spades}
+          </Text>
 
-              {/* Inner Table Glow - subtle circle to define the play area */}
-              <Box
-                style={{
-                  width: FELT_SIZE * 1.8,
-                  height: FELT_SIZE,
-                  borderRadius: FELT_SIZE / 2,
-                  borderWidth: 1,
-                  borderColor: '#D4AF37',
-                  opacity: 0.05,
-                  position: 'absolute',
-                }}
-              />
-            </MotiView>
-
-            {/* Trick Cards Container */}
-            <View
-              style={{ width: FELT_SIZE, height: FELT_SIZE }}
-              className='absolute items-center justify-center'
-              pointerEvents='none'
-            >
-              {currentTrick.cards.map((tc) => {
-                const s = slotFor(tc.player),
-                  r = stableRot(tc.card.id);
-                const tw = IS_LANDSCAPE ? 40 : 48;
-                return (
-                  <MotiView
-                    key={tc.card.id}
-                    animate={{
-                      opacity: 1,
-                      scale: 1,
-                      transform: [
-                        { translateX: s.x - tw / 2 },
-                        { translateY: s.y - (tw * CARD_H_RATIO) / 2 },
-                        { rotate: `${r}deg` },
-                      ],
-                    }}
-                    className='absolute'
-                  >
-                    <Card
-                      card={tc.card}
-                      width={tw}
-                      height={tw * CARD_H_RATIO}
-                    />
-                  </MotiView>
-                );
-              })}
-            </View>
-
-            {/* Trick Winner Badge */}
-            {currentTrick.winningSeat && (
-              <MotiView
-                from={{ opacity: 0, transform: [{ translateY: 10 }] }}
-                animate={{ opacity: 1, transform: [{ translateY: 0 }] }}
-                className='absolute bottom-[-14] bg-gold-dark px-4 py-1.5 rounded-full shadow-lg'
-              >
-                <Text className='text-[10px] text-[#07130D] font-black uppercase tracking-wider'>
-                  {players[currentTrick.winningSeat].name}
-                </Text>
-              </MotiView>
-            )}
-          </Box>
-
-          <Box className='w-20 items-center'>
-            <Seat
-              name={players.right.name}
-              tricks={players.right.tricksTaken}
-              bid={players.right.bid}
-              active={currentSeat === 'right'}
-            />
-          </Box>
-        </HStack>
-
-        <Box className='relative w-full overflow-visible'>
-          <View
-            style={{ height: IS_LANDSCAPE ? 96 : 126 }}
-            className='relative w-full'
-          >
-            {hand.map((card, i) => {
-              const l = layouts[i],
-                canPlay = isPlayerActive && playableIds.has(card.id),
-                isPressed = pressed === card.id;
+          {/* Trick cards */}
+          <View style={styles.trickArea} pointerEvents='none'>
+            {currentTrick.cards.map((tc) => {
+              const s = slotFor(tc.player);
+              const rot = stableRot(tc.card.id);
               return (
                 <MotiView
-                  key={card.id}
+                  key={tc.card.id}
+                  from={{ scale: 0.7, opacity: 0 }}
                   animate={{
-                    opacity: isPlayerActive && !canPlay ? 0.3 : 1,
-                    scale: isPressed ? 1.05 : 1,
+                    scale: 1,
+                    opacity: 1,
                     transform: [
-                      { translateY: isPressed ? -24 : l.y },
-                      { rotate: `${l.rotate}deg` },
+                      { translateX: s.x - TRICK_CARD_W / 2 },
+                      { translateY: s.y - TRICK_CARD_H / 2 },
+                      { rotate: `${rot}deg` },
                     ],
                   }}
-                  className='absolute'
-                  style={{ left: l.x, bottom: -18 }}
+                  transition={{ type: 'spring', damping: 16 }}
+                  style={{ position: 'absolute' }}
                 >
-                  <Pressable
-                    onPressIn={() => canPlay && setPressed(card.id)}
-                    onPressOut={() => setPressed(null)}
-                    onPress={() => canPlay && playPlayerCard(card.id)}
-                  >
-                    <Card
-                      card={card}
-                      width={PLAYER_CARD_W}
-                      height={PLAYER_CARD_W * CARD_H_RATIO}
-                    />
-                    {canPlay && !isPressed && (
-                      <MotiView
-                        animate={{ opacity: [0, 0.8, 0] }}
-                        transition={{ loop: true, duration: 2000 }}
-                        className='absolute bottom-[-4] left-0 h-[3px] bg-gold-dark rounded-full shadow-sm shadow-gold-dark'
-                        style={{ width: PLAYER_CARD_W }}
-                      />
-                    )}
-                  </Pressable>
+                  <Card
+                    card={tc.card}
+                    width={TRICK_CARD_W}
+                    height={TRICK_CARD_H}
+                  />
                 </MotiView>
               );
             })}
           </View>
-        </Box>
+
+          {/* Trick winner badge */}
+          {currentTrick.winningSeat && (
+            <MotiView
+              from={{ opacity: 0, translateY: 8 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              style={styles.winnerBadge}
+            >
+              <Text style={styles.winnerBadgeText}>
+                {players[currentTrick.winningSeat].name}
+              </Text>
+            </MotiView>
+          )}
+        </View>
+
+        {/* Right opponent */}
+        <View style={styles.sideSlot}>
+          <OpponentSeat
+            name={players.right.name}
+            tricks={players.right.tricksTaken}
+            bid={players.right.bid}
+            active={currentSeat === 'right'}
+          />
+        </View>
+      </HStack>
+
+      {/* ── Player info bar ── */}
+      <View style={styles.playerBar}>
+        <HStack style={{ alignItems: 'center', gap: 10 }}>
+          <View
+            style={[
+              styles.avatar,
+              styles.avatarSelf,
+              isPlayerActive && styles.avatarActive,
+            ]}
+          >
+            <Text style={styles.avatarText}>
+              {players.bottom.name[0].toUpperCase()}
+            </Text>
+          </View>
+          <VStack>
+            <Text style={styles.playerName}>{players.bottom.name}</Text>
+            <Text style={styles.playerStats}>
+              {players.bottom.tricksTaken}
+              <Text style={{ opacity: 0.4 }}>
+                {' '}
+                / {players.bottom.bid ?? '—'}
+              </Text>
+            </Text>
+          </VStack>
+        </HStack>
+
+        {/* Playable hint */}
+        {isPlayerActive && (
+          <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Text style={styles.hintText}>
+              {playableIds.size} card{playableIds.size !== 1 ? 's' : ''}{' '}
+              playable
+            </Text>
+          </MotiView>
+        )}
+      </View>
+
+      {/* ── Player Hand ── */}
+      <View style={styles.handArea}>
+        {hand.map((card, i) => {
+          const l = layouts[i];
+          const canPlay = isPlayerActive && playableIds.has(card.id);
+          const isPressed = pressed === card.id;
+
+          return (
+            <MotiView
+              key={card.id}
+              animate={{
+                opacity: isPlayerActive && !canPlay ? 0.28 : 1,
+                scale: isPressed ? 1.06 : 1,
+                translateY: isPressed ? -CARD_H * 0.35 : l.y,
+                rotate: `${l.rotate}deg`,
+              }}
+              transition={{ type: 'spring', damping: 20, stiffness: 260 }}
+              style={{ position: 'absolute', left: l.x, bottom: 0 }}
+            >
+              <Pressable
+                onPressIn={() => canPlay && setPressed(card.id)}
+                onPressOut={() => setPressed(null)}
+                onPress={() => canPlay && playPlayerCard(card.id)}
+              >
+                <Card card={card} width={CARD_W} height={CARD_H} />
+
+                {/* Playable glow underline */}
+                {canPlay && !isPressed && (
+                  <MotiView
+                    animate={{ opacity: [0, 1, 0] }}
+                    transition={{ loop: true, duration: 1800, type: 'timing' }}
+                    style={[styles.playableGlow, { width: CARD_W }]}
+                  />
+                )}
+              </Pressable>
+            </MotiView>
+          );
+        })}
       </View>
     </View>
   );
 }
 
-function Seat({
-  name,
-  tricks,
-  bid,
-  active,
-}: {
-  name: string;
-  tricks: number;
-  bid: number | null;
-  active: boolean;
-}) {
-  return (
-    <VStack
-      className={`items-center p-2 rounded-2xl border transition-all duration-300 ${active ? 'bg-gold-dark/10 border-gold-dark/30' : 'border-transparent opacity-60'}`}
-    >
-      {active && (
-        <MotiView
-          from={{ opacity: 0.3, scale: 0.9 }}
-          animate={{ opacity: 0, scale: 1.4 }}
-          transition={{ loop: true, duration: 1500 }}
-          className='absolute inset-0 bg-gold-dark/20 rounded-2xl'
-        />
-      )}
-      <Avatar
-        size='md'
-        className={`border-2 ${active ? 'border-gold-dark bg-gold-dark/30' : 'border-white/10 bg-white/5'}`}
-      >
-        <AvatarFallbackText className='text-gold-light font-black text-xs uppercase'>
-          {name}
-        </AvatarFallbackText>
-      </Avatar>
-      <Text
-        className={`text-[11px] mt-1.5 font-bold uppercase tracking-tight ${active ? 'text-gold-light' : 'text-white/40'}`}
-        numberOfLines={1}
-      >
-        {name}
-      </Text>
-      <Text
-        className={`text-[12px] font-black mt-0.5 ${active ? 'text-gold-dark' : 'text-gold-dark/40'}`}
-      >
-        {tricks} / {bid ?? '—'}
-      </Text>
-    </VStack>
-  );
-}
+// ── Styles ───────────────────────────────────────────────────────────────────
+
+const C2 = {
+  gold: '#C8A840',
+  goldDim: 'rgba(200,168,64,0.25)',
+  goldFaint: 'rgba(200,168,64,0.07)',
+  white10: 'rgba(255,255,255,0.10)',
+  white05: 'rgba(255,255,255,0.05)',
+  bg: '#06110A',
+  felt: '#0A1C0F',
+};
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: C2.bg,
+  },
+
+  // ── Table oval watermark ──
+  tableOval: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: SCREEN_H * 0.05,
+    width: SCREEN_W * 0.62,
+    height: SCREEN_H * 0.72,
+    borderRadius: SCREEN_H * 0.36,
+    borderWidth: 1,
+    borderColor: 'rgba(200,168,64,0.06)',
+    backgroundColor: 'rgba(10,28,15,0.4)',
+  },
+
+  // ── HUD ──
+  hud: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    zIndex: 50,
+  },
+  hudPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: C2.white10,
+    backgroundColor: C2.white05,
+    alignItems: 'center',
+    minWidth: 44,
+  },
+  hudPillAccent: {
+    borderColor: 'rgba(200,168,64,0.35)',
+    backgroundColor: 'rgba(200,168,64,0.08)',
+  },
+  hudLabel: {
+    fontSize: 7,
+    color: 'rgba(200,168,64,0.45)',
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  hudValue: {
+    fontSize: 13,
+    color: 'rgba(240,220,160,0.7)',
+    fontWeight: '900',
+  },
+
+  yourTurnBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: 'rgba(200,168,64,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(200,168,64,0.3)',
+  },
+  yourTurnDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C2.gold,
+  },
+  yourTurnText: {
+    fontSize: 10,
+    color: C2.gold,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  menuBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: C2.goldDim,
+    backgroundColor: C2.goldFaint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuDropdown: {
+    backgroundColor: '#0C1F14',
+    borderWidth: 1,
+    borderColor: 'rgba(200,168,64,0.25)',
+    borderRadius: 14,
+    padding: 6,
+    minWidth: 160,
+  },
+  menuItem: {
+    borderRadius: 10,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  menuItemDanger: {
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(200,168,64,0.1)',
+  },
+  menuLabel: {
+    color: 'rgba(232,213,163,0.85)',
+    fontWeight: '600',
+    fontSize: 13,
+  },
+
+  // ── Table row layout ──
+  tableRow: {
+    flex: 1,
+    alignItems: 'center',
+    marginTop: SCREEN_H * 0.1, // clear HUD
+    marginBottom: 4,
+  },
+  sideSlot: {
+    width: SCREEN_W * 0.13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  feltCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  topSlot: {
+    position: 'absolute',
+    top: 0,
+    alignSelf: 'center',
+  },
+
+  // Watermark
+  watermark: {
+    fontSize: SCREEN_H * 0.52,
+    color: C2.gold,
+    opacity: 0.045,
+    fontWeight: '900',
+    position: 'absolute',
+    lineHeight: SCREEN_H * 0.44,
+    textAlign: 'center',
+  },
+
+  // Trick
+  trickArea: {
+    width: SCREEN_H * 0.72,
+    height: SCREEN_H * 0.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  winnerBadge: {
+    position: 'absolute',
+    bottom: -8,
+    alignSelf: 'center',
+    backgroundColor: C2.gold,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  winnerBadgeText: {
+    fontSize: 10,
+    color: '#07130D',
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+
+  // ── Opponent seat ──
+  seatWrap: {
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    position: 'relative',
+    minWidth: 64,
+  },
+  seatActive: {
+    backgroundColor: 'rgba(200,168,64,0.08)',
+    borderColor: 'rgba(200,168,64,0.25)',
+  },
+  seatH: {
+    flexDirection: 'row',
+    paddingHorizontal: 10,
+  },
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: C2.white05,
+    borderWidth: 1.5,
+    borderColor: C2.white10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarSelf: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  avatarActive: {
+    borderColor: C2.gold,
+    backgroundColor: 'rgba(200,168,64,0.15)',
+  },
+  avatarText: {
+    color: 'rgba(240,220,160,0.6)',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  seatName: {
+    fontSize: 9,
+    color: 'rgba(255,255,255,0.3)',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    maxWidth: 60,
+  },
+  trickBadge: {
+    marginTop: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+  },
+  trickBadgeActive: {
+    backgroundColor: 'rgba(200,168,64,0.1)',
+  },
+  trickText: {
+    fontSize: 11,
+    color: 'rgba(200,168,64,0.35)',
+    fontWeight: '900',
+  },
+  activeDot: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: C2.gold,
+  },
+
+  // ── Player bar ──
+  playerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 4,
+    marginBottom: 2,
+  },
+  playerName: {
+    fontSize: 11,
+    color: 'rgba(240,220,160,0.7)',
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  playerStats: {
+    fontSize: 13,
+    color: C2.gold,
+    fontWeight: '900',
+    marginTop: 1,
+  },
+  hintText: {
+    fontSize: 9,
+    color: 'rgba(200,168,64,0.4)',
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+
+  // ── Hand ──
+  handArea: {
+    height: CARD_H * 0.72,
+    position: 'relative',
+    width: '100%',
+    overflow: 'visible',
+    marginBottom: 6,
+  },
+  playableGlow: {
+    position: 'absolute',
+    bottom: -3,
+    left: 0,
+    height: 3,
+    backgroundColor: C2.gold,
+    borderRadius: 2,
+  },
+
+  // ── End screen ──
+  endWrap: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    gap: 0,
+  },
+  endSubtitle: {
+    fontSize: 10,
+    color: 'rgba(200,168,64,0.5)',
+    fontWeight: '700',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  endTitle: {
+    fontSize: 36,
+    color: 'rgba(240,220,160,0.95)',
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  scoreCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: C2.white05,
+    borderWidth: 1,
+    borderColor: 'rgba(200,168,64,0.15)',
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  scoreDivider: {
+    height: 1,
+    backgroundColor: 'rgba(200,168,64,0.08)',
+  },
+  teamBadge: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: 'rgba(200,168,64,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(200,168,64,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  teamBadgeWin: {
+    backgroundColor: C2.gold,
+    borderColor: C2.gold,
+  },
+  teamKey: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: C2.gold,
+  },
+  teamName: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.55)',
+    fontWeight: '500',
+  },
+  winnerTag: {
+    fontSize: 9,
+    color: C2.gold,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  scoreNum: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: C2.gold,
+  },
+  ctaBtn: {
+    backgroundColor: C2.gold,
+    height: 52,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 440,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaText: {
+    color: '#07130D',
+    fontWeight: '900',
+    fontSize: 14,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+});
