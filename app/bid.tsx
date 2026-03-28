@@ -1,44 +1,60 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { MotiView } from 'moti';
+import { AnimatePresence, MotiView } from 'moti';
 import { useEffect, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { Box } from '@/components/ui/box';
+import { Button, ButtonText } from '@/components/ui/button';
+import { Center } from '@/components/ui/center';
+import { Heading } from '@/components/ui/heading';
+import { HStack } from '@/components/ui/hstack';
+import { Pressable } from '@/components/ui/pressable';
+import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
+
 import { Card } from '@/src/components/cards/Card';
 import { ALL_SUITS, type Suit } from '@/src/constants/cards';
 import { useGameStore } from '@/store/gameStore';
 import { sortHandAlternating } from '@/utils/card-sort';
 
-const { width } = Dimensions.get('window');
-const CARD_W = width * 0.06;
-const BID_PANEL_H = 180;
-const HAND_H = 80;
+const { width, height } = Dimensions.get('window');
+
+// In landscape the shorter dimension is the height
+const SCREEN_H = Math.min(width, height);
+const SCREEN_W = Math.max(width, height);
+
+// Fan layout constants
+const CARD_W = SCREEN_H * 0.09;
+const CARD_H = CARD_W * 1.4;
+const FAN_SPREAD_DEG = 32; // total arc degrees
 
 const SUIT_META: Record<
   string,
-  { color: string; dim: string; symbol: string; name: string }
+  { color: string; bg: string; symbol: string; name: string }
 > = {
   hearts: {
-    color: '#E8534A',
-    dim: 'rgba(232,83,74,0.12)',
+    color: 'text-red-500',
+    bg: 'bg-red-500/10',
     symbol: '♥',
     name: 'Hearts',
   },
   diamonds: {
-    color: '#E8534A',
-    dim: 'rgba(232,83,74,0.12)',
+    color: 'text-red-500',
+    bg: 'bg-red-500/10',
     symbol: '♦',
     name: 'Diamonds',
   },
   clubs: {
-    color: '#E8D5A3',
-    dim: 'rgba(232,213,163,0.08)',
+    color: 'text-amber-200',
+    bg: 'bg-amber-200/5',
     symbol: '♣',
     name: 'Clubs',
   },
   spades: {
-    color: '#E8D5A3',
-    dim: 'rgba(232,213,163,0.08)',
+    color: 'text-amber-200',
+    bg: 'bg-amber-200/5',
     symbol: '♠',
     name: 'Spades',
   },
@@ -53,9 +69,6 @@ export default function BidScreen() {
 
   const hand = state.players.bottom.hand;
   const sorted = sortHandAlternating(hand);
-  const bidPanelBottom = BID_PANEL_H + insets.bottom + 16;
-  const handBottom = bidPanelBottom + HAND_H + 32;
-
   const showTrumpPicker =
     state.phase === 'dealing2' && state.highestBidder === 'bottom';
 
@@ -63,511 +76,402 @@ export default function BidScreen() {
     if (state.phase === 'playing') router.replace('/game');
   }, [state.phase, router]);
 
-  if (hand.length === 0) {
-    return (
-      <View style={[s.root, { paddingTop: insets.top }]}>
-        <LinearGradient
-          colors={['#07130D', '#0C2016', '#07130D']}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={s.centerFill}>
-          <MotiView
-            animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ loop: true, duration: 1400, type: 'timing' }}
-          >
-            <Text style={s.loadTxt}>Dealing…</Text>
-          </MotiView>
-        </View>
-      </View>
-    );
-  }
-
-  // ── Trump picker ──────────────────────────────────────────────────────────
-  if (showTrumpPicker) {
-    return (
-      <View style={[s.root, { paddingTop: insets.top }]}>
-        <LinearGradient
-          colors={['#07130D', '#0C2016', '#07130D']}
-          style={StyleSheet.absoluteFill}
-        />
-
-        <View style={s.trumpScreen}>
-          {/* Eyebrow + heading */}
-          <MotiView
-            from={{ opacity: 0, translateY: 16 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 18 }}
-          >
-            <Text style={s.trumpEyebrow}>YOU WON THE BID</Text>
-            <Text style={s.trumpHeading}>Choose{'\n'}Trump</Text>
-          </MotiView>
-
-          {/* Suit tiles */}
-          <View style={s.suitRow}>
-            {ALL_SUITS.map((suit, i) => {
-              const m = SUIT_META[suit];
-              return (
-                <MotiView
-                  key={suit}
-                  from={{ opacity: 0, translateY: 20 }}
-                  animate={{ opacity: 1, translateY: 0 }}
-                  transition={{ delay: i * 70, type: 'spring', damping: 16 }}
-                >
-                  <Pressable
-                    onPress={() => {
-                      selectPlayerTrump(suit as Suit);
-                      setTimeout(() => router.replace('/game'), 400);
-                    }}
-                    style={({ pressed }) => [
-                      s.suitTile,
-                      pressed && s.suitTilePressed,
-                      { borderColor: `${m.color}40` },
-                    ]}
-                  >
-                    <View style={[s.suitTileInner, { backgroundColor: m.dim }]}>
-                      <Text style={[s.suitTileSymbol, { color: m.color }]}>
-                        {m.symbol}
-                      </Text>
-                      <Text style={[s.suitTileName, { color: `${m.color}99` }]}>
-                        {m.name.toUpperCase()}
-                      </Text>
-                    </View>
-                  </Pressable>
-                </MotiView>
-              );
-            })}
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  // ── Main bid screen ───────────────────────────────────────────────────────
-  const myTurn = state.currentSeat === 'bottom' && state.phase === 'bidding';
-  const topBid = state.highestBid;
-  const topBidder = state.highestBidder;
-
   return (
-    <View style={[s.root, { paddingTop: insets.top }]}>
+    <Box
+      className='flex-1 bg-[#07130D]'
+      style={{ paddingLeft: insets.left, paddingRight: insets.right }}
+    >
+      {/* Background */}
       <LinearGradient
         colors={['#07130D', '#0C2016', '#07130D']}
-        style={StyleSheet.absoluteFill}
+        style={StyleSheet.absoluteFillObject}
       />
 
-      {/* ── Page heading ── */}
-      <View style={[s.pageHead, { marginTop: insets.top + 16 }]}>
-        <Text style={s.pageEyebrow}>ROUND {state.round ?? 1}</Text>
-        <Text style={s.pageTitle}>Bidding</Text>
-      </View>
+      <AnimatePresence exitBeforeEnter>
+        {/* ── LOADING ── */}
+        {hand.length === 0 ? (
+          <Center key='loading' className='flex-1'>
+            <MotiView
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ loop: true, duration: 1400, type: 'timing' }}
+            >
+              <Text className='text-amber-100/40 tracking-[4px] font-bold text-sm uppercase'>
+                Dealing...
+              </Text>
+            </MotiView>
+          </Center>
+        ) : showTrumpPicker ? (
+          /* ── TRUMP PICKER (landscape: horizontal row) ── */
+          <MotiView
+            key='trump'
+            from={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className='flex-1'
+          >
+            <HStack className='flex-1 px-16 items-center justify-center space-x-10'>
+              {/* Label block */}
+              <VStack className='space-y-2 mr-6'>
+                <Text className='text-amber-500 text-[10px] font-bold tracking-[3px] uppercase'>
+                  You won the bid
+                </Text>
+                <Heading className='text-amber-100 text-4xl font-black leading-tight'>
+                  Choose{'\n'}Trump
+                </Heading>
+              </VStack>
 
-      {/* ── Leading bid ── */}
-      {topBidder && topBid > 0 && (
-        <MotiView
-          from={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          style={s.leadBanner}
-        >
-          <Text style={s.leadLabel}>Leading bid</Text>
-          <View style={s.leadRight}>
-            <Text style={s.leadName}>{state.players[topBidder].name}</Text>
-            <Text style={s.leadScore}>{topBid}</Text>
-          </View>
-        </MotiView>
-      )}
+              {/* Suit tiles */}
+              {ALL_SUITS.map((suit, i) => {
+                const m = SUIT_META[suit];
+                return (
+                  <MotiView
+                    key={suit}
+                    from={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 100 }}
+                  >
+                    <Pressable
+                      onPress={() => {
+                        selectPlayerTrump(suit as Suit);
+                        setTimeout(() => router.replace('/game'), 400);
+                      }}
+                      className={`w-20 h-24 rounded-2xl border m-2 border-white/10 items-center justify-center space-y-2 active:scale-95 ${m.bg}`}
+                    >
+                      <Text className={`text-4xl ${m.color}`}>{m.symbol}</Text>
+                      <Text
+                        className={`text-[8px] font-bold tracking-widest uppercase ${m.color} opacity-60`}
+                      >
+                        {m.name}
+                      </Text>
+                    </Pressable>
+                  </MotiView>
+                );
+              })}
+            </HStack>
+          </MotiView>
+        ) : (
+          /* ── BIDDING SCREEN (landscape layout) ── */
+          <Box key='bidding' className='flex-1'>
+            {/*
+              LANDSCAPE LAYOUT:
+              ┌─────────────────────────────────────────────────────┐
+              │  LEFT    │       CENTER MODAL        │    RIGHT     │
+              │  player  │  ┌─────────────────────┐  │   player    │
+              │          │  │   Bidding modal      │  │            │
+              │          │  └─────────────────────┘  │            │
+              │          │         TOP player         │            │
+              ├──────────┴───────────────────────────┴────────────┤
+              │                  Player hand fan                   │
+              └─────────────────────────────────────────────────────┘
+            */}
 
-      {/* ── Bot seats ── */}
-      <View style={[s.arena, { paddingBottom: handBottom }]}>
-        {/* Top bot */}
-        <View style={s.arenaTop}>
-          <BotRow name={state.players.top.name} bid={state.players.top.bid} />
-        </View>
-        {/* Side bots */}
-        <View style={s.arenaMiddle}>
-          <BotRow name={state.players.left.name} bid={state.players.left.bid} />
-          <View style={s.arenaCrest}>
-            <Text style={s.crestTxt}>♣ ♥{'\n'}♦ ♠</Text>
-          </View>
-          <BotRow
-            name={state.players.right.name}
-            bid={state.players.right.bid}
-          />
-        </View>
-      </View>
+            {/* ── TABLE AREA (top ~65% of screen) ── */}
+            <HStack className='flex-1' style={{ maxHeight: SCREEN_H * 0.65 }}>
+              {/* Left player */}
+              <Center style={{ width: SCREEN_W * 0.12 }}>
+                <BotPill
+                  name={state.players.left.name}
+                  bid={state.players.left.bid}
+                />
+              </Center>
 
-      {/* ── Hand preview ── */}
-      <View style={[s.handPreview, { bottom: bidPanelBottom }]}>
-        <Text style={s.handLabel}>YOUR HAND</Text>
-        <View style={s.handCards}>
-          {sorted.map((card, i) => (
+              {/* Center: top player + modal stacked */}
+              <VStack className='flex-1 items-center justify-around py-3'>
+                {/* Top player */}
+                <BotPill
+                  name={state.players.top.name}
+                  bid={state.players.top.bid}
+                />
+
+                {/* ── BIDDING MODAL ── */}
+                <MotiView
+                  from={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', damping: 20 }}
+                  style={{
+                    width: SCREEN_W * 0.44,
+                    borderRadius: 20,
+                    overflow: 'hidden',
+                    borderWidth: 1.5,
+                    borderColor: 'rgba(180,140,40,0.4)',
+                  }}
+                >
+                  {/* Modal inner gradient */}
+                  <LinearGradient
+                    colors={['#1C1400', '#120E00', '#1A1600']}
+                    style={{ padding: 16, borderRadius: 19 }}
+                  >
+                    {/* Modal header */}
+                    <VStack
+                      className='items-center mb-3 pb-3'
+                      style={{
+                        borderBottomWidth: 1,
+                        borderBottomColor: 'rgba(100,80,20,0.3)',
+                      }}
+                    >
+                      <Text className='text-amber-500/50 text-[9px] font-bold tracking-[3px] uppercase mb-0.5'>
+                        Round {state.round ?? 1} · Your Turn
+                      </Text>
+                      <Heading className='text-amber-100 text-xl font-extrabold tracking-tight'>
+                        Place Your Bid
+                      </Heading>
+                      {state.highestBidder && (
+                        <HStack className='items-center space-x-1 mt-1'>
+                          <Text className='text-[10px] text-amber-100/30'>
+                            Leading:
+                          </Text>
+                          <Text className='text-[10px] text-amber-400 font-bold'>
+                            {state.players[state.highestBidder].name} —{' '}
+                            {state.highestBid}
+                          </Text>
+                        </HStack>
+                      )}
+                    </VStack>
+
+                    {/* Bid number tiles */}
+                    {state.currentSeat === 'bottom' ? (
+                      <>
+                        <HStack className='justify-center mb-4' space='md'>
+                          {[7, 8, 9, 10].map((n) => {
+                            const active = selectedBid === n;
+                            const disabled = n <= state.highestBid;
+                            return (
+                              <Pressable
+                                key={n}
+                                disabled={disabled}
+                                onPress={() => setSelectedBid(n)}
+                                style={{
+                                  width: 52,
+                                  height: 52,
+                                  borderRadius: 12,
+                                  borderWidth: active ? 2 : 1.5,
+                                  borderColor: active
+                                    ? '#C8A840'
+                                    : 'rgba(255,255,255,0.08)',
+                                  backgroundColor: active
+                                    ? 'rgba(200,168,64,0.15)'
+                                    : 'rgba(255,255,255,0.03)',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  opacity: disabled ? 0.15 : 1,
+                                }}
+                              >
+                                <Text
+                                  style={{
+                                    fontSize: 20,
+                                    fontWeight: '900',
+                                    color: active
+                                      ? '#F0D080'
+                                      : 'rgba(240,208,128,0.35)',
+                                  }}
+                                >
+                                  {n}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </HStack>
+
+                        {/* Action buttons */}
+                        <HStack className='space-x-2' space='lg'>
+                          <Button
+                            variant='outline'
+                            className='border-white/10 h-11 px-5 rounded-xl'
+                            onPress={() => passPlayerBid()}
+                          >
+                            <ButtonText className='text-amber-100/30 font-bold uppercase tracking-widest text-[10px]'>
+                              Pass
+                            </ButtonText>
+                          </Button>
+                          <Button
+                            className='flex-1 h-11 rounded-xl active:opacity-80'
+                            style={{
+                              backgroundColor: selectedBid
+                                ? '#C8A840'
+                                : 'rgba(200,168,64,0.15)',
+                            }}
+                            isDisabled={!selectedBid}
+                            onPress={() =>
+                              selectedBid && placePlayerBid(selectedBid)
+                            }
+                          >
+                            <ButtonText
+                              style={{
+                                color: selectedBid
+                                  ? '#1A1000'
+                                  : 'rgba(200,168,64,0.4)',
+                                fontWeight: '900',
+                                fontSize: 12,
+                                letterSpacing: 1,
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              {selectedBid
+                                ? `Bid  ${selectedBid}`
+                                : 'Select a bid'}
+                            </ButtonText>
+                          </Button>
+                        </HStack>
+                      </>
+                    ) : (
+                      /* Waiting state */
+                      <Center className='py-3'>
+                        <HStack className='items-center space-x-2'>
+                          <MotiView
+                            animate={{ opacity: [0.2, 1, 0.2] }}
+                            transition={{ loop: true, duration: 900 }}
+                            className='w-1.5 h-1.5 bg-amber-500 rounded-full'
+                          />
+                          <Text className='text-amber-100/30 text-[10px] font-bold tracking-widest uppercase'>
+                            Waiting...
+                          </Text>
+                        </HStack>
+                      </Center>
+                    )}
+                  </LinearGradient>
+                </MotiView>
+              </VStack>
+
+              {/* Right player */}
+              <Center style={{ width: SCREEN_W * 0.12 }}>
+                <BotPill
+                  name={state.players.right.name}
+                  bid={state.players.right.bid}
+                />
+              </Center>
+            </HStack>
+
+            {/* ── PLAYER HAND FAN ── */}
+            <FannedHand cards={sorted} />
+          </Box>
+        )}
+      </AnimatePresence>
+    </Box>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   Fanned hand — cards arc upward from bottom
+───────────────────────────────────────────── */
+function FannedHand({
+  cards,
+}: {
+  cards: ReturnType<typeof sortHandAlternating>;
+}) {
+  const count = cards.length;
+  if (count === 0) return null;
+
+  const fanHeight = SCREEN_H * 0.35;
+  const overlapStep = Math.min(CARD_W * 1, (SCREEN_W * 2) / count);
+
+  return (
+    <View
+      style={{
+        height: fanHeight,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        overflow: 'visible',
+      }}
+    >
+      {/* Card fan container */}
+      <View
+        style={{
+          position: 'relative',
+          width: overlapStep * (count - 1) + CARD_W,
+          height: CARD_H + 30,
+        }}
+      >
+        {cards.map((card, i) => {
+          // Distribute rotation evenly across FAN_SPREAD_DEG
+          const rotateDeg =
+            count > 1
+              ? -FAN_SPREAD_DEG / 2 + (i / (count - 1)) * FAN_SPREAD_DEG
+              : 0;
+
+          // Cards arc upward: middle cards rise more
+          const arcRise = Math.cos((rotateDeg * Math.PI) / 180) * 18 - 18;
+
+          return (
             <MotiView
               key={card.id}
-              from={{ opacity: 0, translateY: 16 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              transition={{ delay: i * 38, type: 'spring', damping: 15 }}
-              style={[s.handCard, { left: i * (CARD_W + 4) }]}
+              from={{ translateY: 80, opacity: 0 }}
+              animate={{ translateY: arcRise, opacity: 1 }}
+              transition={{ delay: i * 30, type: 'spring', damping: 18 }}
+              style={{
+                position: 'absolute',
+                left: i * overlapStep,
+                bottom: 0,
+                transform: [{ rotate: `${rotateDeg}deg` }],
+                transformOrigin: 'bottom center',
+                zIndex: i,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.5,
+                shadowRadius: 6,
+              }}
             >
               <Card card={card} />
             </MotiView>
-          ))}
-        </View>
+          );
+        })}
       </View>
-
-      {/* ── Bid panel ── */}
-      {myTurn && (
-        <MotiView
-          from={{ translateY: 80, opacity: 0 }}
-          animate={{ translateY: 0, opacity: 1 }}
-          transition={{ type: 'spring', damping: 18, delay: 150 }}
-          style={[s.bidPanel, { paddingBottom: insets.bottom + 20 }]}
-        >
-          {/* Fade scrim */}
-          <LinearGradient
-            colors={['rgba(7,19,13,0)', 'rgba(7,19,13,0.98)']}
-            style={StyleSheet.absoluteFill}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 0.3 }}
-            pointerEvents='none'
-          />
-
-          <View style={s.bidInner}>
-            {/* Bid chips */}
-            <View style={s.chipsRow}>
-              {[7, 8, 9, 10].map((n) => {
-                const sel = selectedBid === n;
-                const dis = n <= topBid && topBid > 0;
-                return (
-                  <Pressable
-                    key={n}
-                    disabled={dis}
-                    onPress={() => setSelectedBid(n)}
-                  >
-                    <MotiView
-                      animate={{
-                        scale: sel ? 1.08 : 1,
-                        borderColor: sel
-                          ? '#C9A84C'
-                          : dis
-                            ? 'rgba(255,255,255,0.06)'
-                            : 'rgba(201,168,76,0.22)',
-                        backgroundColor: sel
-                          ? 'rgba(201,168,76,0.15)'
-                          : 'transparent',
-                      }}
-                      transition={{ type: 'spring', damping: 14 }}
-                      style={s.chip}
-                    >
-                      <Text
-                        style={[
-                          s.chipNum,
-                          sel && s.chipNumSel,
-                          dis && s.chipNumDis,
-                        ]}
-                      >
-                        {n}
-                      </Text>
-                      {sel && <View style={s.chipDot} />}
-                    </MotiView>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            {/* Actions */}
-            <View style={s.actions}>
-              <Pressable
-                style={({ pressed }) => [
-                  s.passBtn,
-                  pressed && { opacity: 0.6 },
-                ]}
-                onPress={() => passPlayerBid()}
-              >
-                <Text style={s.passTxt}>Pass</Text>
-              </Pressable>
-
-              <Pressable
-                style={[s.confirmBtn, !selectedBid && { opacity: 0.35 }]}
-                disabled={!selectedBid}
-                onPress={() => {
-                  if (selectedBid) placePlayerBid(selectedBid);
-                }}
-              >
-                <LinearGradient
-                  colors={['#D4AF37', '#B8922A']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={s.confirmGrad}
-                >
-                  <Text style={s.confirmTxt}>
-                    {selectedBid ? `Bid ${selectedBid}` : 'Select a bid'}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </View>
-        </MotiView>
-      )}
-
-      {/* Waiting state */}
-      {state.phase === 'bidding' && !myTurn && (
-        <View style={[s.waitBar, { bottom: insets.bottom + 20 }]}>
-          <MotiView
-            animate={{ opacity: [1, 0.2, 1] }}
-            transition={{ loop: true, duration: 900, type: 'timing' }}
-            style={s.waitDot}
-          />
-          <Text style={s.waitTxt}>Waiting for bids…</Text>
-        </View>
-      )}
     </View>
   );
 }
 
-// ── Bot row component ─────────────────────────────────────────────────────────
-function BotRow({ name, bid }: { name: string; bid: number | null }) {
-  const hasBid = bid !== null;
+/* ─────────────────────────────────────────────
+   Bot player pill — compact for landscape
+───────────────────────────────────────────── */
+function BotPill({ name, bid }: { name: string; bid: number | null }) {
   const isPassed = bid === 0;
-  const label = bid === null ? '…' : bid === 0 ? 'Pass' : String(bid);
-
   return (
-    <View style={b.wrap}>
-      <View style={b.avatar}>
-        <Text style={b.avatarTxt}>{name[0]}</Text>
-      </View>
-      <Text style={b.name}>{name}</Text>
-      <MotiView
-        animate={{
-          opacity: hasBid ? 1 : 0.4,
-          backgroundColor:
-            hasBid && !isPassed ? 'rgba(201,168,76,0.1)' : 'transparent',
+    <VStack className='items-center space-y-1.5'>
+      <View
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: 18,
+          backgroundColor: 'rgba(255,255,255,0.04)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.08)',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
-        style={[b.bidPill, isPassed && b.bidPillPassed]}
+      >
+        <Text className='text-amber-100/40 font-bold text-sm'>{name[0]}</Text>
+      </View>
+
+      <Text className='text-[9px] text-amber-100/25 font-bold uppercase tracking-tight'>
+        {name}
+      </Text>
+
+      <View
+        style={{
+          paddingHorizontal: 8,
+          paddingVertical: 2,
+          borderRadius: 20,
+          backgroundColor:
+            bid && !isPassed ? 'rgba(200,168,64,0.12)' : 'transparent',
+          borderWidth: bid && !isPassed ? 1 : 0,
+          borderColor: 'rgba(200,168,64,0.2)',
+          minWidth: 32,
+          alignItems: 'center',
+        }}
       >
         <Text
-          style={[
-            b.bidTxt,
-            hasBid && !isPassed && b.bidTxtActive,
-            isPassed && b.bidTxtPassed,
-          ]}
+          style={{
+            fontSize: bid && !isPassed ? 13 : 10,
+            fontWeight: '900',
+            color:
+              bid && !isPassed
+                ? '#C8A840'
+                : isPassed
+                  ? 'rgba(240,208,128,0.15)'
+                  : 'rgba(240,208,128,0.12)',
+          }}
         >
-          {label}
+          {bid === null ? '···' : isPassed ? 'PASS' : bid}
         </Text>
-      </MotiView>
-    </View>
+      </View>
+    </VStack>
   );
 }
-
-const b = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: 4 },
-  avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarTxt: {
-    fontSize: 13,
-    color: 'rgba(232,213,163,0.5)',
-    fontWeight: '700',
-  },
-  name: { fontSize: 11, color: 'rgba(232,213,163,0.5)', fontWeight: '500' },
-  bidPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 10,
-    minWidth: 36,
-    alignItems: 'center',
-  },
-  bidPillPassed: {},
-  bidTxt: { fontSize: 13, color: 'rgba(232,213,163,0.25)', fontWeight: '600' },
-  bidTxtActive: { color: '#C9A84C', fontSize: 16, fontWeight: '800' },
-  bidTxtPassed: {
-    color: 'rgba(232,213,163,0.3)',
-    fontSize: 11,
-    letterSpacing: 0.5,
-  },
-});
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  root: { flex: 1 },
-  centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadTxt: {
-    fontSize: 15,
-    color: 'rgba(232,213,163,0.4)',
-    letterSpacing: 3,
-    fontWeight: '600',
-  },
-
-  // Page heading
-  pageHead: { paddingHorizontal: 24, marginBottom: 4 },
-  pageEyebrow: {
-    fontSize: 9,
-    color: '#C9A84C',
-    fontWeight: '700',
-    letterSpacing: 2.5,
-    marginBottom: 2,
-  },
-  pageTitle: {
-    fontSize: 34,
-    color: '#E8D5A3',
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-
-  // Leading bid banner
-  leadBanner: {
-    marginHorizontal: 24,
-    marginBottom: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.15)',
-    borderRadius: 12,
-  },
-  leadLabel: {
-    fontSize: 10,
-    color: 'rgba(232,213,163,0.4)',
-    letterSpacing: 1,
-    fontWeight: '600',
-  },
-  leadRight: { flexDirection: 'row', alignItems: 'baseline', gap: 10 },
-  leadName: { fontSize: 12, color: 'rgba(232,213,163,0.6)', fontWeight: '500' },
-  leadScore: { fontSize: 28, color: '#C9A84C', fontWeight: '800' },
-
-  // Bot arena
-  arena: { flex: 1, justifyContent: 'space-between', paddingHorizontal: 20 },
-  arenaTop: { alignItems: 'center', paddingTop: 4 },
-  arenaMiddle: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flex: 1,
-  },
-  arenaCrest: { alignItems: 'center' },
-  crestTxt: {
-    fontSize: 18,
-    color: 'rgba(201,168,76,0.08)',
-    letterSpacing: 4,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-
-  // Hand preview
-  handPreview: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingBottom: 4,
-  },
-  handLabel: {
-    fontSize: 8,
-    color: 'rgba(232,213,163,0.28)',
-    letterSpacing: 2,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  handCards: { flexDirection: 'row', height: HAND_H },
-  handCard: { position: 'absolute' },
-
-  // Bid panel
-  bidPanel: { position: 'absolute', bottom: 0, left: 0, right: 0 },
-  bidInner: { paddingTop: 24, paddingHorizontal: 20, gap: 14 },
-
-  chipsRow: { flexDirection: 'row', justifyContent: 'center', gap: 14 },
-  chip: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 4,
-  },
-  chipNum: { fontSize: 26, color: 'rgba(232,213,163,0.4)', fontWeight: '700' },
-  chipNumSel: { color: '#C9A84C', fontWeight: '800' },
-  chipNumDis: { color: 'rgba(255,255,255,0.1)', fontWeight: '400' },
-  chipDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#C9A84C' },
-
-  actions: { flexDirection: 'row', gap: 10 },
-  passBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(201,168,76,0.15)',
-    justifyContent: 'center',
-  },
-  passTxt: {
-    fontSize: 13,
-    color: 'rgba(232,213,163,0.4)',
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-
-  confirmBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
-  confirmGrad: { paddingVertical: 16, alignItems: 'center' },
-  confirmTxt: {
-    fontSize: 14,
-    color: '#07130D',
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-
-  waitBar: {
-    position: 'absolute',
-    alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  waitDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(201,168,76,0.5)',
-  },
-  waitTxt: { fontSize: 12, color: 'rgba(232,213,163,0.38)', letterSpacing: 1 },
-
-  // Trump picker
-  trumpScreen: {
-    flex: 1,
-    paddingHorizontal: 28,
-    justifyContent: 'center',
-    gap: 40,
-  },
-  trumpEyebrow: {
-    fontSize: 9,
-    color: '#C9A84C',
-    fontWeight: '700',
-    letterSpacing: 3,
-    marginBottom: 8,
-  },
-  trumpHeading: {
-    fontSize: 44,
-    color: '#E8D5A3',
-    fontWeight: '800',
-    lineHeight: 46,
-    letterSpacing: -1,
-  },
-  suitRow: { flexDirection: 'row', gap: 12 },
-  suitTile: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
-  suitTilePressed: { opacity: 0.75, transform: [{ scale: 0.96 }] },
-  suitTileInner: {
-    width: 74,
-    height: 100,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  suitTileSymbol: { fontSize: 38 },
-  suitTileName: { fontSize: 7, fontWeight: '800', letterSpacing: 2 },
-});
