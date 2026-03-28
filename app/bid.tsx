@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '@/src/components/cards/Card';
@@ -55,6 +55,12 @@ export default function BidScreen() {
   // are handled automatically in dealRemainingCards).
   const showTrumpPicker =
     state.phase === 'dealing2' && state.highestBidder === 'bottom';
+
+  useEffect(() => {
+    if (state.phase === 'playing') {
+      router.replace('/game');
+    }
+  }, [state.phase, router]);
 
   if (playerHand.length === 0) {
     return (

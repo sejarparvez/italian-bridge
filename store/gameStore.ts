@@ -192,6 +192,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         trump
       );
       set({ state: nextState });
+      if (nextState.phase === 'playing' && nextState.currentSeat !== 'bottom') {
+        setTimeout(() => get().advanceAI(), 500 / get().animSpeed);
+      }
     } else {
       // Human bidder: stay in dealing2 so the trump-selection UI renders
       set({
