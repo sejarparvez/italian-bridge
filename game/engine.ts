@@ -129,6 +129,16 @@ export function playCard(
   seat: SeatPosition,
   card: Card
 ): GameState {
+  // Guard: card must belong to this player's hand
+  if (!state.players[seat].hand.some(c => c.id === card.id)) {
+    return state;
+  }
+
+  // Guard: player must not have already played in this trick
+  if (state.currentTrick.cards.some(tc => tc.player === seat)) {
+    return state;
+  }
+
   if (!isValidCard(card, state.players[seat].hand, state.currentTrick, state.trumpSuit, state.trumpRevealed)) {
     return state;
   }

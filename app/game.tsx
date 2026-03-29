@@ -1,3 +1,11 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
+import { MotiView } from 'moti';
+import type React from 'react';
+import { useMemo, useState } from 'react';
+import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '@/components/cards/Card';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
@@ -10,13 +18,6 @@ import { getPlayableCards } from '@/game/trick';
 import type { SeatPosition } from '@/game/types';
 import { useGameStore } from '@/store/gameStore';
 import { sortHandAlternating } from '@/utils/card-sort';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
-import { MotiView } from 'moti';
-import { useMemo, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -80,29 +81,49 @@ const slotFor = (p: SeatPosition) => {
         : { x: o * 1.2, y: 0 };
 };
 
-/** Format a player's bid for display. null = not yet bid, 0 = passed, 7-10 = bid value */
-function formatBid(bid: number | null): string {
-  if (bid === null) return '—';
-  if (bid === 0) return 'PASS';
-  return String(bid);
-}
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function HudPill({
-  label,
-  value,
-  accent,
+/**
+ * Score pill shown on one player per team.
+ * Shows tricks taken vs the team target.
+ *
+ * Bidding team: target = bid amount (e.g. 0/8)
+ * Opposing team: target = 4 (minimum to score, always shown as X/4)
+ *
+ * Only rendered on the "primary" seat for each team:
+ *   BT team → bottom (human)
+ *   LR team → right (opponent)
+ * Top and left seats show no score badge — avoids redundancy in a team game.
+ */
+function TeamScoreBadge({
+  tricks,
+  bid,
+  isBiddingTeam,
+  active,
 }: {
-  label: string;
-  value: string;
-  accent?: boolean;
+  tricks: number; // combined team tricks taken this round
+  bid: number | null; // bid if this is the bidding team, null if opposing
+  isBiddingTeam: boolean;
+  active: boolean;
 }) {
+  // Bidding team target = their bid. Opposing team target = 4 (always).
+  const numericTarget = isBiddingTeam ? (bid ?? 0) : 4;
+  const target = isBiddingTeam ? (bid ?? '?') : 4;
+
+  // Colour cue: gold when on track or ahead, red when behind with few tricks left
+  // tricks === 0 and target unknown — stay neutral
+  const onTrack = numericTarget === 0 || tricks >= numericTarget;
+  const valueColor = active
+    ? C.gold
+    : onTrack
+      ? 'rgba(100,200,120,0.85)' // soft green — on track
+      : 'rgba(220,100,80,0.85)'; // soft red — behind target
+
   return (
-    <View style={[styles.hudPill, accent && styles.hudPillAccent]}>
-      <Text style={styles.hudLabel}>{label}</Text>
-      <Text style={[styles.hudValue, accent && { color: C.gold }]}>
-        {value}
+    <View style={[styles.trickBadge, active && styles.trickBadgeActive]}>
+      <Text style={[styles.trickText, { color: valueColor }]}>
+        {tricks}
+        <Text style={{ opacity: 0.45, color: 'rgba(240,220,160,0.35)' }}>
+          /{target}
+        </Text>
       </Text>
     </View>
   );
@@ -110,21 +131,17 @@ function HudPill({
 
 function OpponentSeat({
   name,
-  tricks,
-  bid,
   active,
   orientation = 'vertical',
+  scoreBadge,
 }: {
   name: string;
-  tricks: number;
-  bid: number | null;
   active: boolean;
   orientation?: 'vertical' | 'horizontal';
+  /** If provided, renders a TeamScoreBadge below the name */
+  scoreBadge?: React.ReactNode;
 }) {
   const isH = orientation === 'horizontal';
-  // bid === 0 means passed — show differently to bid === null (not yet bid)
-  const isPassed = bid === 0;
-  const hasBid = bid !== null && !isPassed;
 
   return (
     <View
@@ -159,13 +176,7 @@ function OpponentSeat({
         >
           {name}
         </Text>
-        <View style={[styles.trickBadge, active && styles.trickBadgeActive]}>
-          <Text style={[styles.trickText, active && { color: C.gold }]}>
-            {tricks}
-            {/* FIX: formatBid handles null / 0 / 7-10 correctly */}
-            <Text style={{ opacity: 0.4 }}> / {formatBid(bid)}</Text>
-          </Text>
-        </View>
+        {scoreBadge}
       </View>
 
       {active && (
@@ -179,22 +190,158 @@ function OpponentSeat({
   );
 }
 
+/** Compact team score panel — sits in the HUD alongside trump pill */
+function ScorePanel({
+  btScore,
+  lrScore,
+}: {
+  btScore: number;
+  lrScore: number;
+}) {
+  const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
+  return (
+    <View style={styles.scorePanel}>
+      <View style={styles.scorePanelRow}>
+        <Text style={styles.scorePanelLabel}>US</Text>
+        <Text
+          style={[
+            styles.scorePanelValue,
+            btScore > 0 && { color: C.gold },
+            btScore <= -20 && { color: C.danger },
+          ]}
+        >
+          {fmt(btScore)}
+        </Text>
+      </View>
+      <View style={styles.scorePanelDivider} />
+      <View style={styles.scorePanelRow}>
+        <Text style={styles.scorePanelLabel}>THEM</Text>
+        <Text
+          style={[
+            styles.scorePanelValue,
+            lrScore > 0 && { color: 'rgba(255,255,255,0.5)' },
+            lrScore <= -20 && { color: C.danger },
+          ]}
+        >
+          {fmt(lrScore)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 /**
  * Trump peek button — shown only to the human player when:
  * - they created the trump (trumpCreator === 'bottom')
  * - trump has not been revealed yet
  * Tapping it calls revealTrump so all players see the suit.
  */
-function TrumpPeekButton({ onPeek }: { onPeek: () => void }) {
+
+/**
+ * Mini playing card that shows the trump suit.
+ *
+ * States:
+ * - Hidden (face-down): shown when trump hasn't been revealed but user CAN peek.
+ *   Tapping flips it to reveal.
+ * - Revealed: shows suit symbol and name, styled like a real card face.
+ *
+ * Red suits (hearts/diamonds) get a warm card face.
+ * Black suits (clubs/spades) get a cool card face.
+ */
+function TrumpMiniCard({
+  suit,
+  revealed,
+  canPeek,
+  onPeek,
+}: {
+  suit: string;
+  revealed: boolean;
+  canPeek: boolean;
+  onPeek?: () => void;
+}) {
+  const isRed = suit === 'hearts' || suit === 'diamonds';
+  const symbol = SUIT_SYMBOLS[suit as keyof typeof SUIT_SYMBOLS];
+
+  // Card face colours
+  const faceColor = isRed ? '#FFF5F5' : '#F5F7FF';
+  const suitColor = isRed ? '#D42B2B' : '#1A1A2E';
+  const borderColor = isRed ? 'rgba(212,43,43,0.3)' : 'rgba(26,26,46,0.25)';
+
+  if (!revealed && canPeek) {
+    // Face-down state — tap to peek
+    return (
+      <MotiView
+        from={{ opacity: 0, scale: 0.7, rotateY: '90deg' }}
+        animate={{ opacity: 1, scale: 1, rotateY: '0deg' }}
+        transition={{ type: 'spring', damping: 16 }}
+      >
+        <Pressable onPress={onPeek} style={styles.trumpCard}>
+          {/* Card back — green felt pattern */}
+          <LinearGradient
+            colors={['#1A3A22', '#0F2216', '#1A3A22']}
+            style={[StyleSheet.absoluteFillObject, { borderRadius: 7 }]}
+          />
+          <View style={styles.trumpCardBackPattern}>
+            {[...Array(3)].map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: this is fine
+              <View key={i} style={styles.trumpCardBackLine} />
+            ))}
+          </View>
+          <Text style={styles.trumpCardBackLabel}>TAP TO PEEK</Text>
+        </Pressable>
+      </MotiView>
+    );
+  }
+
+  if (!revealed) return null;
+
+  // Face-up state
   return (
     <MotiView
-      from={{ opacity: 0, scale: 0.85 }}
+      from={{ opacity: 0, scale: 0.7 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'spring', damping: 18 }}
+      transition={{ type: 'spring', damping: 16 }}
     >
-      <Pressable style={styles.peekBtn} onPress={onPeek}>
-        <Text style={styles.peekBtnText}>👁 Peek at Trump</Text>
-      </Pressable>
+      <View
+        style={[styles.trumpCard, { backgroundColor: faceColor, borderColor }]}
+      >
+        {/* Top-left pip */}
+        <Text style={[styles.trumpCardPip, { color: suitColor }]}>
+          {symbol}
+        </Text>
+
+        {/* Center symbol */}
+        <Text style={[styles.trumpCardCenter, { color: suitColor }]}>
+          {symbol}
+        </Text>
+
+        {/* Bottom-right pip (rotated) */}
+        <Text
+          style={[
+            styles.trumpCardPip,
+            styles.trumpCardPipBottom,
+            { color: suitColor },
+          ]}
+        >
+          {symbol}
+        </Text>
+
+        {/* Suit name label */}
+        <View
+          style={[
+            styles.trumpCardLabel,
+            {
+              backgroundColor: isRed
+                ? 'rgba(212,43,43,0.1)'
+                : 'rgba(26,26,46,0.08)',
+            },
+          ]}
+        >
+          <Text style={[styles.trumpCardLabelText, { color: suitColor }]}>
+            TRUMP
+          </Text>
+        </View>
+      </View>
     </MotiView>
   );
 }
@@ -215,13 +362,25 @@ export default function GameScreen() {
     trumpSuit,
     trumpRevealed,
     trumpCreator,
-    round,
     phase,
     teamScores,
   } = state;
 
   const isPlayerTurn = currentSeat === 'bottom';
   const isPlayerActive = phase === 'playing' && isPlayerTurn;
+
+  // Team trick counts for score badges
+  const btTricks = players.bottom.tricksTaken + players.top.tricksTaken;
+  const lrTricks = players.left.tricksTaken + players.right.tricksTaken;
+
+  // Which team holds the bid this round
+  const bidderTeam = state.highestBidder
+    ? players[state.highestBidder].team
+    : null;
+  const btIsBidding = bidderTeam === 'BT';
+  const lrIsBidding = bidderTeam === 'LR';
+  // The winning bid amount (used for score badge target)
+  const winningBid = state.highestBid > 0 ? state.highestBid : null;
 
   // FIX: canPeek uses trumpCreator from state (added in selectTrump) rather
   // than a hardcoded check. Only show peek button if human created the trump
@@ -247,7 +406,13 @@ export default function GameScreen() {
     trumpRevealed,
   ]);
 
-  const hand = sortHandAlternating(players.bottom.hand);
+  // Deduplicate by id before sorting — guards against duplicate entries in state
+  // that can appear if playCard is called twice for the same card (race condition
+  // between human press and state update).
+  const uniqueHand = players.bottom.hand.filter(
+    (card, idx, arr) => arr.findIndex((c) => c.id === card.id) === idx,
+  );
+  const hand = sortHandAlternating(uniqueHand);
   const layouts = getHandLayout(hand.length);
 
   // ── Phase: dealing2 (waiting for second deal / trump reveal animation) ──────
@@ -310,7 +475,7 @@ export default function GameScreen() {
                 : 'Round Summary'}
             </Text>
             <Text style={styles.endTitle}>
-              {isGameEnd ? 'Game Over' : `Round ${round}`}
+              {isGameEnd ? 'Game Over' : 'Round Over'}
             </Text>
           </VStack>
 
@@ -440,40 +605,22 @@ export default function GameScreen() {
       {/* ── HUD ── */}
       <View style={[styles.hud, { top: insets.top + 8 }]}>
         <HStack style={{ gap: 8, alignItems: 'center' }}>
-          <HudPill label='RND' value={String(round)} />
+          {/* RND removed — game is score-driven, not round-count-driven */}
 
-          {/* FIX: show trump pill when revealed OR when user can peek (they know it) */}
+          {/* Trump mini-card — shown when revealed or when user can peek */}
           {trumpSuit && (trumpRevealed || canPeek) && (
-            <MotiView
-              from={{ opacity: 0, scale: 0.7 }}
-              animate={{ opacity: 1, scale: 1 }}
-            >
-              <HudPill
-                label={trumpRevealed ? 'TRUMP' : 'TRUMP 👁'}
-                value={SUIT_SYMBOLS[trumpSuit]}
-                accent
-              />
-            </MotiView>
+            <TrumpMiniCard
+              suit={trumpSuit}
+              revealed={trumpRevealed}
+              canPeek={canPeek}
+              onPeek={canPeek && revealTrump() ? revealTrump : undefined}
+            />
           )}
 
-          {isPlayerActive && (
-            <MotiView
-              from={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={styles.yourTurnBadge}
-            >
-              <MotiView
-                animate={{ opacity: [0.4, 1, 0.4] }}
-                transition={{ loop: true, duration: 1000, type: 'timing' }}
-                style={styles.yourTurnDot}
-              />
-              <Text style={styles.yourTurnText}>Your turn</Text>
-            </MotiView>
-          )}
+          <ScorePanel btScore={teamScores.BT} lrScore={teamScores.LR} />
         </HStack>
 
-        {/* FIX: peek button shown in HUD when canPeek */}
-        {canPeek && revealTrump && <TrumpPeekButton onPeek={revealTrump} />}
+        {/* Peek button merged into TrumpMiniCard — tap the card to reveal */}
 
         <Menu
           offset={10}
@@ -522,10 +669,9 @@ export default function GameScreen() {
       <HStack style={styles.tableRow}>
         {/* Left opponent */}
         <View style={styles.sideSlot}>
+          {/* Left = LR team secondary seat — no score badge (shown on right) */}
           <OpponentSeat
             name={players.left.name}
-            tricks={players.left.tricksTaken}
-            bid={players.left.bid}
             active={currentSeat === 'left'}
           />
         </View>
@@ -534,10 +680,9 @@ export default function GameScreen() {
         <View style={styles.feltCenter}>
           {/* Top opponent */}
           <View style={styles.topSlot}>
+            {/* Top = BT team secondary seat — no score badge (shown on bottom/user bar) */}
             <OpponentSeat
               name={players.top.name}
-              tricks={players.top.tricksTaken}
-              bid={players.top.bid}
               active={currentSeat === 'top'}
               orientation='horizontal'
             />
@@ -595,11 +740,18 @@ export default function GameScreen() {
 
         {/* Right opponent */}
         <View style={styles.sideSlot}>
+          {/* Right = LR team primary seat — shows combined LR team score badge */}
           <OpponentSeat
             name={players.right.name}
-            tricks={players.right.tricksTaken}
-            bid={players.right.bid}
             active={currentSeat === 'right'}
+            scoreBadge={
+              <TeamScoreBadge
+                tricks={lrTricks}
+                bid={lrIsBidding ? winningBid : null}
+                isBiddingTeam={lrIsBidding}
+                active={currentSeat === 'right'}
+              />
+            }
           />
         </View>
       </HStack>
@@ -620,23 +772,29 @@ export default function GameScreen() {
           </View>
           <VStack>
             <Text style={styles.playerName}>{players.bottom.name}</Text>
-            {/* FIX: formatBid used here too for consistency */}
-            <Text style={styles.playerStats}>
-              {players.bottom.tricksTaken}
-              <Text style={{ opacity: 0.4 }}>
-                {' '}
-                / {formatBid(players.bottom.bid)}
-              </Text>
-            </Text>
+            {/* BT team primary seat — shows combined BT team tricks vs target */}
+            <TeamScoreBadge
+              tricks={btTricks}
+              bid={btIsBidding ? winningBid : null}
+              isBiddingTeam={btIsBidding}
+              active={isPlayerActive}
+            />
           </VStack>
         </HStack>
 
         {isPlayerActive && (
-          <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <Text style={styles.hintText}>
-              {playableIds.size} card{playableIds.size !== 1 ? 's' : ''}{' '}
-              playable
-            </Text>
+          <MotiView
+            from={{ opacity: 0, translateY: 6 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 18 }}
+            style={styles.yourTurnBadge}
+          >
+            <MotiView
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ loop: true, duration: 1000, type: 'timing' }}
+              style={styles.yourTurnDot}
+            />
+            <Text style={styles.yourTurnText}>Your turn</Text>
           </MotiView>
         )}
       </View>
@@ -1097,5 +1255,115 @@ const styles = StyleSheet.create({
   // ── Danger colours for menu ──
   dangerDim: {
     color: C.dangerDim,
+  },
+
+  // ── Trump mini card ──
+  trumpCard: {
+    width: 44,
+    height: 62,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#F5F7FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 5,
+    elevation: 6,
+  },
+  trumpCardBackPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    padding: 4,
+  },
+  trumpCardBackLine: {
+    width: '80%',
+    height: 1,
+    backgroundColor: 'rgba(200,168,64,0.2)',
+    borderRadius: 1,
+  },
+  trumpCardBackLabel: {
+    fontSize: 7,
+    color: 'rgba(200,168,64,0.6)',
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    lineHeight: 10,
+  },
+  trumpCardPip: {
+    position: 'absolute',
+    top: 4,
+    left: 5,
+    fontSize: 10,
+    fontWeight: '900',
+    lineHeight: 12,
+  },
+  trumpCardPipBottom: {
+    top: undefined,
+    left: undefined,
+    bottom: 4,
+    right: 5,
+    transform: [{ rotate: '180deg' }],
+  },
+  trumpCardCenter: {
+    fontSize: 26,
+    fontWeight: '900',
+    lineHeight: 30,
+  },
+  trumpCardLabel: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  trumpCardLabelText: {
+    fontSize: 6,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+
+  // ── Score panel (HUD) ──
+  scorePanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: C.white10,
+    backgroundColor: C.white05,
+    overflow: 'hidden',
+  },
+  scorePanelRow: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignItems: 'center',
+    minWidth: 52,
+  },
+  scorePanelDivider: {
+    width: 1,
+    height: '70%',
+    backgroundColor: C.white10,
+  },
+  scorePanelLabel: {
+    fontSize: 7,
+    color: 'rgba(200,168,64,0.45)',
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  scorePanelValue: {
+    fontSize: 13,
+    color: 'rgba(240,220,160,0.4)',
+    fontWeight: '900',
   },
 });
