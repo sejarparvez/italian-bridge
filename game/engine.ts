@@ -1,12 +1,12 @@
-import { Card } from '../src/constants/cards';
+import { Card } from '../constants/cards';
 import { BID_MAX, BID_MIN, getEstimatedBid, passBid, placeBid, selectTrump } from './bidding';
 import { createDeck, dealCards, dealRemainingCards, shuffleDeck } from './deck';
 import { calculateRoundScores, updateTeamScores } from './scoring';
 import { addCardToTrick, createEmptyTrick, getTrickWinner, isValidCard } from './trick';
 import {
-  GameState,
-  Player,
-  SeatPosition
+    GameState,
+    Player,
+    SeatPosition
 } from './types';
 
 const SEAT_ORDER: SeatPosition[] = ['bottom', 'left', 'top', 'right'];
@@ -199,21 +199,21 @@ export function startNewGame(): GameState {
 }
 
 export {
-  addCardToTrick,
-  BID_MAX,
-  BID_MIN,
-  calculateRoundScores,
-  createDeck,
-  createEmptyTrick,
-  dealCards,
-  dealRemainingCards,
-  getEstimatedBid,
-  getTrickWinner,
-  isValidCard,
-  passBid,
-  placeBid,
-  selectTrump,
-  shuffleDeck,
-  updateTeamScores
+    addCardToTrick,
+    BID_MAX,
+    BID_MIN,
+    calculateRoundScores,
+    createDeck,
+    createEmptyTrick,
+    dealCards,
+    dealRemainingCards,
+    getEstimatedBid,
+    getTrickWinner,
+    isValidCard,
+    passBid,
+    placeBid,
+    selectTrump,
+    shuffleDeck,
+    updateTeamScores
 };
 

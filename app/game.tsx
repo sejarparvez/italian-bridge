@@ -5,16 +5,15 @@ import { MotiView } from 'moti';
 import { useMemo, useState } from 'react';
 import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Card } from '@/components/cards/Card';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-
+import { SUIT_SYMBOLS } from '@/constants/cards';
 import { getPlayableCards } from '@/game/trick';
 import type { SeatPosition } from '@/game/types';
-import { Card } from '@/src/components/cards/Card';
-import { SUIT_SYMBOLS } from '@/src/constants/cards';
 import { useGameStore } from '@/store/gameStore';
 import { sortHandAlternating } from '@/utils/card-sort';
 
@@ -24,11 +23,11 @@ const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height); // landscape: short side
 const SCREEN_W = Math.max(width, height); // landscape: long side
 
-const CARD_W = SCREEN_H * 0.085;
+const CARD_W = SCREEN_H * 0.17;
 const CARD_H = CARD_W * 1.45;
 const CARD_OVERLAP = CARD_W * 0.52;
-const TRICK_CARD_W = SCREEN_H * 0.1;
-const TRICK_CARD_H = TRICK_CARD_W * 1.45;
+const TRICK_CARD_W = SCREEN_H * 0.13;
+const TRICK_CARD_H = TRICK_CARD_W * 1.55;
 const TRICK_OFFSET = SCREEN_H * 0.18;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -47,8 +46,8 @@ function getHandLayout(count: number) {
     const center = norm - 0.5; // -0.5..0.5
     return {
       x: startX + i * CARD_OVERLAP,
-      rotate: center * 14, // max ±7 deg
-      y: Math.abs(center) * 10, // arc dip
+      rotate: center * 27, // max ±7 deg
+      y: Math.abs(center) * 17, // arc dip
     };
   });
 }
@@ -465,7 +464,7 @@ export default function GameScreen() {
                     ],
                   }}
                   transition={{ type: 'spring', damping: 16 }}
-                  style={{ position: 'absolute' }}
+                  style={{ position: 'absolute', top: '50%', left: '50%' }}
                 >
                   <Card
                     card={tc.card}
@@ -556,7 +555,7 @@ export default function GameScreen() {
                 rotate: `${l.rotate}deg`,
               }}
               transition={{ type: 'spring', damping: 20, stiffness: 260 }}
-              style={{ position: 'absolute', left: l.x, bottom: 0 }}
+              style={{ position: 'absolute', left: l.x, bottom: -26 }}
             >
               <Pressable
                 onPressIn={() => canPlay && setPressed(card.id)}
@@ -730,7 +729,8 @@ const styles = StyleSheet.create({
   },
   topSlot: {
     position: 'absolute',
-    top: 0,
+    top: -40,
+    left: 50 + SCREEN_W * 0.1,
     alignSelf: 'center',
   },
 

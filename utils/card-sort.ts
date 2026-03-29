@@ -1,4 +1,4 @@
-import { Card, Suit } from '@/src/constants/cards';
+import { Card, Suit } from '@/constants/cards';
 
 const RED_SUITS: Suit[] = ['hearts', 'diamonds'];
 const BLACK_SUITS: Suit[] = ['spades', 'clubs'];

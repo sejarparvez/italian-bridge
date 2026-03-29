@@ -1,4 +1,4 @@
-import { Card, Suit } from '../../src/constants/cards';
+import { Card, Suit } from '../../constants/cards';
 import { getPlayableCards, getTrickWinner, Trick } from '../trick';
 import { Difficulty, GameState, SeatPosition } from '../types';
 

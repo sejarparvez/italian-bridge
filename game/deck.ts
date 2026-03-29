@@ -1,4 +1,4 @@
-import { ALL_RANKS, ALL_SUITS, Card, RANK_ORDER } from '../src/constants/cards';
+import { ALL_RANKS, ALL_SUITS, Card, RANK_ORDER } from '../constants/cards';
 
 export function createDeck(): Card[] {
   const deck: Card[] = [];

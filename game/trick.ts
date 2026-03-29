@@ -1,4 +1,4 @@
-import { Card, RANK_ORDER, Suit } from '../src/constants/cards';
+import { Card, RANK_ORDER, Suit } from '../constants/cards';
 import { SeatPosition } from './types';
 
 export interface TrickCard {

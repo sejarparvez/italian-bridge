@@ -1,4 +1,4 @@
-import { Card, Suit } from '../src/constants/cards';
+import { Card, Suit } from '../constants/cards';
 
 export type SeatPosition = 'bottom' | 'top' | 'left' | 'right';
 export type TeamId = 'BT' | 'LR';

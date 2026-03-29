@@ -4,7 +4,7 @@ import { AnimatePresence, MotiView } from 'moti';
 import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { Card } from '@/components/cards/Card';
 import { Box } from '@/components/ui/box';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Center } from '@/components/ui/center';
@@ -13,9 +13,7 @@ import { HStack } from '@/components/ui/hstack';
 import { Pressable } from '@/components/ui/pressable';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
-
-import { Card } from '@/src/components/cards/Card';
-import { ALL_SUITS, type Suit } from '@/src/constants/cards';
+import { ALL_SUITS, type Suit } from '@/constants/cards';
 import { useGameStore } from '@/store/gameStore';
 import { sortHandAlternating } from '@/utils/card-sort';
 

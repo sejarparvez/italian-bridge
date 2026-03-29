@@ -1,4 +1,4 @@
-import { ALL_SUITS, Card, Suit } from '../../src/constants/cards';
+import { ALL_SUITS, Card, Suit } from '../../constants/cards';
 import { BID_MAX, BID_MIN } from '../bidding';
 import { Difficulty } from '../types';
 

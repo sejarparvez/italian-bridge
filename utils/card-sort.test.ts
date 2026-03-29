@@ -1,4 +1,4 @@
-import { RANK_ORDER, type Card, type Rank, type Suit } from '@/src/constants/cards';
+import { RANK_ORDER, type Card, type Rank, type Suit } from '@/constants/cards';
 import { describe, expect, test } from 'bun:test';
 import { sortHandAlternating } from './card-sort';
 

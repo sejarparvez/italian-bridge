@@ -1,4 +1,4 @@
-import { Card, Suit } from '../src/constants/cards';
+import { Card, Suit } from '../constants/cards';
 import { GameState, Player, SeatPosition } from './types';
 
 export const BID_MIN = 7;

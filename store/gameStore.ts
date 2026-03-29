@@ -1,16 +1,16 @@
-import { Suit } from '@/src/constants/cards';
+import { Suit } from '@/constants/cards';
 import { create } from 'zustand';
 import { getBotBid, selectBotTrump } from '../game/ai/bidAI';
 import { getBotPlay } from '../game/ai/playAI';
 import {
-  advanceToNextRound,
-  createInitialState,
-  dealRemainingCards as engineDealRemainingCards,
-  passBid as enginePassBid,
-  placeBid,
-  playCard,
-  revealTrump,
-  selectTrump,
+    advanceToNextRound,
+    createInitialState,
+    dealRemainingCards as engineDealRemainingCards,
+    passBid as enginePassBid,
+    placeBid,
+    playCard,
+    revealTrump,
+    selectTrump,
 } from '../game/engine';
 import { Difficulty, GameState, SeatPosition } from '../game/types';
 

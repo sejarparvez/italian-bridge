@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test';
+import { Card, Suit } from '../../constants/cards';
 import {
     createDeck,
     dealCards,
@@ -8,7 +9,6 @@ import {
 import { advanceToNextRound, createInitialState, selectTrump } from '../../game/engine';
 import { calculateRoundScores } from '../../game/scoring';
 import { getPlayableCards, getTrickWinner } from '../../game/trick';
-import { Card, Suit } from '../../src/constants/cards';
 
 describe('deck.ts', () => {
   it('creates 52 unique cards', () => {

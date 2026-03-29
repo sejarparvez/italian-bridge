@@ -1,7 +1,10 @@
-import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { COLORS } from '../../../constants/theme';
-import { Card as CardType, SUIT_COLORS, SUIT_SYMBOLS } from '../../constants/cards';
+import {
+  type Card as CardType,
+  SUIT_COLORS,
+  SUIT_SYMBOLS,
+} from '@/constants/cards';
+import { COLORS } from '@/constants/theme';
 
 interface CardProps {
   card: CardType;
@@ -12,7 +15,13 @@ interface CardProps {
   height?: number;
 }
 
-export function Card({ card, faceDown = false, selected = false, onPress, width, height }: CardProps) {
+export function Card({
+  card,
+  faceDown = false,
+  selected = false,
+  width,
+  height,
+}: CardProps) {
   const cardWidth = width || 50;
   const cardHeight = height || 70;
   const fontSize = cardWidth * 0.24;
@@ -20,9 +29,20 @@ export function Card({ card, faceDown = false, selected = false, onPress, width,
 
   if (faceDown) {
     return (
-      <View style={[styles.card, styles.cardBack, { width: cardWidth, height: cardHeight }]}>
+      <View
+        style={[
+          styles.card,
+          styles.cardBack,
+          { width: cardWidth, height: cardHeight },
+        ]}
+      >
         <View style={styles.cardBackPattern}>
-          <View style={[styles.cardBackDiamond, { width: cardWidth * 0.4, height: cardWidth * 0.4 }]} />
+          <View
+            style={[
+              styles.cardBackDiamond,
+              { width: cardWidth * 0.4, height: cardWidth * 0.4 },
+            ]}
+          />
         </View>
       </View>
     );
@@ -31,11 +51,23 @@ export function Card({ card, faceDown = false, selected = false, onPress, width,
   const suitColor = SUIT_COLORS[card.suit];
 
   return (
-    <View style={[styles.card, selected && styles.cardSelected, { width: cardWidth, height: cardHeight }]}>
+    <View
+      style={[
+        styles.card,
+        selected && styles.cardSelected,
+        { width: cardWidth, height: cardHeight },
+      ]}
+    >
       <View style={[styles.cardInner, { padding: cardWidth * 0.08 }]}>
-        <Text style={[styles.rankTop, { color: suitColor, fontSize }]}>{card.rank}</Text>
-        <Text style={[styles.suit, { color: suitColor, fontSize: suitSize }]}>{SUIT_SYMBOLS[card.suit]}</Text>
-        <Text style={[styles.rankBottom, { color: suitColor, fontSize }]}>{card.rank}</Text>
+        <Text style={[styles.rankTop, { color: suitColor, fontSize }]}>
+          {card.rank}
+        </Text>
+        <Text style={[styles.suit, { color: suitColor, fontSize: suitSize }]}>
+          {SUIT_SYMBOLS[card.suit]}
+        </Text>
+        <Text style={[styles.rankBottom, { color: suitColor, fontSize }]}>
+          {card.rank}
+        </Text>
       </View>
     </View>
   );
