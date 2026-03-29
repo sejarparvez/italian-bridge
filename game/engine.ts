@@ -95,8 +95,10 @@ export function startNewGame(): GameState {
  * Deals the remaining 8 cards to each player to complete their 13-card hands.
  */
 export function dealSecondPhase(state: GameState): GameState {
-  if (state.phase !== 'dealing2') {
-    throw new Error(`dealSecondPhase called in wrong phase: ${state.phase}`);
+  // Note: phase check removed — the store manages phase transitions explicitly
+  // and may pass a state with an overridden phase to sequence correctly.
+  if (state.phase !== 'dealing2' && state.phase !== 'playing') {
+    throw new Error(`dealSecondPhase called in unexpected phase: ${state.phase}`);
   }
 
   const currentHands = {

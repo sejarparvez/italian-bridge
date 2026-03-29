@@ -1,10 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
-import { MotiView } from 'moti';
-import { useMemo, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '@/components/cards/Card';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
@@ -12,16 +5,24 @@ import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { SUIT_SYMBOLS } from '@/constants/cards';
+import { getWinner } from '@/game/engine';
 import { getPlayableCards } from '@/game/trick';
 import type { SeatPosition } from '@/game/types';
 import { useGameStore } from '@/store/gameStore';
 import { sortHandAlternating } from '@/utils/card-sort';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
+import { MotiView } from 'moti';
+import { useMemo, useState } from 'react';
+import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// ── Constants ────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const { width, height } = Dimensions.get('window');
-const SCREEN_H = Math.min(width, height); // landscape: short side
-const SCREEN_W = Math.max(width, height); // landscape: long side
+const SCREEN_H = Math.min(width, height);
+const SCREEN_W = Math.max(width, height);
 
 const CARD_W = SCREEN_H * 0.17;
 const CARD_H = CARD_W * 1.45;
@@ -30,7 +31,23 @@ const TRICK_CARD_W = SCREEN_H * 0.13;
 const TRICK_CARD_H = TRICK_CARD_W * 1.55;
 const TRICK_OFFSET = SCREEN_H * 0.18;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Single colour palette (was duplicated as C and C2) ───────────────────────
+
+const C = {
+  bg: '#06110A',
+  felt: '#0A1C0F',
+  gold: '#C8A840',
+  goldDim: 'rgba(200,168,64,0.25)',
+  goldFaint: 'rgba(200,168,64,0.08)',
+  goldAccent: 'rgba(200,168,64,0.12)',
+  white10: 'rgba(255,255,255,0.10)',
+  white05: 'rgba(255,255,255,0.05)',
+  white03: 'rgba(255,255,255,0.03)',
+  danger: 'rgba(248,113,113,0.7)',
+  dangerDim: 'rgba(248,113,113,0.5)',
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function stableRot(id: string) {
   let h = 0;
@@ -42,12 +59,12 @@ function getHandLayout(count: number) {
   const totalWidth = CARD_W + (count - 1) * CARD_OVERLAP;
   const startX = (SCREEN_W - totalWidth) / 2;
   return Array.from({ length: count }, (_, i) => {
-    const norm = count > 1 ? i / (count - 1) : 0.5; // 0..1
-    const center = norm - 0.5; // -0.5..0.5
+    const norm = count > 1 ? i / (count - 1) : 0.5;
+    const center = norm - 0.5;
     return {
       x: startX + i * CARD_OVERLAP,
-      rotate: center * 27, // max ±7 deg
-      y: Math.abs(center) * 17, // arc dip
+      rotate: center * 27,
+      y: Math.abs(center) * 17,
     };
   });
 }
@@ -63,24 +80,15 @@ const slotFor = (p: SeatPosition) => {
         : { x: o * 1.2, y: 0 };
 };
 
-// ── Colours ──────────────────────────────────────────────────────────────────
+/** Format a player's bid for display. null = not yet bid, 0 = passed, 7-10 = bid value */
+function formatBid(bid: number | null): string {
+  if (bid === null) return '—';
+  if (bid === 0) return 'PASS';
+  return String(bid);
+}
 
-const C = {
-  bg: '#06110A',
-  felt: '#0A1C0F',
-  feltEdge: '#0D2414',
-  gold: '#C8A840',
-  goldDim: 'rgba(200,168,64,0.25)',
-  goldFaint: 'rgba(200,168,64,0.08)',
-  white10: 'rgba(255,255,255,0.10)',
-  white05: 'rgba(255,255,255,0.05)',
-  white03: 'rgba(255,255,255,0.03)',
-  activeGlow: 'rgba(200,168,64,0.18)',
-};
+// ── Sub-components ────────────────────────────────────────────────────────────
 
-// ── Sub-components ───────────────────────────────────────────────────────────
-
-/** Compact HUD pill */
 function HudPill({
   label,
   value,
@@ -100,7 +108,6 @@ function HudPill({
   );
 }
 
-/** Player seat — used for top / left / right opponents */
 function OpponentSeat({
   name,
   tricks,
@@ -115,6 +122,10 @@ function OpponentSeat({
   orientation?: 'vertical' | 'horizontal';
 }) {
   const isH = orientation === 'horizontal';
+  // bid === 0 means passed — show differently to bid === null (not yet bid)
+  const isPassed = bid === 0;
+  const hasBid = bid !== null && !isPassed;
+
   return (
     <View
       style={[
@@ -123,7 +134,6 @@ function OpponentSeat({
         isH && styles.seatH,
       ]}
     >
-      {/* Active pulse ring */}
       {active && (
         <MotiView
           from={{ opacity: 0.6, scale: 0.85 }}
@@ -133,7 +143,6 @@ function OpponentSeat({
         />
       )}
 
-      {/* Avatar circle */}
       <View style={[styles.avatar, active && styles.avatarActive]}>
         <Text style={styles.avatarText}>{name[0].toUpperCase()}</Text>
       </View>
@@ -150,16 +159,15 @@ function OpponentSeat({
         >
           {name}
         </Text>
-        {/* Tricks / bid badge */}
         <View style={[styles.trickBadge, active && styles.trickBadgeActive]}>
           <Text style={[styles.trickText, active && { color: C.gold }]}>
             {tricks}
-            <Text style={{ opacity: 0.4 }}> / {bid ?? '—'}</Text>
+            {/* FIX: formatBid handles null / 0 / 7-10 correctly */}
+            <Text style={{ opacity: 0.4 }}> / {formatBid(bid)}</Text>
           </Text>
         </View>
       </View>
 
-      {/* Active turn indicator dot */}
       {active && (
         <MotiView
           animate={{ opacity: [0.3, 1, 0.3] }}
@@ -171,12 +179,33 @@ function OpponentSeat({
   );
 }
 
-// ── Main Screen ──────────────────────────────────────────────────────────────
+/**
+ * Trump peek button — shown only to the human player when:
+ * - they created the trump (trumpCreator === 'bottom')
+ * - trump has not been revealed yet
+ * Tapping it calls revealTrump so all players see the suit.
+ */
+function TrumpPeekButton({ onPeek }: { onPeek: () => void }) {
+  return (
+    <MotiView
+      from={{ opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: 'spring', damping: 18 }}
+    >
+      <Pressable style={styles.peekBtn} onPress={onPeek}>
+        <Text style={styles.peekBtnText}>👁 Peek at Trump</Text>
+      </Pressable>
+    </MotiView>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function GameScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { state, playPlayerCard, startNewGame, nextRound } = useGameStore();
+  const { state, playPlayerCard, startNewGame, nextRound, revealTrump } =
+    useGameStore();
   const [pressed, setPressed] = useState<string | null>(null);
 
   const {
@@ -185,10 +214,20 @@ export default function GameScreen() {
     currentSeat,
     trumpSuit,
     trumpRevealed,
+    trumpCreator,
     round,
+    phase,
+    teamScores,
   } = state;
+
   const isPlayerTurn = currentSeat === 'bottom';
-  const isPlayerActive = state.phase === 'playing' && isPlayerTurn;
+  const isPlayerActive = phase === 'playing' && isPlayerTurn;
+
+  // FIX: canPeek uses trumpCreator from state (added in selectTrump) rather
+  // than a hardcoded check. Only show peek button if human created the trump
+  // and it hasn't been revealed to everyone yet.
+  const canPeek =
+    trumpCreator === 'bottom' && !trumpRevealed && trumpSuit !== null;
 
   const playableIds = useMemo<Set<string>>(() => {
     if (!isPlayerActive) return new Set();
@@ -211,17 +250,44 @@ export default function GameScreen() {
   const hand = sortHandAlternating(players.bottom.hand);
   const layouts = getHandLayout(hand.length);
 
-  const isOver =
-    state.phase === 'gameEnd' ||
-    (state.phase === 'roundEnd' && currentTrick.cards.length === 0);
+  // ── Phase: dealing2 (waiting for second deal / trump reveal animation) ──────
+  // FIX: added explicit handling for 'dealing2' phase — previously this fell
+  // through to the game screen with no cards dealt yet, causing an empty hand.
+  if (phase === 'dealing2' && !players.bottom.hand.some(() => true)) {
+    return (
+      <View
+        style={[
+          styles.root,
+          { alignItems: 'center', justifyContent: 'center' },
+        ]}
+      >
+        <LinearGradient
+          colors={[C.bg, C.felt, C.bg]}
+          style={StyleSheet.absoluteFillObject}
+        />
+        <MotiView
+          animate={{ opacity: [0.3, 1, 0.3] }}
+          transition={{ loop: true, duration: 1200, type: 'timing' }}
+        >
+          <Text style={styles.dealingText}>Dealing remaining cards...</Text>
+        </MotiView>
+      </View>
+    );
+  }
 
-  // ── End Screen ──────────────────────────────────────────────────────────
+  // ── Phase: roundEnd or gameEnd ────────────────────────────────────────────
+  // FIX: use getWinner() from engine instead of `bt > lr` comparison.
+  // getWinner correctly handles the -30 elimination case (losing team ≠ lower score).
+  // FIX: isOver no longer checks currentTrick.cards.length — roundEnd is a
+  // stable phase set by the engine after all 13 tricks are scored.
+  if (phase === 'roundEnd' || phase === 'gameEnd') {
+    const isGameEnd = phase === 'gameEnd';
+    const winner = getWinner(teamScores); // 'BT' | 'LR' | null
 
-  if (isOver) {
-    const end = state.phase === 'gameEnd';
-    const bt = state.teamScores.BT,
-      lr = state.teamScores.LR;
-    const btWon = bt > lr;
+    // Determine why the game ended (win vs elimination) for display
+    const btEliminated = teamScores.BT <= -30;
+    const lrEliminated = teamScores.LR <= -30;
+    const eliminationMode = isGameEnd && (btEliminated || lrEliminated);
 
     return (
       <View style={styles.root}>
@@ -235,68 +301,110 @@ export default function GameScreen() {
           style={styles.endWrap}
         >
           {/* Title */}
-          <VStack style={{ marginBottom: 20 }}>
+          <VStack style={{ marginBottom: 20, alignItems: 'center' }}>
             <Text style={styles.endSubtitle}>
-              {end ? 'Final Results' : 'Round Summary'}
+              {isGameEnd
+                ? eliminationMode
+                  ? 'Eliminated'
+                  : 'Final Results'
+                : 'Round Summary'}
             </Text>
-            <Text style={styles.endTitle}>{end ? 'Standings' : 'Scores'}</Text>
+            <Text style={styles.endTitle}>
+              {isGameEnd ? 'Game Over' : `Round ${round}`}
+            </Text>
           </VStack>
 
           {/* Score card */}
           <View style={styles.scoreCard}>
-            {[
-              { key: 'BT', names: 'You & Alex', score: bt, win: btWon },
-              { key: 'LR', names: 'Jordan & Sam', score: lr, win: !btWon },
-            ].map((row, i) => (
-              <View key={row.key}>
-                {i > 0 && <View style={styles.scoreDivider} />}
-                <HStack
-                  style={{
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    paddingVertical: 14,
-                  }}
-                >
-                  <HStack style={{ alignItems: 'center', gap: 12 }}>
-                    <View
-                      style={[styles.teamBadge, row.win && styles.teamBadgeWin]}
-                    >
-                      <Text
-                        style={[styles.teamKey, row.win && { color: C.bg }]}
-                      >
-                        {row.key}
-                      </Text>
-                    </View>
-                    <VStack>
-                      <Text
+            {(
+              [
+                {
+                  teamId: 'BT' as const,
+                  names: 'You & Alex',
+                  score: teamScores.BT,
+                },
+                {
+                  teamId: 'LR' as const,
+                  names: 'Jordan & Sam',
+                  score: teamScores.LR,
+                },
+              ] as const
+            ).map((row, i) => {
+              const isWinner = winner === row.teamId;
+              const isEliminated =
+                isGameEnd &&
+                ((row.teamId === 'BT' && btEliminated) ||
+                  (row.teamId === 'LR' && lrEliminated));
+
+              return (
+                <View key={row.teamId}>
+                  {i > 0 && <View style={styles.scoreDivider} />}
+                  <HStack
+                    style={{
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingVertical: 14,
+                    }}
+                  >
+                    <HStack style={{ alignItems: 'center', gap: 12 }}>
+                      <View
                         style={[
-                          styles.teamName,
-                          row.win && { color: 'white', opacity: 1 },
+                          styles.teamBadge,
+                          isWinner && styles.teamBadgeWin,
+                          isEliminated && styles.teamBadgeElim,
                         ]}
                       >
-                        {row.names}
-                      </Text>
-                      {row.win && <Text style={styles.winnerTag}>Winner</Text>}
-                    </VStack>
+                        <Text
+                          style={[
+                            styles.teamKey,
+                            isWinner && { color: C.bg },
+                            isEliminated && { color: C.danger },
+                          ]}
+                        >
+                          {row.teamId}
+                        </Text>
+                      </View>
+                      <VStack>
+                        <Text
+                          style={[
+                            styles.teamName,
+                            isWinner && { color: 'white', opacity: 1 },
+                          ]}
+                        >
+                          {row.names}
+                        </Text>
+                        {isWinner && (
+                          <Text style={styles.winnerTag}>
+                            {isGameEnd ? '🏆 Winner' : 'Round Win'}
+                          </Text>
+                        )}
+                        {isEliminated && (
+                          <Text style={[styles.winnerTag, { color: C.danger }]}>
+                            Eliminated (−30)
+                          </Text>
+                        )}
+                      </VStack>
+                    </HStack>
+                    <Text
+                      style={[
+                        styles.scoreNum,
+                        !isWinner && { color: 'rgba(255,255,255,0.12)' },
+                        isEliminated && { color: C.dangerDim },
+                      ]}
+                    >
+                      {row.score > 0 ? `+${row.score}` : row.score}
+                    </Text>
                   </HStack>
-                  <Text
-                    style={[
-                      styles.scoreNum,
-                      !row.win && { color: 'rgba(255,255,255,0.12)' },
-                    ]}
-                  >
-                    {row.score}
-                  </Text>
-                </HStack>
-              </View>
-            ))}
+                </View>
+              );
+            })}
           </View>
 
           {/* CTA */}
           <Pressable
             style={styles.ctaBtn}
             onPress={() => {
-              if (end) {
+              if (isGameEnd) {
                 startNewGame();
                 router.replace('/');
               } else {
@@ -306,7 +414,7 @@ export default function GameScreen() {
             }}
           >
             <Text style={styles.ctaText}>
-              {end ? 'New Game' : 'Next Round'}
+              {isGameEnd ? 'New Game' : 'Next Round →'}
             </Text>
           </Pressable>
         </MotiView>
@@ -314,7 +422,7 @@ export default function GameScreen() {
     );
   }
 
-  // ── Game Screen ──────────────────────────────────────────────────────────
+  // ── Game Screen ───────────────────────────────────────────────────────────
 
   return (
     <View
@@ -323,28 +431,31 @@ export default function GameScreen() {
         { paddingLeft: insets.left, paddingRight: insets.right },
       ]}
     >
-      {/* Felt background */}
       <LinearGradient
         colors={[C.bg, '#0B1E10', C.bg]}
         style={StyleSheet.absoluteFillObject}
       />
-
-      {/* Subtle table oval */}
       <View style={styles.tableOval} pointerEvents='none' />
 
-      {/* ── HUD — top bar ── */}
+      {/* ── HUD ── */}
       <View style={[styles.hud, { top: insets.top + 8 }]}>
         <HStack style={{ gap: 8, alignItems: 'center' }}>
           <HudPill label='RND' value={String(round)} />
-          {trumpSuit && trumpRevealed && (
+
+          {/* FIX: show trump pill when revealed OR when user can peek (they know it) */}
+          {trumpSuit && (trumpRevealed || canPeek) && (
             <MotiView
               from={{ opacity: 0, scale: 0.7 }}
               animate={{ opacity: 1, scale: 1 }}
             >
-              <HudPill label='TRUMP' value={SUIT_SYMBOLS[trumpSuit]} accent />
+              <HudPill
+                label={trumpRevealed ? 'TRUMP' : 'TRUMP 👁'}
+                value={SUIT_SYMBOLS[trumpSuit]}
+                accent
+              />
             </MotiView>
           )}
-          {/* Turn indicator */}
+
           {isPlayerActive && (
             <MotiView
               from={{ opacity: 0 }}
@@ -361,7 +472,9 @@ export default function GameScreen() {
           )}
         </HStack>
 
-        {/* Menu */}
+        {/* FIX: peek button shown in HUD when canPeek */}
+        {canPeek && revealTrump && <TrumpPeekButton onPeek={revealTrump} />}
+
         <Menu
           offset={10}
           trigger={({ ...triggerProps }) => (
@@ -377,11 +490,7 @@ export default function GameScreen() {
             style={styles.menuItem}
             onPress={() => router.replace('/')}
           >
-            <Icon
-              as={Home}
-              size='sm'
-              style={{ color: 'rgba(200,168,64,0.6)' }}
-            />
+            <Icon as={Home} size='sm' style={{ color: C.goldDim }} />
             <MenuItemLabel style={styles.menuLabel}>Main Menu</MenuItemLabel>
           </MenuItem>
           <MenuItem
@@ -393,11 +502,7 @@ export default function GameScreen() {
               router.replace('/bid');
             }}
           >
-            <Icon
-              as={RefreshCw}
-              size='sm'
-              style={{ color: 'rgba(200,168,64,0.6)' }}
-            />
+            <Icon as={RefreshCw} size='sm' style={{ color: C.goldDim }} />
             <MenuItemLabel style={styles.menuLabel}>Restart Game</MenuItemLabel>
           </MenuItem>
           <MenuItem
@@ -405,17 +510,15 @@ export default function GameScreen() {
             textValue='Close'
             style={[styles.menuItem, styles.menuItemDanger]}
           >
-            <Icon as={X} size='sm' style={{ color: 'rgba(248,113,113,0.5)' }} />
-            <MenuItemLabel
-              style={[styles.menuLabel, { color: 'rgba(248,113,113,0.7)' }]}
-            >
+            <Icon as={X} size='sm' style={{ color: C.dangerDim }} />
+            <MenuItemLabel style={[styles.menuLabel, { color: C.danger }]}>
               Close Menu
             </MenuItemLabel>
           </MenuItem>
         </Menu>
       </View>
 
-      {/* ── TABLE: left player | center felt | right player ── */}
+      {/* ── TABLE ── */}
       <HStack style={styles.tableRow}>
         {/* Left opponent */}
         <View style={styles.sideSlot}>
@@ -427,7 +530,7 @@ export default function GameScreen() {
           />
         </View>
 
-        {/* Center felt area */}
+        {/* Center felt */}
         <View style={styles.feltCenter}>
           {/* Top opponent */}
           <View style={styles.topSlot}>
@@ -440,7 +543,7 @@ export default function GameScreen() {
             />
           </View>
 
-          {/* Watermark spade */}
+          {/* Watermark */}
           <Text style={styles.watermark} pointerEvents='none'>
             {SUIT_SYMBOLS.spades}
           </Text>
@@ -517,17 +620,17 @@ export default function GameScreen() {
           </View>
           <VStack>
             <Text style={styles.playerName}>{players.bottom.name}</Text>
+            {/* FIX: formatBid used here too for consistency */}
             <Text style={styles.playerStats}>
               {players.bottom.tricksTaken}
               <Text style={{ opacity: 0.4 }}>
                 {' '}
-                / {players.bottom.bid ?? '—'}
+                / {formatBid(players.bottom.bid)}
               </Text>
             </Text>
           </VStack>
         </HStack>
 
-        {/* Playable hint */}
         {isPlayerActive && (
           <MotiView from={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <Text style={styles.hintText}>
@@ -563,8 +666,6 @@ export default function GameScreen() {
                 onPress={() => canPlay && playPlayerCard(card.id)}
               >
                 <Card card={card} width={CARD_W} height={CARD_H} />
-
-                {/* Playable glow underline */}
                 {canPlay && !isPressed && (
                   <MotiView
                     animate={{ opacity: [0, 1, 0] }}
@@ -581,25 +682,22 @@ export default function GameScreen() {
   );
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
-
-const C2 = {
-  gold: '#C8A840',
-  goldDim: 'rgba(200,168,64,0.25)',
-  goldFaint: 'rgba(200,168,64,0.07)',
-  white10: 'rgba(255,255,255,0.10)',
-  white05: 'rgba(255,255,255,0.05)',
-  bg: '#06110A',
-  felt: '#0A1C0F',
-};
+// ── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: C2.bg,
+    backgroundColor: C.bg,
   },
 
-  // ── Table oval watermark ──
+  dealingText: {
+    color: 'rgba(200,168,64,0.4)',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 3,
+    textTransform: 'uppercase',
+  },
+
   tableOval: {
     position: 'absolute',
     alignSelf: 'center',
@@ -628,14 +726,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: C2.white10,
-    backgroundColor: C2.white05,
+    borderColor: C.white10,
+    backgroundColor: C.white05,
     alignItems: 'center',
     minWidth: 44,
   },
   hudPillAccent: {
     borderColor: 'rgba(200,168,64,0.35)',
-    backgroundColor: 'rgba(200,168,64,0.08)',
+    backgroundColor: C.goldFaint,
   },
   hudLabel: {
     fontSize: 7,
@@ -649,7 +747,6 @@ const styles = StyleSheet.create({
     color: 'rgba(240,220,160,0.7)',
     fontWeight: '900',
   },
-
   yourTurnBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -657,30 +754,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 20,
-    backgroundColor: 'rgba(200,168,64,0.12)',
+    backgroundColor: C.goldAccent,
     borderWidth: 1,
-    borderColor: 'rgba(200,168,64,0.3)',
+    borderColor: C.goldDim,
   },
   yourTurnDot: {
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: C2.gold,
+    backgroundColor: C.gold,
   },
   yourTurnText: {
     fontSize: 10,
-    color: C2.gold,
+    color: C.gold,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
 
+  // ── Peek button ──
+  peekBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: C.goldAccent,
+    borderWidth: 1,
+    borderColor: C.goldDim,
+  },
+  peekBtnText: {
+    fontSize: 10,
+    color: C.gold,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  // ── Menu ──
   menuBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: C2.goldDim,
-    backgroundColor: C2.goldFaint,
+    borderColor: C.goldDim,
+    backgroundColor: C.goldFaint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -709,11 +823,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // ── Table row layout ──
+  // ── Table layout ──
   tableRow: {
     flex: 1,
     alignItems: 'center',
-    marginTop: SCREEN_H * 0.1, // clear HUD
+    marginTop: SCREEN_H * 0.1,
     marginBottom: 4,
   },
   sideSlot: {
@@ -733,31 +847,26 @@ const styles = StyleSheet.create({
     left: 50 + SCREEN_W * 0.1,
     alignSelf: 'center',
   },
-
-  // Watermark
   watermark: {
     fontSize: SCREEN_H * 0.52,
-    color: C2.gold,
+    color: C.gold,
     opacity: 0.045,
     fontWeight: '900',
     position: 'absolute',
     lineHeight: SCREEN_H * 0.44,
     textAlign: 'center',
   },
-
-  // Trick
   trickArea: {
     width: SCREEN_H * 0.72,
     height: SCREEN_H * 0.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   winnerBadge: {
     position: 'absolute',
     bottom: -8,
     alignSelf: 'center',
-    backgroundColor: C2.gold,
+    backgroundColor: C.gold,
     paddingHorizontal: 14,
     paddingVertical: 5,
     borderRadius: 20,
@@ -781,8 +890,8 @@ const styles = StyleSheet.create({
     minWidth: 64,
   },
   seatActive: {
-    backgroundColor: 'rgba(200,168,64,0.08)',
-    borderColor: 'rgba(200,168,64,0.25)',
+    backgroundColor: C.goldFaint,
+    borderColor: C.goldDim,
   },
   seatH: {
     flexDirection: 'row',
@@ -792,9 +901,9 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: C2.white05,
+    backgroundColor: C.white05,
     borderWidth: 1.5,
-    borderColor: C2.white10,
+    borderColor: C.white10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -804,8 +913,8 @@ const styles = StyleSheet.create({
     borderRadius: 19,
   },
   avatarActive: {
-    borderColor: C2.gold,
-    backgroundColor: 'rgba(200,168,64,0.15)',
+    borderColor: C.gold,
+    backgroundColor: C.goldAccent,
   },
   avatarText: {
     color: 'rgba(240,220,160,0.6)',
@@ -825,10 +934,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 10,
-    backgroundColor: 'transparent',
   },
   trickBadgeActive: {
-    backgroundColor: 'rgba(200,168,64,0.1)',
+    backgroundColor: C.goldAccent,
   },
   trickText: {
     fontSize: 11,
@@ -842,7 +950,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: C2.gold,
+    backgroundColor: C.gold,
   },
 
   // ── Player bar ──
@@ -863,7 +971,7 @@ const styles = StyleSheet.create({
   },
   playerStats: {
     fontSize: 13,
-    color: C2.gold,
+    color: C.gold,
     fontWeight: '900',
     marginTop: 1,
   },
@@ -888,7 +996,7 @@ const styles = StyleSheet.create({
     bottom: -3,
     left: 0,
     height: 3,
-    backgroundColor: C2.gold,
+    backgroundColor: C.gold,
     borderRadius: 2,
   },
 
@@ -898,7 +1006,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
-    gap: 0,
   },
   endSubtitle: {
     fontSize: 10,
@@ -917,7 +1024,7 @@ const styles = StyleSheet.create({
   scoreCard: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: C2.white05,
+    backgroundColor: C.white05,
     borderWidth: 1,
     borderColor: 'rgba(200,168,64,0.15)',
     borderRadius: 20,
@@ -933,20 +1040,24 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: 'rgba(200,168,64,0.1)',
+    backgroundColor: C.goldAccent,
     borderWidth: 1,
-    borderColor: 'rgba(200,168,64,0.2)',
+    borderColor: C.goldDim,
     alignItems: 'center',
     justifyContent: 'center',
   },
   teamBadgeWin: {
-    backgroundColor: C2.gold,
-    borderColor: C2.gold,
+    backgroundColor: C.gold,
+    borderColor: C.gold,
+  },
+  teamBadgeElim: {
+    backgroundColor: 'rgba(248,113,113,0.1)',
+    borderColor: C.dangerDim,
   },
   teamKey: {
     fontSize: 12,
     fontWeight: '900',
-    color: C2.gold,
+    color: C.gold,
   },
   teamName: {
     fontSize: 14,
@@ -955,7 +1066,7 @@ const styles = StyleSheet.create({
   },
   winnerTag: {
     fontSize: 9,
-    color: C2.gold,
+    color: C.gold,
     fontWeight: '700',
     letterSpacing: 1.5,
     textTransform: 'uppercase',
@@ -964,10 +1075,10 @@ const styles = StyleSheet.create({
   scoreNum: {
     fontSize: 36,
     fontWeight: '900',
-    color: C2.gold,
+    color: C.gold,
   },
   ctaBtn: {
-    backgroundColor: C2.gold,
+    backgroundColor: C.gold,
     height: 52,
     borderRadius: 16,
     width: '100%',
@@ -981,5 +1092,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 2,
     textTransform: 'uppercase',
+  },
+
+  // ── Danger colours for menu ──
+  dangerDim: {
+    color: C.dangerDim,
   },
 });

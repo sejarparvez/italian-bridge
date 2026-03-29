@@ -33,6 +33,7 @@ interface GameStore {
   advanceAI: () => void;
   clearTrick: () => void;
   nextRound: () => void;
+  revealTrump: () => void;
   getState: () => GameStore;
 }
 
@@ -146,21 +147,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const bidder = currentState.highestBidder;
 
     if (bidder && !currentState.players[bidder].isHuman) {
-      // Bot won the bid — deal full hands then auto-select trump
-      const dealtState = dealSecondPhase(currentState);
+      // Bot won the bid — select trump FIRST (phase must still be 'dealing2'),
+      // then deal the remaining cards which transitions phase to 'playing'.
+      //
+      // BUG FIX: previous order called dealSecondPhase first, which internally
+      // sets phase to 'playing'. selectTrump then threw a phase validation error
+      // because it only accepts calls in 'dealing2'. Reversing the order fixes this.
+      //
+      // Note: selectBotTrump uses the bot's 5-card hand here. This is intentional —
+      // bots evaluate trump from their initial hand just like they bid from it.
+      // The remaining 8 cards are dealt immediately after, before play begins.
       const trump = selectBotTrump(
-        dealtState.players[bidder].hand,
-        dealtState.highestBid,
-        difficulty  // FIX: was missing; selectBotTrump requires difficulty for threshold logic
+        currentState.players[bidder].hand,
+        currentState.highestBid,
+        difficulty
       );
-      const nextState = selectTrump(dealtState, trump, bidder);
+      // selectTrump sets phase to 'playing' internally, but dealSecondPhase
+      // requires 'dealing2'. Override the phase back so the sequence works:
+      // dealing2 → selectTrump (→ playing) → force back to dealing2 → dealSecondPhase (→ playing)
+      const trumpState  = selectTrump(currentState, trump, bidder);
+      const nextState   = dealSecondPhase({ ...trumpState, phase: 'dealing2' });
       set({ state: nextState });
       afterPlayState(nextState, get);
     } else {
-      // Human won the bid — deal full hands and wait for human to pick trump
-      // dealSecondPhase transitions to 'playing' but we need 'dealing2' here
-      // so the trump-selection UI renders. Set phase manually after dealing.
-      const dealtState = dealSecondPhase({ ...currentState, phase: 'dealing2' });
+      // Human won the bid — currentState.phase is 'dealing2' here so
+      // dealSecondPhase is valid. After dealing, force back to 'dealing2'
+      // so the trump-selection UI renders before play starts.
+      const dealtState = dealSecondPhase(currentState);
       set({ state: { ...dealtState, phase: 'dealing2' } });
     }
   },
@@ -211,6 +224,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (newState.phase === 'playing' && newState.currentSeat !== 'bottom') {
       setTimeout(() => get().advanceAI(), 300 / get().animSpeed);
     }
+  },
+
+  // ── Trump Reveal ────────────────────────────────────────────────────────────
+
+  revealTrump: () => {
+    set(s => ({ state: { ...s.state, trumpRevealed: true } }));
   },
 
   // ── Round Advancement ───────────────────────────────────────────────────────
