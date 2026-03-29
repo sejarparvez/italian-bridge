@@ -3,12 +3,15 @@ import { GameState, Player, SeatPosition } from './types';
 
 export const BID_MIN = 7;
 export const BID_MAX = 10;
+export const BID_10_BONUS = 3; // bid 10 + score 10 = +13 total
 
 export interface BidResult {
   bids: Record<SeatPosition, number | null>;
   highestBid: number;
   highestBidder: SeatPosition | null;
 }
+
+// ─── Bidding Order ────────────────────────────────────────────────────────────
 
 export function getBiddingOrder(startSeat: SeatPosition): SeatPosition[] {
   const order: SeatPosition[] = ['bottom', 'left', 'top', 'right'];
@@ -23,7 +26,7 @@ export function getNextBidder(
 ): number {
   for (let i = currentIndex + 1; i < biddingOrder.length; i++) {
     const seat = biddingOrder[i];
-    // A null bid means this player hasn't bid yet (0 = passed)
+    // null = hasn't bid yet, 0 = passed
     if (bids[seat] === null) {
       return i;
     }
@@ -31,72 +34,81 @@ export function getNextBidder(
   return -1; // all bids placed
 }
 
-function extractBids(players: Record<SeatPosition, Player>): Record<SeatPosition, number | null> {
+function extractBids(
+  players: Record<SeatPosition, Player>
+): Record<SeatPosition, number | null> {
   return Object.fromEntries(
     Object.entries(players).map(([s, p]) => [s, p.bid])
   ) as Record<SeatPosition, number | null>;
 }
+
+// ─── Place Bid ────────────────────────────────────────────────────────────────
 
 export function placeBid(
   state: GameState,
   seat: SeatPosition,
   bid: number
 ): GameState {
+  // Validate: must be the current bidder
+  if (state.currentSeat !== seat) {
+    throw new Error(`It is not ${seat}'s turn to bid.`);
+  }
+
+  // Validate: bid must be within allowed range
+  if (bid < BID_MIN || bid > BID_MAX) {
+    throw new Error(`Bid must be between ${BID_MIN} and ${BID_MAX}. Got: ${bid}`);
+  }
+
+  // Validate: bid must strictly exceed the current highest bid
+  if (bid <= state.highestBid) {
+    throw new Error(
+      `Bid of ${bid} must exceed the current highest bid of ${state.highestBid}.`
+    );
+  }
+
   const newPlayers = { ...state.players };
   newPlayers[seat] = { ...newPlayers[seat], bid };
 
   const newBids = extractBids(newPlayers);
-
-  let highestBid = state.highestBid;
-  let highestBidder = state.highestBidder;
-  if (bid > highestBid) {
-    highestBid = bid;
-    highestBidder = seat;
-  }
-
   const nextIndex = getNextBidder(state.currentBidderIndex, newBids, state.biddingOrder);
   const allBidsPlaced = nextIndex === -1;
 
-  // BUG FIX: If everyone passed (highestBidder still null), force the last
-  // bidder in the order to hold the minimum bid — the game must continue.
-  let resolvedBidder = highestBidder;
-  let resolvedBid = highestBid;
-  if (allBidsPlaced && resolvedBidder === null) {
-    resolvedBidder = state.biddingOrder[state.biddingOrder.length - 1];
-    resolvedBid = BID_MIN;
-  }
-
   const currentSeat = allBidsPlaced
-    ? (resolvedBidder ?? state.currentSeat)
+    ? seat // winner stays as currentSeat for trump selection
     : state.biddingOrder[nextIndex];
 
   return {
     ...state,
     players: newPlayers,
-    highestBid: resolvedBid,
-    highestBidder: resolvedBidder,
+    highestBid: bid,
+    highestBidder: seat,
     currentBidderIndex: nextIndex,
     currentSeat,
     phase: allBidsPlaced ? 'dealing2' : state.phase,
   };
 }
 
+// ─── Pass Bid ─────────────────────────────────────────────────────────────────
+
 export function passBid(
   state: GameState,
   seat: SeatPosition
 ): GameState {
+  // Validate: must be the current bidder
+  if (state.currentSeat !== seat) {
+    throw new Error(`It is not ${seat}'s turn to bid.`);
+  }
+
   const newPlayers = { ...state.players };
   // 0 marks "passed" — distinct from null which means "hasn't bid yet"
   newPlayers[seat] = { ...newPlayers[seat], bid: 0 };
 
   const newBids = extractBids(newPlayers);
-
-  // BUG FIX: use getNextBidder (same logic as placeBid) instead of a bare +1
   const nextIndex = getNextBidder(state.currentBidderIndex, newBids, state.biddingOrder);
   const allBidsPlaced = nextIndex === -1;
 
   if (allBidsPlaced) {
-    // BUG FIX: if everyone passed, force the last bidder to take BID_MIN
+    // If everyone passed, force the last bidder in order to hold BID_MIN
     let resolvedBidder = state.highestBidder;
     let resolvedBid = state.highestBid;
     if (resolvedBidder === null) {
@@ -122,25 +134,99 @@ export function passBid(
   };
 }
 
+// ─── Select Trump ─────────────────────────────────────────────────────────────
+
 export function selectTrump(
   state: GameState,
-  suit: Suit
+  suit: Suit,
+  seat: SeatPosition
 ): GameState {
+  // Validate: only the highest bidder can select trump
+  if (state.highestBidder !== seat) {
+    throw new Error(`Only the highest bidder (${state.highestBidder}) can select the trump suit.`);
+  }
+
+  // Validate: trump can only be selected in the dealing2 phase
+  if (state.phase !== 'dealing2') {
+    throw new Error(`Trump can only be selected in the 'dealing2' phase. Current phase: ${state.phase}`);
+  }
+
+  // Validate: suit must be a valid suit
+  const validSuits: Suit[] = ['spades', 'hearts', 'diamonds', 'clubs'];
+  if (!validSuits.includes(suit)) {
+    throw new Error(`Invalid suit: ${suit}`);
+  }
+
   return {
     ...state,
     trumpSuit: suit,
+    trumpRevealed: false,  // trump card starts hidden
+    trumpCreator: seat,    // track who created the trump (for peek privilege)
     phase: 'playing',
   };
 }
 
-export function getEstimatedBid(hand: Card[], difficulty: 'easy' | 'medium' | 'hard'): number {
+// ─── Bot Bid Estimation ───────────────────────────────────────────────────────
+
+export function getEstimatedBid(
+  hand: Card[],
+  difficulty: 'easy' | 'medium' | 'hard',
+  currentHighestBid: number  // bots must bid above this or pass (return 0)
+): number {
   const highCards = hand.filter(c => c.value >= 11).length;
   const voids = countVoids(hand);
-  const estimate = Math.min(BID_MAX, Math.max(BID_MIN, highCards + voids));
+
+  // Raw estimate of what this hand is worth
+  const rawEstimate = Math.min(BID_MAX, Math.max(BID_MIN, highCards + voids));
+
+  // Apply difficulty variance — easier bots make less accurate estimates
   const variance = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 1 : 0;
   const randomOffset = Math.floor(Math.random() * (variance * 2 + 1)) - variance;
-  return Math.min(BID_MAX, Math.max(BID_MIN, estimate + randomOffset));
+  const estimate = Math.min(BID_MAX, Math.max(BID_MIN, rawEstimate + randomOffset));
+
+  // Bot must bid strictly above the current highest bid, or pass
+  if (estimate <= currentHighestBid) {
+    return 0; // pass
+  }
+
+  // Extra caution around bid 10: failing it is a heavy penalty (-10).
+  // Only bid 10 if the hand is genuinely strong (hard bots are more willing).
+  if (estimate === BID_MAX) {
+    const bid10Threshold = difficulty === 'hard' ? 4 : difficulty === 'medium' ? 5 : 6;
+    if (highCards < bid10Threshold) {
+      // Hand isn't strong enough to risk bid 10 — step down to 9 or pass
+      const safeBid = BID_MAX - 1;
+      return safeBid > currentHighestBid ? safeBid : 0;
+    }
+  }
+
+  return estimate;
 }
+
+// ─── Scoring Helper ───────────────────────────────────────────────────────────
+
+/**
+ * Calculate the score delta for the bidding team after a round.
+ * Bid 10 + score 10 earns a +3 bonus (total +13).
+ */
+export function calculateBiddingTeamScore(bid: number, tricksWon: number): number {
+  if (tricksWon >= bid) {
+    const bonus = bid === BID_MAX && tricksWon === BID_MAX ? BID_10_BONUS : 0;
+    return bid + bonus;
+  }
+  return -bid;
+}
+
+/**
+ * Calculate the score delta for the opposing team after a round.
+ * They need 4+ points (tricks). If the bidding team scored all 10,
+ * opponents only have 3 left — they always get -4 in that case.
+ */
+export function calculateOpponentScore(opponentTricks: number): number {
+  return opponentTricks >= 4 ? 4 : -4;
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
 function countVoids(hand: Card[]): number {
   const suitCounts: Record<string, number> = {

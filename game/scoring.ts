@@ -1,11 +1,30 @@
+import { BID_MAX } from './bidding';
 import { Player, SeatPosition, TeamId } from './types';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Points awarded to the opposing team for successfully scoring 4+ tricks */
+const OPPONENT_TARGET  = 4;
+const OPPONENT_REWARD  = 4;
+const OPPONENT_PENALTY = -4;
+
+/** Bonus points for successfully making a bid of 10 (scores all tricks) */
+const BID_MAX_BONUS = 3;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface RoundScore {
   team: TeamId;
+  /**
+   * The bid this team made this round, or null if they were the defending team.
+   * null explicitly means "not the bidding team" — not an error.
+   */
   bid: number | null;
   tricks: number;
   points: number;
 }
+
+// ─── Round Scoring ────────────────────────────────────────────────────────────
 
 export function calculateRoundScores(
   players: Record<SeatPosition, Player>,
@@ -15,61 +34,59 @@ export function calculateRoundScores(
   const btTricks = players.bottom.tricksTaken + players.top.tricksTaken;
   const lrTricks = players.left.tricksTaken + players.right.tricksTaken;
 
-  const btTeam: TeamId = 'BT';
-  const lrTeam: TeamId = 'LR';
-
   let btPoints = 0;
   let lrPoints = 0;
-
-
   let btBid: number | null = null;
   let lrBid: number | null = null;
 
-  if (highestBidder) {
-    const bidderTeam = players[highestBidder].team;
-    const bidderTricks = bidderTeam === btTeam ? btTricks : lrTricks;
-    const opponentTricks = bidderTeam === btTeam ? lrTricks : btTricks;
+  if (!highestBidder || highestBid <= 0) {
+    // No valid bid — no scoring this round (shouldn't happen in normal play)
+    return [
+      { team: 'BT', bid: null, tricks: btTricks, points: 0 },
+      { team: 'LR', bid: null, tricks: lrTricks, points: 0 },
+    ];
+  }
 
-    // Assign bid label to the correct team
-    if (bidderTeam === btTeam) {
-      btBid = highestBid;
-    } else {
-      lrBid = highestBid;
-    }
+  const bidderTeam    = players[highestBidder].team;
+  const opponentTeam: TeamId = bidderTeam === 'BT' ? 'LR' : 'BT';
 
-    if (bidderTricks >= highestBid) {
-      // Bidder met their bid
-      if (bidderTeam === btTeam) {
-        btPoints = highestBid;
-        if (highestBid === 10) btPoints += 3; // 10-bid bonus
-      } else {
-        lrPoints = highestBid;
-        if (highestBid === 10) lrPoints += 3;
-      }
-    } else {
-      // Bidder failed — lose the bid amount
-      if (bidderTeam === btTeam) {
-        btPoints = -highestBid;
-      } else {
-        lrPoints = -highestBid;
-      }
-    }
+  const bidderTricks  = bidderTeam === 'BT' ? btTricks : lrTricks;
+  const opponentTricks = bidderTeam === 'BT' ? lrTricks : btTricks;
 
-    // Opponent penalty: if opponents took fewer than 4 tricks
-    if (opponentTricks < 4) {
-      if (bidderTeam === btTeam) {
-        lrPoints += -4;
-      } else {
-        btPoints += -4;
-      }
-    }
+  // Label which team held the bid (for UI display)
+  if (bidderTeam === 'BT') btBid = highestBid;
+  else                      lrBid = highestBid;
+
+  // ── Bidding team score ──
+  const bidMet = bidderTricks >= highestBid;
+  const bidMaxBonus = highestBid === BID_MAX && bidderTricks === BID_MAX ? BID_MAX_BONUS : 0;
+  const bidderPoints = bidMet ? highestBid + bidMaxBonus : -highestBid;
+
+  // ── Opposing team score ──
+  // Evaluated independently of the bidding team result.
+  // Note: if bidder scores all 10 tricks, opponents only have 3 —
+  // they can never reach 4, so they always get OPPONENT_PENALTY in that case.
+  // Both outcomes (+4 / -4) are possible and must both be applied.
+  const opponentPoints = opponentTricks >= OPPONENT_TARGET
+    ? OPPONENT_REWARD
+    : OPPONENT_PENALTY;
+
+  // Assign points to the correct teams
+  if (bidderTeam === 'BT') {
+    btPoints = bidderPoints;
+    lrPoints = opponentPoints;
+  } else {
+    lrPoints = bidderPoints;
+    btPoints = opponentPoints;
   }
 
   return [
-    { team: btTeam, bid: btBid, tricks: btTricks, points: btPoints },
-    { team: lrTeam, bid: lrBid, tricks: lrTricks, points: lrPoints },
+    { team: 'BT', bid: btBid, tricks: btTricks, points: btPoints },
+    { team: 'LR', bid: lrBid, tricks: lrTricks, points: lrPoints },
   ];
 }
+
+// ─── Score Accumulation ───────────────────────────────────────────────────────
 
 export function updateTeamScores(
   currentScores: Record<TeamId, number>,

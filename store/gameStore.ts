@@ -1,18 +1,21 @@
 import { Suit } from '@/constants/cards';
+import { getBotBid, selectBotTrump } from '@/game/ai/bidAI';
+import { getBotPlay } from '@/game/ai/playAI';
 import { create } from 'zustand';
-import { getBotBid, selectBotTrump } from '../game/ai/bidAI';
-import { getBotPlay } from '../game/ai/playAI';
 import {
-    advanceToNextRound,
-    createInitialState,
-    dealRemainingCards as engineDealRemainingCards,
-    passBid as enginePassBid,
-    placeBid,
-    playCard,
-    revealTrump,
-    selectTrump,
+  passBid as enginePassBid,
+  placeBid,
+  selectTrump,
+} from '../game/bidding';
+import {
+  advanceToNextRound,
+  createInitialState,
+  dealSecondPhase,
+  playCard
 } from '../game/engine';
-import { Difficulty, GameState, SeatPosition } from '../game/types';
+import { Difficulty, GameState } from '../game/types';
+
+// ─── Store Interface ──────────────────────────────────────────────────────────
 
 interface GameStore {
   state: GameState;
@@ -33,117 +36,89 @@ interface GameStore {
   getState: () => GameStore;
 }
 
-const initialState = createInitialState();
+// ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  state: initialState,
+  state: createInitialState(),
   difficulty: 'medium',
   animSpeed: 1,
 
   getState: () => get(),
 
   setDifficulty: (difficulty) => set({ difficulty }),
-  setAnimSpeed: (animSpeed) => set({ animSpeed }),
+  setAnimSpeed:  (animSpeed)  => set({ animSpeed }),
 
   startNewGame: () => set({ state: createInitialState() }),
+
+  // ── Player Bidding ──────────────────────────────────────────────────────────
 
   placePlayerBid: (bid) => {
     const newState = placeBid(get().state, 'bottom', bid);
     set({ state: newState });
-    // After human bids, let bots take their turns
-    if (newState.phase === 'bidding') {
-      setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
-    } else if (newState.phase === 'dealing2') {
-      setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
-    }
+    afterBidState(newState, get);
   },
 
-  // FIX: renamed from passBid to passPlayerBid to avoid name collision with the
-  // imported engine passBid. The old code shadowed the import, causing the
-  // store method to call itself recursively.
   passPlayerBid: () => {
-    // FIX: was calling placeBid with bid=0. Passing must go through enginePassBid
-    // so the bidding state machine handles it correctly (0 is not a valid bid value
-    // in placeBid — it only handles bids in BID_MIN..BID_MAX range).
     const newState = enginePassBid(get().state, 'bottom');
     set({ state: newState });
-    if (newState.phase === 'bidding') {
-      setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
-    } else if (newState.phase === 'dealing2') {
-      setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
-    }
+    afterBidState(newState, get);
   },
 
+  // ── Trump Selection ─────────────────────────────────────────────────────────
+
   selectPlayerTrump: (suit) => {
-    const newState = selectTrump(get().state, suit);
+    // FIX: pass 'bottom' as seat so selectTrump can validate the caller is
+    // the highest bidder. Previously called without seat argument.
+    const newState = selectTrump(get().state, suit, 'bottom');
     set({ state: newState });
+    // After human selects trump, deal remaining cards
+    setTimeout(() => get().dealRemainingCards(), 400 / get().animSpeed);
   },
+
+  // ── Player Card Play ────────────────────────────────────────────────────────
 
   playPlayerCard: (cardId) => {
     const card = get().state.players.bottom.hand.find(c => c.id === cardId);
     if (!card) return;
 
-    let newState = playCard(get().state, 'bottom', card);
-
-    // Reveal trump if a trump card was just played and trump isn't revealed yet.
-    // Guard: trumpSuit must be non-null before checking card suits.
-    if (
-      newState.trumpSuit !== null &&
-      !newState.trumpRevealed &&
-      newState.currentTrick.cards.some(c => c.card.suit === newState.trumpSuit)
-    ) {
-      newState = revealTrump(newState);
-    }
-
+    // FIX: removed manual trumpRevealed check — playCard in the engine now
+    // handles auto-reveal when a trump card is played. No need to duplicate here.
+    const newState = playCard(get().state, 'bottom', card);
     set({ state: newState });
-
-    if (newState.phase === 'trickEnd') {
-      setTimeout(() => get().clearTrick(), 1200 / get().animSpeed);
-    } else if (newState.phase === 'playing' && newState.currentSeat !== 'bottom') {
-      setTimeout(() => get().advanceAI(), 500 / get().animSpeed);
-    }
+    afterPlayState(newState, get);
   },
+
+  // ── Bot Bidding ─────────────────────────────────────────────────────────────
 
   runBotBids: () => {
     const { difficulty } = get();
     let currentState = get().state;
-
     if (currentState.phase !== 'bidding') return;
 
-    // FIX: was iterating ['left', 'top', 'right'] unconditionally from index 0,
-    // ignoring the actual bidding order and currentBidderIndex. This meant bots
-    // always bid in the wrong order after the human went first (or second, etc.)
-    // and could re-bid seats that already placed a bid.
-    //
-    // Now we walk the real biddingOrder starting from currentBidderIndex,
-    // skipping any seat that is human ('bottom') or has already bid (bid !== null).
     const processBots = () => {
       if (currentState.phase !== 'bidding') {
-        // Bidding ended — move to dealing phase
         if (currentState.phase === 'dealing2') {
           setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
         }
         return;
       }
 
-      const { biddingOrder, currentBidderIndex, players } = currentState;
+      const { biddingOrder, currentBidderIndex } = currentState;
       const seat = biddingOrder[currentBidderIndex];
 
-      // Skip human player — they act via placePlayerBid / passPlayerBid
+      // Skip human — they act via placePlayerBid / passPlayerBid
       if (seat === 'bottom') return;
 
-      const hand = players[seat].hand;
-      const highCards = hand.filter(c => c.value >= 11).length;
-      // Bots with very weak hands prefer to pass
-      const shouldPass = highCards <= 1 && Math.random() > 0.5;
+      const hand = currentState.players[seat].hand;
 
-      if (shouldPass) {
-        // FIX: was calling placeBid(currentState, seat, 0). Must use enginePassBid
-        // so the bidding state machine transitions correctly.
-        currentState = enginePassBid(currentState, seat);
-      } else {
-        currentState = placeBid(currentState, seat, getBotBid(hand, difficulty));
-      }
+      // FIX: pass currentHighestBid so getBotBid can decide to pass (return 0)
+      // if its estimate doesn't beat the table. The old inline `highCards <= 1`
+      // pass check is removed — getBotBid handles all pass logic internally.
+      const botBid = getBotBid(hand, difficulty, currentState.highestBid);
+
+      currentState = botBid === 0
+        ? enginePassBid(currentState, seat)
+        : placeBid(currentState, seat, botBid);
 
       set({ state: currentState });
 
@@ -152,60 +127,45 @@ export const useGameStore = create<GameStore>((set, get) => ({
         return;
       }
 
-      // Continue to next bidder
       setTimeout(processBots, 500 / get().animSpeed);
     };
 
     setTimeout(processBots, 300 / get().animSpeed);
   },
 
+  // ── Second Deal ─────────────────────────────────────────────────────────────
+
   dealRemainingCards: () => {
     const currentState = get().state;
 
-    // FIX: the store was reimplementing deal logic inline with a hardcoded
-    // cardIndex=20 offset, bypassing the engine entirely and duplicating fragile
-    // logic. Now delegates to the engine's dealRemainingCards, which correctly
-    // derives the offset from INITIAL_DEAL_COUNT and advances idx per player.
-    const currentHands = {
-      bottom: currentState.players.bottom.hand,
-      top: currentState.players.top.hand,
-      left: currentState.players.left.hand,
-      right: currentState.players.right.hand,
-    };
-    const dealtHands = engineDealRemainingCards(currentState.deck, currentHands, 5);
-
-    const newPlayers = { ...currentState.players };
-    for (const seat of ['bottom', 'left', 'top', 'right'] as SeatPosition[]) {
-      newPlayers[seat] = { ...newPlayers[seat], hand: dealtHands[seat] };
-    }
-
+    // FIX: removed inline hand-merging logic — delegate entirely to the engine's
+    // dealSecondPhase which handles offset calculation and phase transition.
+    // Also fixed: selectBotTrump now receives difficulty as third argument,
+    // and selectTrump now receives seat for caller validation.
+    const { difficulty } = get();
     const bidder = currentState.highestBidder;
 
-    // FIX: was always calling selectBotTrump and setting trumpSuit directly,
-    // which bypassed the human trump-selection phase entirely. If the human won
-    // the bid, we must transition to 'dealing2' so the UI can prompt them to
-    // pick trump. Only auto-select trump when a bot won the bid.
-    if (bidder && newPlayers[bidder].isHuman === false) {
-      const trump = selectBotTrump(newPlayers[bidder].hand, currentState.highestBid);
-      const nextState = selectTrump(
-        { ...currentState, players: newPlayers },
-        trump
+    if (bidder && !currentState.players[bidder].isHuman) {
+      // Bot won the bid — deal full hands then auto-select trump
+      const dealtState = dealSecondPhase(currentState);
+      const trump = selectBotTrump(
+        dealtState.players[bidder].hand,
+        dealtState.highestBid,
+        difficulty  // FIX: was missing; selectBotTrump requires difficulty for threshold logic
       );
+      const nextState = selectTrump(dealtState, trump, bidder);
       set({ state: nextState });
-      if (nextState.phase === 'playing' && nextState.currentSeat !== 'bottom') {
-        setTimeout(() => get().advanceAI(), 500 / get().animSpeed);
-      }
+      afterPlayState(nextState, get);
     } else {
-      // Human bidder: stay in dealing2 so the trump-selection UI renders
-      set({
-        state: {
-          ...currentState,
-          players: newPlayers,
-          phase: 'dealing2',
-        },
-      });
+      // Human won the bid — deal full hands and wait for human to pick trump
+      // dealSecondPhase transitions to 'playing' but we need 'dealing2' here
+      // so the trump-selection UI renders. Set phase manually after dealing.
+      const dealtState = dealSecondPhase({ ...currentState, phase: 'dealing2' });
+      set({ state: { ...dealtState, phase: 'dealing2' } });
     }
   },
+
+  // ── AI Play ─────────────────────────────────────────────────────────────────
 
   advanceAI: () => {
     const { state, difficulty } = get();
@@ -215,9 +175,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (currentSeat === 'bottom') return;
 
     const hand = state.players[currentSeat].hand;
-
-    // FIX: was missing trumpRevealed — getBotPlay now requires it so bots
-    // respect the same card-legality rules as the human player.
     const botCard = getBotPlay(
       hand,
       state.currentTrick,
@@ -230,29 +187,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     if (!botCard) return;
 
-    let newState = playCard(state, currentSeat, botCard);
-
-    if (
-      newState.trumpSuit !== null &&
-      !newState.trumpRevealed &&
-      newState.currentTrick.cards.some(c => c.card.suit === newState.trumpSuit)
-    ) {
-      newState = revealTrump(newState);
-    }
-
+    // FIX: removed manual trumpRevealed check — playCard handles auto-reveal.
+    const newState = playCard(state, currentSeat, botCard);
     set({ state: newState });
-
-    if (newState.phase === 'trickEnd') {
-      setTimeout(() => get().clearTrick(), 1200 / get().animSpeed);
-    } else if (newState.phase === 'playing' && newState.currentSeat !== 'bottom') {
-      setTimeout(() => get().advanceAI(), 600 / get().animSpeed);
-    }
+    afterPlayState(newState, get);
   },
+
+  // ── Trick Cleanup ───────────────────────────────────────────────────────────
 
   clearTrick: () => {
     const { state } = get();
-
-    // The trick winner is stored on the completed trick; they lead the next trick.
     const trickWinner = state.currentTrick.winningSeat ?? state.currentSeat;
 
     const newState: GameState = {
@@ -264,20 +208,54 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     set({ state: newState });
 
-    // FIX: was reading state.currentSeat (the OLD state, before the trick was
-    // cleared and winner assigned). Now checks newState.currentSeat — the seat
-    // that actually leads the next trick — to decide if AI should continue.
     if (newState.phase === 'playing' && newState.currentSeat !== 'bottom') {
       setTimeout(() => get().advanceAI(), 300 / get().animSpeed);
     }
   },
 
+  // ── Round Advancement ───────────────────────────────────────────────────────
+
   nextRound: () => {
     const newState = advanceToNextRound(get().state);
     set({ state: newState });
-    // If the first bidder in the new round is a bot, kick off their bids
+
+    // FIX: check for gameEnd before trying to start bot bids.
+    // advanceToNextRound returns phase: 'gameEnd' if ±30 threshold is hit.
+    if (newState.phase === 'gameEnd') return;
+
     if (newState.phase === 'bidding' && newState.currentSeat !== 'bottom') {
       setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
     }
   },
 }));
+
+// ─── Shared Transition Helpers ────────────────────────────────────────────────
+
+/**
+ * Called after any bid action (human or bot) to trigger the next step.
+ */
+function afterBidState(
+  newState: GameState,
+  get: () => GameStore
+): void {
+  if (newState.phase === 'bidding' && newState.currentSeat !== 'bottom') {
+    setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
+  } else if (newState.phase === 'dealing2') {
+    setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
+  }
+}
+
+/**
+ * Called after any card play (human or bot) to trigger the next step.
+ * Handles trickEnd → clearTrick and playing → advanceAI transitions.
+ */
+function afterPlayState(
+  newState: GameState,
+  get: () => GameStore
+): void {
+  if (newState.phase === 'trickEnd') {
+    setTimeout(() => get().clearTrick(), 1200 / get().animSpeed);
+  } else if (newState.phase === 'playing' && newState.currentSeat !== 'bottom') {
+    setTimeout(() => get().advanceAI(), 500 / get().animSpeed);
+  }
+}

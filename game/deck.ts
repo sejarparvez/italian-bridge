@@ -1,4 +1,18 @@
 import { ALL_RANKS, ALL_SUITS, Card, RANK_ORDER } from '../constants/cards';
+import { SeatPosition } from './types';
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/** Seat order used for dealing — consistent with bidding and trick order */
+const SEAT_ORDER: SeatPosition[] = ['bottom', 'left', 'top', 'right'];
+
+const TOTAL_PLAYERS = SEAT_ORDER.length;
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type DealResult = Record<SeatPosition, Card[]>;
+
+// ─── Deck Creation ────────────────────────────────────────────────────────────
 
 export function createDeck(): Card[] {
   const deck: Card[] = [];
@@ -15,6 +29,9 @@ export function createDeck(): Card[] {
   return deck;
 }
 
+// ─── Shuffle ──────────────────────────────────────────────────────────────────
+
+/** Fisher-Yates shuffle — returns a new array, does not mutate the input. */
 export function shuffleDeck(deck: Card[]): Card[] {
   const shuffled = [...deck];
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -24,52 +41,109 @@ export function shuffleDeck(deck: Card[]): Card[] {
   return shuffled;
 }
 
-export interface DealResult {
-  bottom: Card[];
-  top: Card[];
-  left: Card[];
-  right: Card[];
-}
+// ─── Deal ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Deal `cardsPerPlayer` cards to each of the 4 seats from the deck.
+ * Cards are dealt one at a time around the table (bottom → left → top → right),
+ * matching real card dealing order.
+ *
+ * @throws if the deck doesn't have enough cards for the deal.
+ */
 export function dealCards(deck: Card[], cardsPerPlayer: number): DealResult {
+  const required = cardsPerPlayer * TOTAL_PLAYERS;
+  if (deck.length < required) {
+    throw new Error(
+      `Deck too small to deal ${cardsPerPlayer} cards to ${TOTAL_PLAYERS} players. ` +
+      `Need ${required}, got ${deck.length}.`
+    );
+  }
+
   const result: DealResult = {
     bottom: [],
     top: [],
     left: [],
     right: [],
   };
-  for (let i = 0; i < cardsPerPlayer; i++) {
-    result.bottom.push(deck[i * 4]);
-    result.top.push(deck[i * 4 + 1]);
-    result.left.push(deck[i * 4 + 2]);
-    result.right.push(deck[i * 4 + 3]);
+
+  // Deal one card at a time around the table — explicit and easy to follow
+  for (let round = 0; round < cardsPerPlayer; round++) {
+    for (let p = 0; p < TOTAL_PLAYERS; p++) {
+      const seat = SEAT_ORDER[p];
+      result[seat].push({ ...deck[round * TOTAL_PLAYERS + p] });
+    }
   }
+
   return result;
 }
 
+/**
+ * Deal remaining cards after the initial deal.
+ * Automatically calculates how many cards each player receives from what's left.
+ *
+ * @param deck                 - The full shuffled deck
+ * @param currentHands         - Hands already dealt in the first phase
+ * @param initialCardsPerPlayer - How many cards were dealt in the first phase
+ *
+ * @throws if there aren't enough remaining cards to deal evenly.
+ */
 export function dealRemainingCards(
   deck: Card[],
   currentHands: DealResult,
   initialCardsPerPlayer: number
 ): DealResult {
-  // After dealing initialCardsPerPlayer to 4 players, skip those cards
-  const dealtSoFar = initialCardsPerPlayer * 4;
+  const dealtSoFar = initialCardsPerPlayer * TOTAL_PLAYERS;
   const remaining = deck.slice(dealtSoFar);
 
-  // BUG FIX: idx must be captured by reference inside addCards so it advances
-  // across all four calls. Use a shared mutable counter object.
-  let idx = 0;
+  // Derive cards per player from remaining deck rather than hardcoding 8
+  if (remaining.length % TOTAL_PLAYERS !== 0) {
+    throw new Error(
+      `Remaining cards (${remaining.length}) don't divide evenly among ` +
+      `${TOTAL_PLAYERS} players.`
+    );
+  }
 
+  const cardsPerPlayer = remaining.length / TOTAL_PLAYERS;
+
+  if (cardsPerPlayer === 0) {
+    throw new Error('No remaining cards to deal.');
+  }
+
+  let idx = 0;
   const addCards = (hand: Card[], count: number): Card[] => {
     const newCards = remaining.slice(idx, idx + count).map(c => ({ ...c }));
-    idx += count; // advance so next player gets different cards
+    idx += count;
     return [...hand, ...newCards];
   };
 
   return {
-    bottom: addCards(currentHands.bottom, 8),
-    top: addCards(currentHands.top, 8),
-    left: addCards(currentHands.left, 8),
-    right: addCards(currentHands.right, 8),
+    bottom: addCards(currentHands.bottom, cardsPerPlayer),
+    top:    addCards(currentHands.top,    cardsPerPlayer),
+    left:   addCards(currentHands.left,   cardsPerPlayer),
+    right:  addCards(currentHands.right,  cardsPerPlayer),
   };
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the total number of cards in all hands combined.
+ * Useful for asserting deal correctness in tests.
+ */
+export function countDealtCards(hands: DealResult): number {
+  return SEAT_ORDER.reduce((total, seat) => total + hands[seat].length, 0);
+}
+
+/**
+ * Validates that a deal result has the expected number of cards per player.
+ * Throws a descriptive error if any hand is the wrong size.
+ */
+export function validateDeal(hands: DealResult, expectedPerPlayer: number): void {
+  for (const seat of SEAT_ORDER) {
+    if (hands[seat].length !== expectedPerPlayer) {
+      throw new Error(
+        `Invalid deal: ${seat} has ${hands[seat].length} cards, expected ${expectedPerPlayer}.`
+      );
+    }
+  }
 }
