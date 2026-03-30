@@ -149,19 +149,6 @@ export default function BidScreen() {
         ) : (
           /* ── BIDDING SCREEN (landscape layout) ── */
           <Box key='bidding' className='flex-1'>
-            {/*
-              LANDSCAPE LAYOUT:
-              ┌─────────────────────────────────────────────────────┐
-              │  LEFT    │       CENTER MODAL        │    RIGHT     │
-              │  player  │  ┌─────────────────────┐  │   player    │
-              │          │  │   Bidding modal      │  │            │
-              │          │  └─────────────────────┘  │            │
-              │          │         TOP player         │            │
-              ├──────────┴───────────────────────────┴────────────┤
-              │                  Player hand fan                   │
-              └─────────────────────────────────────────────────────┘
-            */}
-
             {/* ── TABLE AREA (top ~65% of screen) ── */}
             <HStack className='flex-1' style={{ maxHeight: SCREEN_H * 0.65 }}>
               {/* Left player */}
@@ -195,7 +182,7 @@ export default function BidScreen() {
                 >
                   {/* Modal inner gradient */}
                   <LinearGradient
-                    colors={['#1C1400', '#120E00', '#1A1600']}
+                    colors={['#0D2B1A', '#120E00', '#1A1600']}
                     style={{ padding: 16, borderRadius: 19 }}
                   >
                     {/* Modal header */}
@@ -206,9 +193,6 @@ export default function BidScreen() {
                         borderBottomColor: 'rgba(100,80,20,0.3)',
                       }}
                     >
-                      <Text className='text-amber-500/50 text-[9px] font-bold tracking-[3px] uppercase mb-0.5'>
-                        Round {state.round ?? 1} · Your Turn
-                      </Text>
                       <Heading className='text-amber-100 text-xl font-extrabold tracking-tight'>
                         Place Your Bid
                       </Heading>

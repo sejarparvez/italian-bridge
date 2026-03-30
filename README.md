@@ -1,53 +1,26 @@
-# Italian Bridge
+# Italian Bridge - Release Notes
 
-A classic 4-player partnership card game with bidding and trump mechanics.
+## What's New
 
-## How to Play
+### Version 1.0.1
 
-### Teams
-You play with 3 AI opponents, forming 2 teams of 2:
-- **Your Team**: You + Bot 2 (partners sit opposite each other)
-- **Opposing Team**: Bot 1 + Bot 3
+- **Bot Improvements** — Enhanced AI bidding and play logic with better decision making
+- **Bidding Screen** — Added Pass button and loading states, fixed navigation timing
+- **Card Sorting** — Improved automatic card sorting in hand
+- **Game Logic Fixes** — Fixed bid evaluation, trick taking, and scoring calculations
+- **UI Enhancements** — Added new UI components (Avatar, Heading, Text, Menu)
+- **CI/CD** — Added GitHub Actions for automated building and testing
 
-### The Deal
-1. Each player receives **5 cards** to start
-2. Players bid based only on these 5 cards
-3. After the trump is selected, everyone gets **8 more cards** (13 total)
+### Version 1.0.0
 
-### Bidding
-- Bid from **7** to **10** points
-- Highest bidder wins and chooses the **trump suit**
-- Your bid commits your team to score that many points
-
-| Bid | What It Means |
-|-----|---------------|
-| 7-9 | Commit to score at least that many points |
-| 10 | Commit to score all 10 points (+3 bonus if you do!) |
-
-### Trump Card
-- A hidden face-down card determines the trump suit
-- If you won the bid, you can peek at it anytime
-- It reveals to everyone when someone plays their first trump
-
-### Scoring
-
-**Your Team:**
-| Result | Score |
-|--------|-------|
-| Meet your bid (7-9) | +bid amount |
-| Bid 10 and win all 10 | +13 (10 + 3 bonus) |
-| Miss your bid | -bid amount |
-
-**Opposing Team:**
-| Result | Score |
-|--------|-------|
-| Score 4+ tricks | +4 |
-| Score 3 or fewer | -4 |
-
-### Winning the Game
-- First team to **+30 points** wins
-- If a team drops to **-30**, they're out
+- Initial release of Italian Bridge card game
+- 4-player partnership card game with bidding and trump mechanics
+- Play with 3 AI opponents
+- Bidding system (7-10 points)
+- Two-phase card dealing
+- Trump card mechanics
+- Team-based scoring (+30 win / -30 elimination)
 
 ---
 
-Enjoy the game!
+**Download:** Check GitHub Releases for APK builds

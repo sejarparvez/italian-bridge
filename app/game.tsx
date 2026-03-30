@@ -3,8 +3,9 @@ import { useRouter } from 'expo-router';
 import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
 import { MotiView } from 'moti';
 import type React from 'react';
-import { useMemo, useState } from 'react';
-import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Dimensions, Pressable, View } from 'react-native';
+import { Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card } from '@/components/cards/Card';
 import { HStack } from '@/components/ui/hstack';
@@ -32,18 +33,19 @@ const TRICK_CARD_W = SCREEN_H * 0.13;
 const TRICK_CARD_H = TRICK_CARD_W * 1.55;
 const TRICK_OFFSET = SCREEN_H * 0.18;
 
-// ── Single colour palette (was duplicated as C and C2) ───────────────────────
+// ── Colour palette ────────────────────────────────────────────────────────────
 
 const C = {
   bg: '#06110A',
   felt: '#0A1C0F',
   gold: '#C8A840',
+  goldBright: '#E8C84A',
   goldDim: 'rgba(200,168,64,0.25)',
   goldFaint: 'rgba(200,168,64,0.08)',
   goldAccent: 'rgba(200,168,64,0.12)',
+  goldGlow: 'rgba(200,168,64,0.35)',
   white10: 'rgba(255,255,255,0.10)',
   white05: 'rgba(255,255,255,0.05)',
-  white03: 'rgba(255,255,255,0.03)',
   danger: 'rgba(248,113,113,0.7)',
   dangerDim: 'rgba(248,113,113,0.5)',
 };
@@ -81,45 +83,294 @@ const slotFor = (p: SeatPosition) => {
         : { x: o * 1.2, y: 0 };
 };
 
-/**
- * Score pill shown on one player per team.
- * Shows tricks taken vs the team target.
- *
- * Bidding team: target = bid amount (e.g. 0/8)
- * Opposing team: target = 4 (minimum to score, always shown as X/4)
- *
- * Only rendered on the "primary" seat for each team:
- *   BT team → bottom (human)
- *   LR team → right (opponent)
- * Top and left seats show no score badge — avoids redundancy in a team game.
- */
+// ── useShimmer — reusable looping shimmer ─────────────────────────────────────
+
+function useShimmer(duration = 2000, delay = 0) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(anim, {
+          toValue: 1,
+          duration,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0,
+          duration,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim, duration, delay]);
+  return anim;
+}
+
+// ── PulseRing — expands outward and fades ────────────────────────────────────
+
+function PulseRing({
+  size,
+  color,
+  duration = 1400,
+  delay = 0,
+}: {
+  size: number;
+  color: string;
+  duration?: number;
+  delay?: number;
+}) {
+  return (
+    <MotiView
+      from={{ opacity: 0.7, scale: 0.5 }}
+      animate={{ opacity: 0, scale: 1.1 }}
+      transition={{
+        loop: true,
+        duration,
+        type: 'timing',
+        delay,
+        easing: Easing.out(Easing.quad),
+      }}
+      style={{
+        position: 'absolute',
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        borderWidth: 1.5,
+        borderColor: color,
+        alignSelf: 'center',
+      }}
+    />
+  );
+}
+
+// ── OrbitDot — a dot that orbits a center point ──────────────────────────────
+
+function OrbitDot({
+  radius,
+  duration,
+  startAngle = 0,
+  color,
+}: {
+  radius: number;
+  duration: number;
+  startAngle?: number;
+  color: string;
+}) {
+  const progress = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 1,
+        duration,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [progress, duration]);
+
+  // Build x/y from many interpolation steps for smooth circular orbit
+  const steps = 60;
+  const inputRange = Array.from({ length: steps + 1 }, (_, i) => i / steps);
+  const xRange = inputRange.map((t) => {
+    const angle = startAngle * (Math.PI / 180) + t * 2 * Math.PI;
+    return radius * Math.cos(angle);
+  });
+  const yRange = inputRange.map((t) => {
+    const angle = startAngle * (Math.PI / 180) + t * 2 * Math.PI;
+    return radius * Math.sin(angle);
+  });
+
+  const translateX = progress.interpolate({ inputRange, outputRange: xRange });
+  const translateY = progress.interpolate({ inputRange, outputRange: yRange });
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        width: 4,
+        height: 4,
+        borderRadius: 2,
+        backgroundColor: color,
+        opacity: 0.7,
+        transform: [{ translateX }, { translateY }],
+      }}
+    />
+  );
+}
+
+// ── ActiveHalo — layered glow + orbit for active seats ───────────────────────
+
+function ActiveHalo({ size = 34 }: { size?: number }) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        width: size,
+        height: size,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <PulseRing size={size * 2.2} color={C.goldGlow} duration={1800} />
+      <PulseRing size={size * 1.6} color={C.gold} duration={1400} delay={300} />
+      <OrbitDot
+        radius={size * 0.82}
+        duration={3000}
+        startAngle={0}
+        color={C.gold}
+      />
+      <OrbitDot
+        radius={size * 0.82}
+        duration={3000}
+        startAngle={180}
+        color={C.goldBright}
+      />
+    </View>
+  );
+}
+
+// ── DealCard — cards fan in from deck on mount ────────────────────────────────
+
+function DealCard({
+  index,
+  children,
+}: {
+  index: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <MotiView
+      from={{
+        opacity: 0,
+        translateY: -CARD_H * 1.4,
+        scale: 0.55,
+      }}
+      animate={{ opacity: 1, translateY: 0, scale: 1 }}
+      transition={{
+        type: 'spring',
+        damping: 16,
+        stiffness: 110,
+        delay: index * 55,
+      }}
+    >
+      {children}
+    </MotiView>
+  );
+}
+
+// ── TrickCard — card played onto table with cinematic arc ─────────────────────
+
+function TrickCard({
+  cardId,
+  player,
+  isLatest,
+  children,
+}: {
+  cardId: string;
+  player: SeatPosition;
+  isLatest: boolean;
+  children: React.ReactNode;
+}) {
+  const s = slotFor(player);
+  const rot = stableRot(cardId);
+
+  return (
+    <MotiView
+      key={cardId}
+      from={{
+        scale: isLatest ? 0.45 : 0.8,
+        opacity: isLatest ? 0 : 0.7,
+        rotate: `${rot + (isLatest ? 20 : 6)}deg`,
+      }}
+      animate={{
+        scale: 1,
+        opacity: 1,
+        rotate: `${rot}deg`,
+        transform: [
+          { translateX: s.x - TRICK_CARD_W / 2 },
+          { translateY: s.y - TRICK_CARD_H / 2 },
+          { rotate: `${rot}deg` },
+        ],
+      }}
+      transition={{
+        type: 'spring',
+        damping: isLatest ? 13 : 20,
+        stiffness: isLatest ? 170 : 220,
+        mass: isLatest ? 0.75 : 1,
+      }}
+      style={{ position: 'absolute', top: '50%', left: '50%' }}
+    >
+      {/* Flash glow for newest card */}
+      {isLatest && (
+        <MotiView
+          from={{ opacity: 0.85, scale: 1.4 }}
+          animate={{ opacity: 0, scale: 1 }}
+          transition={{ type: 'timing', duration: 500 }}
+          style={{
+            position: 'absolute',
+            inset: -10,
+            borderRadius: 14,
+            backgroundColor: C.goldGlow,
+          }}
+        />
+      )}
+      {children}
+    </MotiView>
+  );
+}
+
+// ── TeamScoreBadge ─────────────────────────────────────────────────────────────
+
 function TeamScoreBadge({
   tricks,
   bid,
   isBiddingTeam,
   active,
 }: {
-  tricks: number; // combined team tricks taken this round
-  bid: number | null; // bid if this is the bidding team, null if opposing
+  tricks: number;
+  bid: number | null;
   isBiddingTeam: boolean;
   active: boolean;
 }) {
-  // Bidding team target = their bid. Opposing team target = 4 (always).
   const numericTarget = isBiddingTeam ? (bid ?? 0) : 4;
   const target = isBiddingTeam ? (bid ?? '?') : 4;
-
-  // Colour cue: gold when on track or ahead, red when behind with few tricks left
-  // tricks === 0 and target unknown — stay neutral
   const onTrack = numericTarget === 0 || tricks >= numericTarget;
+
   const valueColor = active
     ? C.gold
     : onTrack
-      ? 'rgba(100,200,120,0.85)' // soft green — on track
-      : 'rgba(220,100,80,0.85)'; // soft red — behind target
+      ? 'rgba(100,200,120,0.85)'
+      : 'rgba(220,100,80,0.85)';
+
+  const shimmer = useShimmer(1800, 300);
 
   return (
-    <View style={[styles.trickBadge, active && styles.trickBadgeActive]}>
-      <Text style={[styles.trickText, { color: valueColor }]}>
+    <View
+      className='mt-0.5 px-1.5 py-0.5 rounded-xl overflow-hidden'
+      style={active ? { backgroundColor: C.goldAccent } : undefined}
+    >
+      {active && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundColor: C.gold,
+            opacity: shimmer.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.08, 0.25],
+            }),
+            borderRadius: 8,
+          }}
+        />
+      )}
+      <Text className='text-xs font-black' style={{ color: valueColor }}>
         {tricks}
         <Text style={{ opacity: 0.45, color: 'rgba(240,220,160,0.35)' }}>
           /{target}
@@ -128,6 +379,8 @@ function TeamScoreBadge({
     </View>
   );
 }
+
+// ── OpponentSeat ──────────────────────────────────────────────────────────────
 
 function OpponentSeat({
   name,
@@ -138,40 +391,84 @@ function OpponentSeat({
   name: string;
   active: boolean;
   orientation?: 'vertical' | 'horizontal';
-  /** If provided, renders a TeamScoreBadge below the name */
   scoreBadge?: React.ReactNode;
 }) {
   const isH = orientation === 'horizontal';
+  const borderShimmer = useShimmer(2200, 100);
 
   return (
     <View
+      className={[
+        'items-center p-2 rounded-2xl border relative',
+        isH ? 'flex-row px-2.5' : '',
+        active ? 'border-[rgba(200,168,64,0.25)]' : 'border-transparent',
+      ].join(' ')}
       style={[
-        styles.seatWrap,
-        active && styles.seatActive,
-        isH && styles.seatH,
+        { minWidth: 64 },
+        active ? { backgroundColor: C.goldFaint } : undefined,
       ]}
     >
+      {/* Animated border shimmer */}
       {active && (
-        <MotiView
-          from={{ opacity: 0.6, scale: 0.85 }}
-          animate={{ opacity: 0, scale: 1.5 }}
-          transition={{ loop: true, duration: 1400, type: 'timing' }}
-          style={StyleSheet.absoluteFillObject}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 16,
+            borderWidth: 1.5,
+            borderColor: C.gold,
+            opacity: borderShimmer.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.1, 0.5],
+            }),
+          }}
         />
       )}
 
-      <View style={[styles.avatar, active && styles.avatarActive]}>
-        <Text style={styles.avatarText}>{name[0].toUpperCase()}</Text>
-      </View>
+      {/* Active halo sits behind the avatar */}
+      {active && (
+        <View
+          style={{
+            position: 'absolute',
+            left: isH ? 8 : undefined,
+            alignSelf: isH ? undefined : 'center',
+            top: isH ? 8 : 8,
+            width: 34,
+            height: 34,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ActiveHalo size={34} />
+        </View>
+      )}
 
+      {/* Avatar */}
       <View
-        style={isH ? { marginLeft: 8 } : { marginTop: 5, alignItems: 'center' }}
+        className='items-center justify-center rounded-full'
+        style={[
+          { width: 34, height: 34, borderRadius: 17, borderWidth: 2 },
+          active
+            ? { borderColor: C.gold, backgroundColor: C.goldAccent }
+            : { borderColor: C.white10, backgroundColor: C.white05 },
+        ]}
       >
         <Text
-          style={[
-            styles.seatName,
-            active && { color: 'rgba(240,220,160,0.9)' },
-          ]}
+          className='font-black text-xs'
+          style={{ color: 'rgba(240,220,160,0.6)' }}
+        >
+          {name[0].toUpperCase()}
+        </Text>
+      </View>
+
+      {/* Name + score */}
+      <View className={isH ? 'ml-2' : 'mt-1.5 items-center'}>
+        <Text
+          className='text-[9px] font-bold uppercase tracking-wide'
+          style={{
+            maxWidth: 60,
+            color: active ? 'rgba(240,220,160,0.9)' : 'rgba(255,255,255,0.3)',
+          }}
           numberOfLines={1}
         >
           {name}
@@ -179,18 +476,37 @@ function OpponentSeat({
         {scoreBadge}
       </View>
 
+      {/* Live indicator dot + halo */}
       {active && (
-        <MotiView
-          animate={{ opacity: [0.3, 1, 0.3] }}
-          transition={{ loop: true, duration: 900, type: 'timing' }}
-          style={styles.activeDot}
-        />
+        <>
+          <MotiView
+            animate={{ opacity: [0.3, 1, 0.3] }}
+            transition={{ loop: true, duration: 900, type: 'timing' }}
+            className='absolute top-1.5 right-1.5 w-2 h-2 rounded-full'
+            style={{ backgroundColor: C.gold }}
+          />
+          <MotiView
+            from={{ opacity: 0.6, scale: 0.5 }}
+            animate={{ opacity: 0, scale: 2.2 }}
+            transition={{ loop: true, duration: 1100, type: 'timing' }}
+            style={{
+              position: 'absolute',
+              top: 4,
+              right: 4,
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: C.gold,
+            }}
+          />
+        </>
       )}
     </View>
   );
 }
 
-/** Compact team score panel — sits in the HUD alongside trump pill */
+// ── ScorePanel ────────────────────────────────────────────────────────────────
+
 function ScorePanel({
   btScore,
   lrScore,
@@ -199,29 +515,56 @@ function ScorePanel({
   lrScore: number;
 }) {
   const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
+
   return (
-    <View style={styles.scorePanel}>
-      <View style={styles.scorePanelRow}>
-        <Text style={styles.scorePanelLabel}>US</Text>
+    <View
+      className='flex-row items-center rounded-xl border overflow-hidden'
+      style={{ borderColor: C.white10, backgroundColor: C.white05 }}
+    >
+      <View className='px-2.5 py-1 items-center' style={{ minWidth: 52 }}>
         <Text
-          style={[
-            styles.scorePanelValue,
-            btScore > 0 && { color: C.gold },
-            btScore <= -20 && { color: C.danger },
-          ]}
+          className='text-[7px] font-bold uppercase tracking-widest'
+          style={{ color: 'rgba(200,168,64,0.45)' }}
+        >
+          US
+        </Text>
+        <Text
+          className='text-sm font-black'
+          style={{
+            color:
+              btScore > 0
+                ? C.gold
+                : btScore <= -20
+                  ? C.danger
+                  : 'rgba(240,220,160,0.4)',
+          }}
         >
           {fmt(btScore)}
         </Text>
       </View>
-      <View style={styles.scorePanelDivider} />
-      <View style={styles.scorePanelRow}>
-        <Text style={styles.scorePanelLabel}>THEM</Text>
+
+      <View
+        className='w-px self-stretch'
+        style={{ backgroundColor: C.white10, marginVertical: '15%' }}
+      />
+
+      <View className='px-2.5 py-1 items-center' style={{ minWidth: 52 }}>
         <Text
-          style={[
-            styles.scorePanelValue,
-            lrScore > 0 && { color: 'rgba(255,255,255,0.5)' },
-            lrScore <= -20 && { color: C.danger },
-          ]}
+          className='text-[7px] font-bold uppercase tracking-widest'
+          style={{ color: 'rgba(200,168,64,0.45)' }}
+        >
+          THEM
+        </Text>
+        <Text
+          className='text-sm font-black'
+          style={{
+            color:
+              lrScore > 0
+                ? 'rgba(255,255,255,0.5)'
+                : lrScore <= -20
+                  ? C.danger
+                  : 'rgba(240,220,160,0.4)',
+          }}
         >
           {fmt(lrScore)}
         </Text>
@@ -230,24 +573,8 @@ function ScorePanel({
   );
 }
 
-/**
- * Trump peek button — shown only to the human player when:
- * - they created the trump (trumpCreator === 'bottom')
- * - trump has not been revealed yet
- * Tapping it calls revealTrump so all players see the suit.
- */
+// ── TrumpMiniCard ─────────────────────────────────────────────────────────────
 
-/**
- * Mini playing card that shows the trump suit.
- *
- * States:
- * - Hidden (face-down): shown when trump hasn't been revealed but user CAN peek.
- *   Tapping flips it to reveal.
- * - Revealed: shows suit symbol and name, styled like a real card face.
- *
- * Red suits (hearts/diamonds) get a warm card face.
- * Black suits (clubs/spades) get a cool card face.
- */
 function TrumpMiniCard({
   suit,
   revealed,
@@ -261,33 +588,87 @@ function TrumpMiniCard({
 }) {
   const isRed = suit === 'hearts' || suit === 'diamonds';
   const symbol = SUIT_SYMBOLS[suit as keyof typeof SUIT_SYMBOLS];
-
-  // Card face colours
   const faceColor = isRed ? '#FFF5F5' : '#F5F7FF';
   const suitColor = isRed ? '#D42B2B' : '#1A1A2E';
   const borderColor = isRed ? 'rgba(212,43,43,0.3)' : 'rgba(26,26,46,0.25)';
+  const cardStyle = { width: 44, height: 62, borderRadius: 7 };
+  const shimmer = useShimmer(2600);
 
   if (!revealed && canPeek) {
-    // Face-down state — tap to peek
     return (
       <MotiView
-        from={{ opacity: 0, scale: 0.7, rotateY: '90deg' }}
-        animate={{ opacity: 1, scale: 1, rotateY: '0deg' }}
-        transition={{ type: 'spring', damping: 16 }}
+        from={{ opacity: 0, scale: 0.4 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ type: 'spring', damping: 13, stiffness: 180 }}
       >
-        <Pressable onPress={onPeek} style={styles.trumpCard}>
-          {/* Card back — green felt pattern */}
+        {/* Gold aura */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            inset: -8,
+            borderRadius: 15,
+            backgroundColor: C.gold,
+            opacity: shimmer.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0.08, 0.28],
+            }),
+          }}
+        />
+        <Pressable
+          onPress={onPeek}
+          className='items-center justify-center overflow-hidden border border-[rgba(255,255,255,0.15)]'
+          style={[cardStyle, { elevation: 10 }]}
+        >
           <LinearGradient
             colors={['#1A3A22', '#0F2216', '#1A3A22']}
-            style={[StyleSheet.absoluteFillObject, { borderRadius: 7 }]}
+            className='absolute inset-0'
+            style={{ borderRadius: 7 }}
           />
-          <View style={styles.trumpCardBackPattern}>
+          {/* Decorative lines */}
+          <View className='absolute inset-0 items-center justify-evenly p-1'>
             {[...Array(3)].map((_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: this is fine
-              <View key={i} style={styles.trumpCardBackLine} />
+              <View
+                // biome-ignore lint/suspicious/noArrayIndexKey: decorative
+                key={i}
+                style={{
+                  width: '80%',
+                  height: 1,
+                  backgroundColor: 'rgba(200,168,64,0.2)',
+                  borderRadius: 1,
+                }}
+              />
             ))}
           </View>
-          <Text style={styles.trumpCardBackLabel}>TAP TO PEEK</Text>
+          {/* Sweep shimmer across card back */}
+          <Animated.View
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              width: 18,
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              transform: [
+                {
+                  translateX: shimmer.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-44, 88],
+                  }),
+                },
+              ],
+            }}
+          />
+          <Text
+            style={{
+              fontSize: 7,
+              color: 'rgba(200,168,64,0.65)',
+              fontWeight: '900',
+              letterSpacing: 0.5,
+              textAlign: 'center',
+              lineHeight: 10,
+            }}
+          >
+            TAP{'\n'}PEEK
+          </Text>
         </Pressable>
       </MotiView>
     );
@@ -295,54 +676,206 @@ function TrumpMiniCard({
 
   if (!revealed) return null;
 
-  // Face-up state
   return (
     <MotiView
-      from={{ opacity: 0, scale: 0.7 }}
+      from={{ opacity: 0, scale: 0.35 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'spring', damping: 16 }}
+      transition={{ type: 'spring', damping: 11, stiffness: 190 }}
     >
+      {/* Suit-tinted aura */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          inset: -8,
+          borderRadius: 15,
+          backgroundColor: isRed
+            ? 'rgba(212,43,43,0.3)'
+            : 'rgba(50,50,160,0.3)',
+          opacity: shimmer.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.3, 0.75],
+          }),
+        }}
+      />
       <View
-        style={[styles.trumpCard, { backgroundColor: faceColor, borderColor }]}
+        className='items-center justify-center overflow-hidden border'
+        style={[
+          cardStyle,
+          {
+            backgroundColor: faceColor,
+            borderColor,
+            elevation: 14,
+            shadowColor: isRed ? '#D42B2B' : '#3333AA',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.45,
+            shadowRadius: 10,
+          },
+        ]}
       >
-        {/* Top-left pip */}
-        <Text style={[styles.trumpCardPip, { color: suitColor }]}>
-          {symbol}
-        </Text>
-
-        {/* Center symbol */}
-        <Text style={[styles.trumpCardCenter, { color: suitColor }]}>
-          {symbol}
-        </Text>
-
-        {/* Bottom-right pip (rotated) */}
+        {/* Shimmer sweep across face */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            width: 16,
+            backgroundColor: 'rgba(255,255,255,0.35)',
+            transform: [
+              {
+                translateX: shimmer.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-44, 88],
+                }),
+              },
+            ],
+          }}
+        />
+        {/* Top pip */}
         <Text
-          style={[
-            styles.trumpCardPip,
-            styles.trumpCardPipBottom,
-            { color: suitColor },
-          ]}
+          className='absolute font-black'
+          style={{
+            top: 4,
+            left: 5,
+            fontSize: 10,
+            color: suitColor,
+            lineHeight: 12,
+          }}
         >
           {symbol}
         </Text>
-
-        {/* Suit name label */}
-        <View
-          style={[
-            styles.trumpCardLabel,
-            {
-              backgroundColor: isRed
-                ? 'rgba(212,43,43,0.1)'
-                : 'rgba(26,26,46,0.08)',
-            },
-          ]}
+        {/* Center */}
+        <Text
+          className='font-black'
+          style={{ fontSize: 26, color: suitColor, lineHeight: 30 }}
         >
-          <Text style={[styles.trumpCardLabelText, { color: suitColor }]}>
+          {symbol}
+        </Text>
+        {/* Bottom pip */}
+        <Text
+          className='absolute font-black'
+          style={{
+            bottom: 4,
+            right: 5,
+            fontSize: 10,
+            color: suitColor,
+            lineHeight: 12,
+            transform: [{ rotate: '180deg' }],
+          }}
+        >
+          {symbol}
+        </Text>
+        {/* TRUMP label */}
+        <View
+          className='absolute bottom-0 left-0 right-0 items-center py-0.5'
+          style={{
+            backgroundColor: isRed
+              ? 'rgba(212,43,43,0.1)'
+              : 'rgba(26,26,46,0.08)',
+          }}
+        >
+          <Text
+            className='font-black uppercase'
+            style={{ fontSize: 6, color: suitColor, letterSpacing: 1.5 }}
+          >
             TRUMP
           </Text>
         </View>
       </View>
     </MotiView>
+  );
+}
+
+// ── WinnerBanner ──────────────────────────────────────────────────────────────
+
+function WinnerBanner({ name }: { name: string }) {
+  return (
+    <MotiView
+      from={{ opacity: 0, scale: 0.5, translateY: 24 }}
+      animate={{ opacity: 1, scale: 1, translateY: 0 }}
+      transition={{ type: 'spring', damping: 11, stiffness: 230 }}
+      className='absolute -bottom-2 self-center'
+    >
+      {/* Burst glow */}
+      <MotiView
+        from={{ opacity: 0.9, scale: 0.7 }}
+        animate={{ opacity: 0, scale: 3 }}
+        transition={{ type: 'timing', duration: 700 }}
+        style={{
+          position: 'absolute',
+          inset: -16,
+          borderRadius: 28,
+          backgroundColor: C.gold,
+        }}
+      />
+      <View
+        className='flex-row items-center gap-1.5 px-4 py-1.5 rounded-full'
+        style={{
+          backgroundColor: C.gold,
+          shadowColor: C.gold,
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.9,
+          shadowRadius: 18,
+          elevation: 18,
+        }}
+      >
+        <MotiView
+          animate={{ rotate: ['0deg', '18deg', '-18deg', '0deg'] }}
+          transition={{
+            loop: true,
+            duration: 1100,
+            type: 'timing',
+            delay: 500,
+          }}
+        >
+          <Text style={{ fontSize: 12 }}>⭐</Text>
+        </MotiView>
+        <Text
+          className='font-black uppercase'
+          style={{ fontSize: 10, color: '#07130D', letterSpacing: 2 }}
+        >
+          {name}
+        </Text>
+      </View>
+    </MotiView>
+  );
+}
+
+// ── FeltTable — subtle animated inner ring ───────────────────────────────────
+
+function FeltTable() {
+  const shimmer = useShimmer(4500);
+  return (
+    <>
+      <View
+        className='absolute self-center border'
+        style={{
+          top: SCREEN_H * 0.05,
+          width: SCREEN_W * 0.62,
+          height: SCREEN_H * 0.72,
+          borderRadius: SCREEN_H * 0.36,
+          borderColor: 'rgba(200,168,64,0.06)',
+          backgroundColor: 'rgba(10,28,15,0.4)',
+        }}
+        pointerEvents='none'
+      />
+      <Animated.View
+        style={{
+          position: 'absolute',
+          alignSelf: 'center',
+          top: SCREEN_H * 0.07,
+          width: SCREEN_W * 0.52,
+          height: SCREEN_H * 0.64,
+          borderRadius: SCREEN_H * 0.32,
+          borderWidth: 1,
+          borderColor: C.gold,
+          opacity: shimmer.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.02, 0.07],
+          }),
+        }}
+        pointerEvents='none'
+      />
+    </>
   );
 }
 
@@ -354,6 +887,7 @@ export default function GameScreen() {
   const { state, playPlayerCard, startNewGame, nextRound, revealTrump } =
     useGameStore();
   const [pressed, setPressed] = useState<string | null>(null);
+  const lastTrickCount = useRef(0);
 
   const {
     players,
@@ -369,24 +903,27 @@ export default function GameScreen() {
   const isPlayerTurn = currentSeat === 'bottom';
   const isPlayerActive = phase === 'playing' && isPlayerTurn;
 
-  // Team trick counts for score badges
   const btTricks = players.bottom.tricksTaken + players.top.tricksTaken;
   const lrTricks = players.left.tricksTaken + players.right.tricksTaken;
 
-  // Which team holds the bid this round
   const bidderTeam = state.highestBidder
     ? players[state.highestBidder].team
     : null;
   const btIsBidding = bidderTeam === 'BT';
   const lrIsBidding = bidderTeam === 'LR';
-  // The winning bid amount (used for score badge target)
   const winningBid = state.highestBid > 0 ? state.highestBid : null;
 
-  // FIX: canPeek uses trumpCreator from state (added in selectTrump) rather
-  // than a hardcoded check. Only show peek button if human created the trump
-  // and it hasn't been revealed to everyone yet.
   const canPeek =
     trumpCreator === 'bottom' && !trumpRevealed && trumpSuit !== null;
+
+  // Track latest card for dramatic play-in animation
+  const latestCardId =
+    currentTrick.cards.length > lastTrickCount.current
+      ? currentTrick.cards[currentTrick.cards.length - 1]?.card.id
+      : null;
+  useEffect(() => {
+    lastTrickCount.current = currentTrick.cards.length;
+  }, [currentTrick.cards.length]);
 
   const playableIds = useMemo<Set<string>>(() => {
     if (!isPlayerActive) return new Set();
@@ -406,208 +943,384 @@ export default function GameScreen() {
     trumpRevealed,
   ]);
 
-  // Deduplicate by id before sorting — guards against duplicate entries in state
-  // that can appear if playCard is called twice for the same card (race condition
-  // between human press and state update).
   const uniqueHand = players.bottom.hand.filter(
     (card, idx, arr) => arr.findIndex((c) => c.id === card.id) === idx,
   );
   const hand = sortHandAlternating(uniqueHand);
   const layouts = getHandLayout(hand.length);
 
-  // ── Phase: dealing2 (waiting for second deal / trump reveal animation) ──────
-  // FIX: added explicit handling for 'dealing2' phase — previously this fell
-  // through to the game screen with no cards dealt yet, causing an empty hand.
+  // ── Phase: dealing2 ───────────────────────────────────────────────────────
+
   if (phase === 'dealing2' && !players.bottom.hand.some(() => true)) {
     return (
       <View
-        style={[
-          styles.root,
-          { alignItems: 'center', justifyContent: 'center' },
-        ]}
+        className='flex-1 items-center justify-center'
+        style={{ backgroundColor: C.bg }}
       >
         <LinearGradient
           colors={[C.bg, C.felt, C.bg]}
-          style={StyleSheet.absoluteFillObject}
+          className='absolute inset-0'
         />
+        <MotiView
+          animate={{
+            rotate: ['0deg', '8deg', '-8deg', '0deg'],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{ loop: true, duration: 900, type: 'timing' }}
+          style={{ marginBottom: 20 }}
+        >
+          <Text style={{ fontSize: 52, opacity: 0.45 }}>🃏</Text>
+        </MotiView>
         <MotiView
           animate={{ opacity: [0.3, 1, 0.3] }}
           transition={{ loop: true, duration: 1200, type: 'timing' }}
         >
-          <Text style={styles.dealingText}>Dealing remaining cards...</Text>
+          <Text
+            className='font-bold uppercase'
+            style={{
+              color: 'rgba(200,168,64,0.4)',
+              fontSize: 13,
+              letterSpacing: 3,
+            }}
+          >
+            Dealing cards...
+          </Text>
         </MotiView>
       </View>
     );
   }
 
-  // ── Phase: roundEnd or gameEnd ────────────────────────────────────────────
-  // FIX: use getWinner() from engine instead of `bt > lr` comparison.
-  // getWinner correctly handles the -30 elimination case (losing team ≠ lower score).
-  // FIX: isOver no longer checks currentTrick.cards.length — roundEnd is a
-  // stable phase set by the engine after all 13 tricks are scored.
+  // ── Phase: roundEnd / gameEnd ─────────────────────────────────────────────
+
   if (phase === 'roundEnd' || phase === 'gameEnd') {
     const isGameEnd = phase === 'gameEnd';
-    const winner = getWinner(teamScores); // 'BT' | 'LR' | null
-
-    // Determine why the game ended (win vs elimination) for display
+    const winner = getWinner(teamScores);
     const btEliminated = teamScores.BT <= -30;
     const lrEliminated = teamScores.LR <= -30;
     const eliminationMode = isGameEnd && (btEliminated || lrEliminated);
 
     return (
-      <View style={styles.root}>
+      <View className='flex-1' style={{ backgroundColor: C.bg }}>
         <LinearGradient
           colors={[C.bg, C.felt, C.bg]}
-          style={StyleSheet.absoluteFillObject}
+          className='absolute inset-0'
         />
+
+        {/* Cinematic radial bloom */}
         <MotiView
-          from={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          style={styles.endWrap}
+          from={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 0.1, scale: 3 }}
+          transition={{
+            type: 'timing',
+            duration: 1400,
+            easing: Easing.out(Easing.cubic),
+          }}
+          style={{
+            position: 'absolute',
+            width: SCREEN_W,
+            height: SCREEN_W,
+            borderRadius: SCREEN_W / 2,
+            backgroundColor: C.gold,
+            alignSelf: 'center',
+            top: SCREEN_H * 0.05,
+          }}
+        />
+
+        <MotiView
+          from={{ opacity: 0, translateY: 50 }}
+          animate={{ opacity: 1, translateY: 0 }}
+          transition={{ type: 'spring', damping: 22, delay: 80 }}
+          className='flex-1 justify-center items-center px-10'
         >
-          {/* Title */}
-          <VStack style={{ marginBottom: 20, alignItems: 'center' }}>
-            <Text style={styles.endSubtitle}>
+          {/* Title block */}
+          <MotiView
+            from={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 13, delay: 180 }}
+            className='mb-6 items-center'
+          >
+            <Text
+              className='font-bold uppercase mb-1'
+              style={{
+                fontSize: 10,
+                color: 'rgba(200,168,64,0.5)',
+                letterSpacing: 3,
+              }}
+            >
               {isGameEnd
                 ? eliminationMode
                   ? 'Eliminated'
                   : 'Final Results'
                 : 'Round Summary'}
             </Text>
-            <Text style={styles.endTitle}>
+            <Text
+              className='font-black'
+              style={{
+                fontSize: 42,
+                color: 'rgba(240,220,160,0.95)',
+                letterSpacing: -1,
+                textShadowColor: C.goldGlow,
+                textShadowOffset: { width: 0, height: 0 },
+                textShadowRadius: 20,
+              }}
+            >
               {isGameEnd ? 'Game Over' : 'Round Over'}
             </Text>
-          </VStack>
+          </MotiView>
 
           {/* Score card */}
-          <View style={styles.scoreCard}>
-            {(
-              [
-                {
-                  teamId: 'BT' as const,
-                  names: 'You & Alex',
-                  score: teamScores.BT,
-                },
-                {
-                  teamId: 'LR' as const,
-                  names: 'Jordan & Sam',
-                  score: teamScores.LR,
-                },
-              ] as const
-            ).map((row, i) => {
-              const isWinner = winner === row.teamId;
-              const isEliminated =
-                isGameEnd &&
-                ((row.teamId === 'BT' && btEliminated) ||
-                  (row.teamId === 'LR' && lrEliminated));
+          <MotiView
+            from={{ opacity: 0, translateY: 28 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 20, delay: 320 }}
+            className='w-full'
+            style={{ maxWidth: 440 }}
+          >
+            <View
+              className='rounded-3xl px-5 border'
+              style={{
+                backgroundColor: C.white05,
+                borderColor: 'rgba(200,168,64,0.15)',
+                shadowColor: C.gold,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.18,
+                shadowRadius: 28,
+              }}
+            >
+              {(
+                [
+                  {
+                    teamId: 'BT' as const,
+                    names: 'You & Alex',
+                    score: teamScores.BT,
+                  },
+                  {
+                    teamId: 'LR' as const,
+                    names: 'Jordan & Sam',
+                    score: teamScores.LR,
+                  },
+                ] as const
+              ).map((row, i) => {
+                const isWinner = winner === row.teamId;
+                const isEliminated =
+                  isGameEnd &&
+                  ((row.teamId === 'BT' && btEliminated) ||
+                    (row.teamId === 'LR' && lrEliminated));
 
-              return (
-                <View key={row.teamId}>
-                  {i > 0 && <View style={styles.scoreDivider} />}
-                  <HStack
-                    style={{
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      paddingVertical: 14,
+                return (
+                  <MotiView
+                    key={row.teamId}
+                    from={{ opacity: 0, translateX: -24 }}
+                    animate={{ opacity: 1, translateX: 0 }}
+                    transition={{
+                      type: 'spring',
+                      damping: 18,
+                      delay: 440 + i * 130,
                     }}
                   >
-                    <HStack style={{ alignItems: 'center', gap: 12 }}>
+                    {i > 0 && (
                       <View
-                        style={[
-                          styles.teamBadge,
-                          isWinner && styles.teamBadgeWin,
-                          isEliminated && styles.teamBadgeElim,
-                        ]}
+                        className='h-px'
+                        style={{ backgroundColor: 'rgba(200,168,64,0.08)' }}
+                      />
+                    )}
+                    <HStack className='justify-between items-center py-4'>
+                      <HStack className='items-center gap-3'>
+                        <View
+                          className='w-11 h-11 rounded-xl items-center justify-center border'
+                          style={
+                            isWinner
+                              ? {
+                                  backgroundColor: C.gold,
+                                  borderColor: C.gold,
+                                  shadowColor: C.gold,
+                                  shadowOffset: { width: 0, height: 0 },
+                                  shadowOpacity: 0.7,
+                                  shadowRadius: 14,
+                                }
+                              : isEliminated
+                                ? {
+                                    backgroundColor: 'rgba(248,113,113,0.1)',
+                                    borderColor: C.dangerDim,
+                                  }
+                                : {
+                                    backgroundColor: C.goldAccent,
+                                    borderColor: C.goldDim,
+                                  }
+                          }
+                        >
+                          <Text
+                            className='text-xs font-black'
+                            style={{
+                              color: isWinner
+                                ? C.bg
+                                : isEliminated
+                                  ? C.danger
+                                  : C.gold,
+                            }}
+                          >
+                            {row.teamId}
+                          </Text>
+                        </View>
+                        <VStack>
+                          <Text
+                            className='text-sm font-medium'
+                            style={{
+                              color: isWinner
+                                ? 'white'
+                                : 'rgba(255,255,255,0.55)',
+                            }}
+                          >
+                            {row.names}
+                          </Text>
+                          {isWinner && (
+                            <Text
+                              className='font-bold uppercase mt-0.5'
+                              style={{
+                                fontSize: 9,
+                                color: C.gold,
+                                letterSpacing: 1.5,
+                              }}
+                            >
+                              {isGameEnd ? '🏆 Winner' : 'Round Win'}
+                            </Text>
+                          )}
+                          {isEliminated && (
+                            <Text
+                              className='font-bold uppercase mt-0.5'
+                              style={{
+                                fontSize: 9,
+                                color: C.danger,
+                                letterSpacing: 1.5,
+                              }}
+                            >
+                              Eliminated (−30)
+                            </Text>
+                          )}
+                        </VStack>
+                      </HStack>
+
+                      {/* Score number — pops in with spring */}
+                      <MotiView
+                        from={{ opacity: 0, scale: 0.3 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{
+                          type: 'spring',
+                          damping: 9,
+                          delay: 580 + i * 130,
+                        }}
                       >
                         <Text
-                          style={[
-                            styles.teamKey,
-                            isWinner && { color: C.bg },
-                            isEliminated && { color: C.danger },
-                          ]}
+                          className='font-black'
+                          style={{
+                            fontSize: 42,
+                            color: isEliminated
+                              ? C.dangerDim
+                              : !isWinner
+                                ? 'rgba(255,255,255,0.12)'
+                                : C.gold,
+                            textShadowColor: isWinner ? C.gold : 'transparent',
+                            textShadowOffset: { width: 0, height: 0 },
+                            textShadowRadius: 14,
+                          }}
                         >
-                          {row.teamId}
+                          {row.score > 0 ? `+${row.score}` : row.score}
                         </Text>
-                      </View>
-                      <VStack>
-                        <Text
-                          style={[
-                            styles.teamName,
-                            isWinner && { color: 'white', opacity: 1 },
-                          ]}
-                        >
-                          {row.names}
-                        </Text>
-                        {isWinner && (
-                          <Text style={styles.winnerTag}>
-                            {isGameEnd ? '🏆 Winner' : 'Round Win'}
-                          </Text>
-                        )}
-                        {isEliminated && (
-                          <Text style={[styles.winnerTag, { color: C.danger }]}>
-                            Eliminated (−30)
-                          </Text>
-                        )}
-                      </VStack>
+                      </MotiView>
                     </HStack>
-                    <Text
-                      style={[
-                        styles.scoreNum,
-                        !isWinner && { color: 'rgba(255,255,255,0.12)' },
-                        isEliminated && { color: C.dangerDim },
-                      ]}
-                    >
-                      {row.score > 0 ? `+${row.score}` : row.score}
-                    </Text>
-                  </HStack>
-                </View>
-              );
-            })}
-          </View>
+                  </MotiView>
+                );
+              })}
+            </View>
+          </MotiView>
 
-          {/* CTA */}
-          <Pressable
-            style={styles.ctaBtn}
-            onPress={() => {
-              if (isGameEnd) {
-                startNewGame();
-                router.replace('/');
-              } else {
-                nextRound();
-                router.replace('/bid');
-              }
-            }}
+          {/* CTA button */}
+          <MotiView
+            from={{ opacity: 0, translateY: 20 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 20, delay: 700 }}
+            className='w-full mt-5'
+            style={{ maxWidth: 440 }}
           >
-            <Text style={styles.ctaText}>
-              {isGameEnd ? 'New Game' : 'Next Round →'}
-            </Text>
-          </Pressable>
+            <Pressable
+              className='h-14 rounded-2xl items-center justify-center overflow-hidden'
+              style={{
+                backgroundColor: C.gold,
+                shadowColor: C.gold,
+                shadowOffset: { width: 0, height: 5 },
+                shadowOpacity: 0.55,
+                shadowRadius: 18,
+                elevation: 14,
+              }}
+              onPress={() => {
+                if (isGameEnd) {
+                  startNewGame();
+                  router.replace('/');
+                } else {
+                  nextRound();
+                  router.replace('/bid');
+                }
+              }}
+            >
+              {/* Moving shimmer sweep */}
+              <MotiView
+                from={{ translateX: -200 }}
+                animate={{ translateX: 450 }}
+                transition={{
+                  loop: true,
+                  duration: 1800,
+                  type: 'timing',
+                  delay: 900,
+                  easing: Easing.inOut(Easing.sin),
+                }}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  width: 70,
+                  backgroundColor: 'rgba(255,255,255,0.22)',
+                  transform: [{ skewX: '-18deg' }],
+                }}
+              />
+              <Text
+                className='font-black uppercase'
+                style={{ color: '#07130D', fontSize: 14, letterSpacing: 2 }}
+              >
+                {isGameEnd ? 'New Game' : 'Next Round →'}
+              </Text>
+            </Pressable>
+          </MotiView>
         </MotiView>
       </View>
     );
   }
 
-  // ── Game Screen ───────────────────────────────────────────────────────────
+  // ── Main game view ────────────────────────────────────────────────────────
 
   return (
     <View
-      style={[
-        styles.root,
-        { paddingLeft: insets.left, paddingRight: insets.right },
-      ]}
+      className='flex-1'
+      style={{
+        backgroundColor: C.bg,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+      }}
     >
       <LinearGradient
         colors={[C.bg, '#0B1E10', C.bg]}
-        style={StyleSheet.absoluteFillObject}
+        className='absolute inset-0'
       />
-      <View style={styles.tableOval} pointerEvents='none' />
+      <FeltTable />
 
       {/* ── HUD ── */}
-      <View style={[styles.hud, { top: insets.top + 8 }]}>
-        <HStack style={{ gap: 8, alignItems: 'center' }}>
-          {/* RND removed — game is score-driven, not round-count-driven */}
-
-          {/* Trump mini-card — shown when revealed or when user can peek */}
+      <MotiView
+        from={{ opacity: 0, translateY: -24 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'spring', damping: 18, delay: 80 }}
+        className='absolute left-0 right-0 flex-row justify-between items-center px-3.5 z-50'
+        style={{ top: insets.top + 8 }}
+      >
+        <HStack className='gap-2 items-center'>
           {trumpSuit && (trumpRevealed || canPeek) && (
             <TrumpMiniCard
               suit={trumpSuit}
@@ -616,131 +1329,171 @@ export default function GameScreen() {
               onPeek={canPeek && revealTrump() ? revealTrump : undefined}
             />
           )}
-
           <ScorePanel btScore={teamScores.BT} lrScore={teamScores.LR} />
         </HStack>
-
-        {/* Peek button merged into TrumpMiniCard — tap the card to reveal */}
 
         <Menu
           offset={10}
           trigger={({ ...triggerProps }) => (
-            <Pressable {...triggerProps} style={styles.menuBtn}>
+            <Pressable
+              {...triggerProps}
+              className='w-9 h-9 rounded-full border items-center justify-center'
+              style={{ borderColor: C.goldDim, backgroundColor: C.goldFaint }}
+            >
               <Icon as={Settings} size='sm' style={{ color: C.gold }} />
             </Pressable>
           )}
-          style={styles.menuDropdown}
+          style={{
+            backgroundColor: '#0C1F14',
+            borderWidth: 1,
+            borderColor: 'rgba(200,168,64,0.25)',
+            borderRadius: 14,
+            padding: 6,
+            minWidth: 160,
+          }}
         >
           <MenuItem
             key='home'
             textValue='Home'
-            style={styles.menuItem}
+            className='rounded-xl py-2.5 px-3 gap-2.5'
             onPress={() => router.replace('/')}
           >
             <Icon as={Home} size='sm' style={{ color: C.goldDim }} />
-            <MenuItemLabel style={styles.menuLabel}>Main Menu</MenuItemLabel>
+            <MenuItemLabel
+              className='font-semibold text-sm'
+              style={{ color: 'rgba(232,213,163,0.85)' }}
+            >
+              Main Menu
+            </MenuItemLabel>
           </MenuItem>
           <MenuItem
             key='new-game'
             textValue='New Game'
-            style={styles.menuItem}
+            className='rounded-xl py-2.5 px-3 gap-2.5'
             onPress={() => {
               startNewGame();
               router.replace('/bid');
             }}
           >
             <Icon as={RefreshCw} size='sm' style={{ color: C.goldDim }} />
-            <MenuItemLabel style={styles.menuLabel}>Restart Game</MenuItemLabel>
+            <MenuItemLabel
+              className='font-semibold text-sm'
+              style={{ color: 'rgba(232,213,163,0.85)' }}
+            >
+              Restart Game
+            </MenuItemLabel>
           </MenuItem>
           <MenuItem
             key='close'
             textValue='Close'
-            style={[styles.menuItem, styles.menuItemDanger]}
+            className='rounded-xl py-2.5 px-3 gap-2.5 mt-1 border-t'
+            style={{ borderTopColor: 'rgba(200,168,64,0.1)' }}
           >
             <Icon as={X} size='sm' style={{ color: C.dangerDim }} />
-            <MenuItemLabel style={[styles.menuLabel, { color: C.danger }]}>
+            <MenuItemLabel
+              className='font-semibold text-sm'
+              style={{ color: C.danger }}
+            >
               Close Menu
             </MenuItemLabel>
           </MenuItem>
         </Menu>
-      </View>
+      </MotiView>
 
       {/* ── TABLE ── */}
-      <HStack style={styles.tableRow}>
-        {/* Left opponent */}
-        <View style={styles.sideSlot}>
-          {/* Left = LR team secondary seat — no score badge (shown on right) */}
+      <HStack
+        className='flex-1 items-center'
+        style={{ marginTop: SCREEN_H * 0.1, marginBottom: 4 }}
+      >
+        {/* Left */}
+        <MotiView
+          from={{ opacity: 0, translateX: -28 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ type: 'spring', damping: 18, delay: 180 }}
+          className='items-center justify-center'
+          style={{ width: SCREEN_W * 0.13 }}
+        >
           <OpponentSeat
             name={players.left.name}
             active={currentSeat === 'left'}
           />
-        </View>
+        </MotiView>
 
-        {/* Center felt */}
-        <View style={styles.feltCenter}>
-          {/* Top opponent */}
-          <View style={styles.topSlot}>
-            {/* Top = BT team secondary seat — no score badge (shown on bottom/user bar) */}
+        {/* Center */}
+        <View className='flex-1 items-center justify-center relative'>
+          {/* Top seat */}
+          <MotiView
+            from={{ opacity: 0, translateY: -28 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 18, delay: 130 }}
+            className='absolute'
+            style={{ top: -40, left: 50 + SCREEN_W * 0.1 }}
+          >
             <OpponentSeat
               name={players.top.name}
               active={currentSeat === 'top'}
               orientation='horizontal'
             />
-          </View>
+          </MotiView>
 
-          {/* Watermark */}
-          <Text style={styles.watermark} pointerEvents='none'>
-            {SUIT_SYMBOLS.spades}
-          </Text>
-
-          {/* Trick cards */}
-          <View style={styles.trickArea} pointerEvents='none'>
-            {currentTrick.cards.map((tc) => {
-              const s = slotFor(tc.player);
-              const rot = stableRot(tc.card.id);
-              return (
-                <MotiView
-                  key={tc.card.id}
-                  from={{ scale: 0.7, opacity: 0 }}
-                  animate={{
-                    scale: 1,
-                    opacity: 1,
-                    transform: [
-                      { translateX: s.x - TRICK_CARD_W / 2 },
-                      { translateY: s.y - TRICK_CARD_H / 2 },
-                      { rotate: `${rot}deg` },
-                    ],
-                  }}
-                  transition={{ type: 'spring', damping: 16 }}
-                  style={{ position: 'absolute', top: '50%', left: '50%' }}
-                >
-                  <Card
-                    card={tc.card}
-                    width={TRICK_CARD_W}
-                    height={TRICK_CARD_H}
-                  />
-                </MotiView>
-              );
-            })}
-          </View>
-
-          {/* Trick winner badge */}
-          {currentTrick.winningSeat && (
-            <MotiView
-              from={{ opacity: 0, translateY: 8 }}
-              animate={{ opacity: 1, translateY: 0 }}
-              style={styles.winnerBadge}
+          {/* Watermark — slow breathing rotation */}
+          <MotiView
+            animate={{
+              rotate: ['0deg', '2deg', '-2deg', '0deg'],
+              opacity: [0.035, 0.05, 0.035],
+            }}
+            transition={{ loop: true, duration: 9000, type: 'timing' }}
+            className='absolute'
+            pointerEvents='none'
+          >
+            <Text
+              className='font-black text-center'
+              style={{
+                fontSize: SCREEN_H * 0.52,
+                color: C.gold,
+                lineHeight: SCREEN_H * 0.44,
+              }}
+              pointerEvents='none'
             >
-              <Text style={styles.winnerBadgeText}>
-                {players[currentTrick.winningSeat].name}
-              </Text>
-            </MotiView>
+              {SUIT_SYMBOLS.spades}
+            </Text>
+          </MotiView>
+
+          {/* Trick cards area */}
+          <View
+            className='items-center justify-center'
+            style={{ width: SCREEN_H * 0.72, height: SCREEN_H * 0.5 }}
+            pointerEvents='none'
+          >
+            {currentTrick.cards.map((tc) => (
+              <TrickCard
+                key={tc.card.id}
+                cardId={tc.card.id}
+                player={tc.player}
+                isLatest={tc.card.id === latestCardId}
+              >
+                <Card
+                  card={tc.card}
+                  width={TRICK_CARD_W}
+                  height={TRICK_CARD_H}
+                />
+              </TrickCard>
+            ))}
+          </View>
+
+          {currentTrick.winningSeat && (
+            <WinnerBanner name={players[currentTrick.winningSeat].name} />
           )}
         </View>
 
-        {/* Right opponent */}
-        <View style={styles.sideSlot}>
-          {/* Right = LR team primary seat — shows combined LR team score badge */}
+        {/* Right */}
+        <MotiView
+          from={{ opacity: 0, translateX: 28 }}
+          animate={{ opacity: 1, translateX: 0 }}
+          transition={{ type: 'spring', damping: 18, delay: 180 }}
+          className='items-center justify-center'
+          style={{ width: SCREEN_W * 0.13 }}
+        >
           <OpponentSeat
             name={players.right.name}
             active={currentSeat === 'right'}
@@ -753,26 +1506,52 @@ export default function GameScreen() {
               />
             }
           />
-        </View>
+        </MotiView>
       </HStack>
 
-      {/* ── Player info bar ── */}
-      <View style={styles.playerBar}>
-        <HStack style={{ alignItems: 'center', gap: 10 }}>
+      {/* ── Player bar ── */}
+      <MotiView
+        from={{ opacity: 0, translateY: 18 }}
+        animate={{ opacity: 1, translateY: 0 }}
+        transition={{ type: 'spring', damping: 18, delay: 240 }}
+        className='flex-row items-center justify-between px-4 pb-1 mb-0.5'
+      >
+        <HStack className='items-center gap-2.5'>
+          {/* Avatar with active halo */}
           <View
-            style={[
-              styles.avatar,
-              styles.avatarSelf,
-              isPlayerActive && styles.avatarActive,
-            ]}
+            className='items-center justify-center'
+            style={{ width: 42, height: 42 }}
           >
-            <Text style={styles.avatarText}>
-              {players.bottom.name[0].toUpperCase()}
-            </Text>
+            {isPlayerActive && <ActiveHalo size={38} />}
+            <View
+              className='items-center justify-center rounded-full'
+              style={[
+                { width: 38, height: 38, borderRadius: 19, borderWidth: 2 },
+                isPlayerActive
+                  ? { borderColor: C.gold, backgroundColor: C.goldAccent }
+                  : { borderColor: C.white10, backgroundColor: C.white05 },
+              ]}
+            >
+              <Text
+                className='font-black text-xs'
+                style={{ color: 'rgba(240,220,160,0.6)' }}
+              >
+                {players.bottom.name[0].toUpperCase()}
+              </Text>
+            </View>
           </View>
+
           <VStack>
-            <Text style={styles.playerName}>{players.bottom.name}</Text>
-            {/* BT team primary seat — shows combined BT team tricks vs target */}
+            <Text
+              className='font-extrabold uppercase tracking-wide'
+              style={{
+                fontSize: 11,
+                color: 'rgba(240,220,160,0.7)',
+                letterSpacing: 0.5,
+              }}
+            >
+              {players.bottom.name}
+            </Text>
             <TeamScoreBadge
               tricks={btTricks}
               bid={btIsBidding ? winningBid : null}
@@ -781,589 +1560,63 @@ export default function GameScreen() {
             />
           </VStack>
         </HStack>
-
-        {isPlayerActive && (
-          <MotiView
-            from={{ opacity: 0, translateY: 6 }}
-            animate={{ opacity: 1, translateY: 0 }}
-            transition={{ type: 'spring', damping: 18 }}
-            style={styles.yourTurnBadge}
-          >
-            <MotiView
-              animate={{ opacity: [0.4, 1, 0.4] }}
-              transition={{ loop: true, duration: 1000, type: 'timing' }}
-              style={styles.yourTurnDot}
-            />
-            <Text style={styles.yourTurnText}>Your turn</Text>
-          </MotiView>
-        )}
-      </View>
+      </MotiView>
 
       {/* ── Player Hand ── */}
-      <View style={styles.handArea}>
+      <View
+        className='relative w-full overflow-visible '
+        style={{ height: CARD_H * 0.72 }}
+      >
         {hand.map((card, i) => {
           const l = layouts[i];
           const canPlay = isPlayerActive && playableIds.has(card.id);
           const isPressed = pressed === card.id;
 
           return (
-            <MotiView
-              key={card.id}
-              animate={{
-                opacity: isPlayerActive && !canPlay ? 0.28 : 1,
-                scale: isPressed ? 1.06 : 1,
-                translateY: isPressed ? -CARD_H * 0.35 : l.y,
-                rotate: `${l.rotate}deg`,
-              }}
-              transition={{ type: 'spring', damping: 20, stiffness: 260 }}
-              style={{ position: 'absolute', left: l.x, bottom: -26 }}
-            >
-              <Pressable
-                onPressIn={() => canPlay && setPressed(card.id)}
-                onPressOut={() => setPressed(null)}
-                onPress={() => canPlay && playPlayerCard(card.id)}
+            <DealCard key={card.id} index={i}>
+              <MotiView
+                animate={{
+                  opacity: isPlayerActive && !canPlay ? 0.25 : 1,
+                  scale: isPressed ? 1.09 : 1,
+                  translateY: isPressed ? -CARD_H * 0.4 : l.y,
+                  rotate: `${l.rotate}deg`,
+                }}
+                transition={{
+                  type: 'spring',
+                  damping: isPressed ? 14 : 22,
+                  stiffness: isPressed ? 320 : 260,
+                }}
+                style={{ position: 'absolute', left: l.x, bottom: -26 }}
               >
-                <Card card={card} width={CARD_W} height={CARD_H} />
-                {canPlay && !isPressed && (
+                {/* Press flash */}
+                {isPressed && (
                   <MotiView
-                    animate={{ opacity: [0, 1, 0] }}
-                    transition={{ loop: true, duration: 1800, type: 'timing' }}
-                    style={[styles.playableGlow, { width: CARD_W }]}
+                    from={{ opacity: 0.55 }}
+                    animate={{ opacity: 0 }}
+                    transition={{ type: 'timing', duration: 250 }}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: 10,
+                      backgroundColor: 'rgba(255,255,255,0.28)',
+                      zIndex: 10,
+                    }}
                   />
                 )}
-              </Pressable>
-            </MotiView>
+
+                <Pressable
+                  onPressIn={() => canPlay && setPressed(card.id)}
+                  onPressOut={() => setPressed(null)}
+                  onPress={() => canPlay && playPlayerCard(card.id)}
+                  className='overflow-hidden rounded-lg -mb-16'
+                >
+                  <Card card={card} width={CARD_W} height={CARD_H} />
+                </Pressable>
+              </MotiView>
+            </DealCard>
           );
         })}
       </View>
     </View>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: C.bg,
-  },
-
-  dealingText: {
-    color: 'rgba(200,168,64,0.4)',
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-  },
-
-  tableOval: {
-    position: 'absolute',
-    alignSelf: 'center',
-    top: SCREEN_H * 0.05,
-    width: SCREEN_W * 0.62,
-    height: SCREEN_H * 0.72,
-    borderRadius: SCREEN_H * 0.36,
-    borderWidth: 1,
-    borderColor: 'rgba(200,168,64,0.06)',
-    backgroundColor: 'rgba(10,28,15,0.4)',
-  },
-
-  // ── HUD ──
-  hud: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    zIndex: 50,
-  },
-  hudPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: C.white10,
-    backgroundColor: C.white05,
-    alignItems: 'center',
-    minWidth: 44,
-  },
-  hudPillAccent: {
-    borderColor: 'rgba(200,168,64,0.35)',
-    backgroundColor: C.goldFaint,
-  },
-  hudLabel: {
-    fontSize: 7,
-    color: 'rgba(200,168,64,0.45)',
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  hudValue: {
-    fontSize: 13,
-    color: 'rgba(240,220,160,0.7)',
-    fontWeight: '900',
-  },
-  yourTurnBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: C.goldAccent,
-    borderWidth: 1,
-    borderColor: C.goldDim,
-  },
-  yourTurnDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: C.gold,
-  },
-  yourTurnText: {
-    fontSize: 10,
-    color: C.gold,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-
-  // ── Peek button ──
-  peekBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: C.goldAccent,
-    borderWidth: 1,
-    borderColor: C.goldDim,
-  },
-  peekBtnText: {
-    fontSize: 10,
-    color: C.gold,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-
-  // ── Menu ──
-  menuBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: C.goldDim,
-    backgroundColor: C.goldFaint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuDropdown: {
-    backgroundColor: '#0C1F14',
-    borderWidth: 1,
-    borderColor: 'rgba(200,168,64,0.25)',
-    borderRadius: 14,
-    padding: 6,
-    minWidth: 160,
-  },
-  menuItem: {
-    borderRadius: 10,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    gap: 10,
-  },
-  menuItemDanger: {
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(200,168,64,0.1)',
-  },
-  menuLabel: {
-    color: 'rgba(232,213,163,0.85)',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-
-  // ── Table layout ──
-  tableRow: {
-    flex: 1,
-    alignItems: 'center',
-    marginTop: SCREEN_H * 0.1,
-    marginBottom: 4,
-  },
-  sideSlot: {
-    width: SCREEN_W * 0.13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  feltCenter: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  topSlot: {
-    position: 'absolute',
-    top: -40,
-    left: 50 + SCREEN_W * 0.1,
-    alignSelf: 'center',
-  },
-  watermark: {
-    fontSize: SCREEN_H * 0.52,
-    color: C.gold,
-    opacity: 0.045,
-    fontWeight: '900',
-    position: 'absolute',
-    lineHeight: SCREEN_H * 0.44,
-    textAlign: 'center',
-  },
-  trickArea: {
-    width: SCREEN_H * 0.72,
-    height: SCREEN_H * 0.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  winnerBadge: {
-    position: 'absolute',
-    bottom: -8,
-    alignSelf: 'center',
-    backgroundColor: C.gold,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 20,
-  },
-  winnerBadgeText: {
-    fontSize: 10,
-    color: '#07130D',
-    fontWeight: '900',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-
-  // ── Opponent seat ──
-  seatWrap: {
-    alignItems: 'center',
-    padding: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'transparent',
-    position: 'relative',
-    minWidth: 64,
-  },
-  seatActive: {
-    backgroundColor: C.goldFaint,
-    borderColor: C.goldDim,
-  },
-  seatH: {
-    flexDirection: 'row',
-    paddingHorizontal: 10,
-  },
-  avatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: C.white05,
-    borderWidth: 1.5,
-    borderColor: C.white10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarSelf: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-  },
-  avatarActive: {
-    borderColor: C.gold,
-    backgroundColor: C.goldAccent,
-  },
-  avatarText: {
-    color: 'rgba(240,220,160,0.6)',
-    fontWeight: '900',
-    fontSize: 12,
-  },
-  seatName: {
-    fontSize: 9,
-    color: 'rgba(255,255,255,0.3)',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    maxWidth: 60,
-  },
-  trickBadge: {
-    marginTop: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  trickBadgeActive: {
-    backgroundColor: C.goldAccent,
-  },
-  trickText: {
-    fontSize: 11,
-    color: 'rgba(200,168,64,0.35)',
-    fontWeight: '900',
-  },
-  activeDot: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: C.gold,
-  },
-
-  // ── Player bar ──
-  playerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-    marginBottom: 2,
-  },
-  playerName: {
-    fontSize: 11,
-    color: 'rgba(240,220,160,0.7)',
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  playerStats: {
-    fontSize: 13,
-    color: C.gold,
-    fontWeight: '900',
-    marginTop: 1,
-  },
-  hintText: {
-    fontSize: 9,
-    color: 'rgba(200,168,64,0.4)',
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-
-  // ── Hand ──
-  handArea: {
-    height: CARD_H * 0.72,
-    position: 'relative',
-    width: '100%',
-    overflow: 'visible',
-    marginBottom: 6,
-  },
-  playableGlow: {
-    position: 'absolute',
-    bottom: -3,
-    left: 0,
-    height: 3,
-    backgroundColor: C.gold,
-    borderRadius: 2,
-  },
-
-  // ── End screen ──
-  endWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  endSubtitle: {
-    fontSize: 10,
-    color: 'rgba(200,168,64,0.5)',
-    fontWeight: '700',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  endTitle: {
-    fontSize: 36,
-    color: 'rgba(240,220,160,0.95)',
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  scoreCard: {
-    width: '100%',
-    maxWidth: 440,
-    backgroundColor: C.white05,
-    borderWidth: 1,
-    borderColor: 'rgba(200,168,64,0.15)',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 20,
-  },
-  scoreDivider: {
-    height: 1,
-    backgroundColor: 'rgba(200,168,64,0.08)',
-  },
-  teamBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: C.goldAccent,
-    borderWidth: 1,
-    borderColor: C.goldDim,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  teamBadgeWin: {
-    backgroundColor: C.gold,
-    borderColor: C.gold,
-  },
-  teamBadgeElim: {
-    backgroundColor: 'rgba(248,113,113,0.1)',
-    borderColor: C.dangerDim,
-  },
-  teamKey: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: C.gold,
-  },
-  teamName: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.55)',
-    fontWeight: '500',
-  },
-  winnerTag: {
-    fontSize: 9,
-    color: C.gold,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-  scoreNum: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: C.gold,
-  },
-  ctaBtn: {
-    backgroundColor: C.gold,
-    height: 52,
-    borderRadius: 16,
-    width: '100%',
-    maxWidth: 440,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ctaText: {
-    color: '#07130D',
-    fontWeight: '900',
-    fontSize: 14,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-  },
-
-  // ── Danger colours for menu ──
-  dangerDim: {
-    color: C.dangerDim,
-  },
-
-  // ── Trump mini card ──
-  trumpCard: {
-    width: 44,
-    height: 62,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.15)',
-    backgroundColor: '#F5F7FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
-    elevation: 6,
-  },
-  trumpCardBackPattern: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
-    padding: 4,
-  },
-  trumpCardBackLine: {
-    width: '80%',
-    height: 1,
-    backgroundColor: 'rgba(200,168,64,0.2)',
-    borderRadius: 1,
-  },
-  trumpCardBackLabel: {
-    fontSize: 7,
-    color: 'rgba(200,168,64,0.6)',
-    fontWeight: '900',
-    letterSpacing: 0.5,
-    textAlign: 'center',
-    lineHeight: 10,
-  },
-  trumpCardPip: {
-    position: 'absolute',
-    top: 4,
-    left: 5,
-    fontSize: 10,
-    fontWeight: '900',
-    lineHeight: 12,
-  },
-  trumpCardPipBottom: {
-    top: undefined,
-    left: undefined,
-    bottom: 4,
-    right: 5,
-    transform: [{ rotate: '180deg' }],
-  },
-  trumpCardCenter: {
-    fontSize: 26,
-    fontWeight: '900',
-    lineHeight: 30,
-  },
-  trumpCardLabel: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  trumpCardLabelText: {
-    fontSize: 6,
-    fontWeight: '900',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-
-  // ── Score panel (HUD) ──
-  scorePanel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.white10,
-    backgroundColor: C.white05,
-    overflow: 'hidden',
-  },
-  scorePanelRow: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    alignItems: 'center',
-    minWidth: 52,
-  },
-  scorePanelDivider: {
-    width: 1,
-    height: '70%',
-    backgroundColor: C.white10,
-  },
-  scorePanelLabel: {
-    fontSize: 7,
-    color: 'rgba(200,168,64,0.45)',
-    fontWeight: '700',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  scorePanelValue: {
-    fontSize: 13,
-    color: 'rgba(240,220,160,0.4)',
-    fontWeight: '900',
-  },
-});
