@@ -1,6 +1,6 @@
 import { Suit } from '@/constants/cards';
-import { getBotBid, selectBotTrump } from '@/game/ai/bidAI';
-import { getBotPlay } from '@/game/ai/playAI';
+import { getBotBid, selectBotTrump } from '@/game/ai/bot-bidding';
+import { getBotPlay } from '@/game/ai/bot-play';
 import { create } from 'zustand';
 import {
   passBid as enginePassBid,

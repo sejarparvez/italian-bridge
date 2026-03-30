@@ -1,56 +1,53 @@
-# Welcome to your Expo app 👋
+# Italian Bridge
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A classic 4-player partnership card game with bidding and trump mechanics.
 
-## Get started
+## How to Play
 
-1. Install dependencies
+### Teams
+You play with 3 AI opponents, forming 2 teams of 2:
+- **Your Team**: You + Bot 2 (partners sit opposite each other)
+- **Opposing Team**: Bot 1 + Bot 3
 
-   ```bash
-   npm install
-   ```
+### The Deal
+1. Each player receives **5 cards** to start
+2. Players bid based only on these 5 cards
+3. After the trump is selected, everyone gets **8 more cards** (13 total)
 
-2. Start the app
+### Bidding
+- Bid from **7** to **10** points
+- Highest bidder wins and chooses the **trump suit**
+- Your bid commits your team to score that many points
 
-   ```bash
-   npx expo start
-   ```
+| Bid | What It Means |
+|-----|---------------|
+| 7-9 | Commit to score at least that many points |
+| 10 | Commit to score all 10 points (+3 bonus if you do!) |
 
-In the output, you'll find options to open the app in a
+### Trump Card
+- A hidden face-down card determines the trump suit
+- If you won the bid, you can peek at it anytime
+- It reveals to everyone when someone plays their first trump
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+### Scoring
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+**Your Team:**
+| Result | Score |
+|--------|-------|
+| Meet your bid (7-9) | +bid amount |
+| Bid 10 and win all 10 | +13 (10 + 3 bonus) |
+| Miss your bid | -bid amount |
 
-## Get a fresh project
+**Opposing Team:**
+| Result | Score |
+|--------|-------|
+| Score 4+ tricks | +4 |
+| Score 3 or fewer | -4 |
 
-When you're ready, run:
+### Winning the Game
+- First team to **+30 points** wins
+- If a team drops to **-30**, they're out
 
-```bash
-npm run reset-project
-```
+---
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-### Other setup steps
-
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Enjoy the game!

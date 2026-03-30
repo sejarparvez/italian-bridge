@@ -1,7 +1,7 @@
 import { Card, Suit } from '../../constants/cards';
 import { getPlayableCards, getTrickWinner, Trick } from '../trick';
 import { Difficulty, GameState, SeatPosition } from '../types';
-import { HIGH_CARD_THRESHOLD } from './bidAI';
+import { HIGH_CARD_THRESHOLD } from './bot-bidding';
 
 // ─── Entry Point ──────────────────────────────────────────────────────────────
 
