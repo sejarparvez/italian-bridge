@@ -68,12 +68,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ── Trump Selection ─────────────────────────────────────────────────────────
 
   selectPlayerTrump: (suit) => {
-    // FIX: pass 'bottom' as seat so selectTrump can validate the caller is
-    // the highest bidder. Previously called without seat argument.
     const newState = selectTrump(get().state, suit, 'bottom');
-    set({ state: newState });
-    // After human selects trump, deal remaining cards
-    setTimeout(() => get().dealRemainingCards(), 400 / get().animSpeed);
+    // selectTrump sets phase to 'playing', but dealSecondPhase requires 'dealing2'
+    const dealtState = dealSecondPhase({ ...newState, phase: 'dealing2' });
+    set({ state: dealtState });
   },
 
   // ── Player Card Play ────────────────────────────────────────────────────────
@@ -167,13 +165,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
       const nextState   = dealSecondPhase({ ...trumpState, phase: 'dealing2' });
       set({ state: nextState });
       afterPlayState(nextState, get);
-    } else {
-      // Human won the bid — currentState.phase is 'dealing2' here so
-      // dealSecondPhase is valid. After dealing, force back to 'dealing2'
-      // so the trump-selection UI renders before play starts.
-      const dealtState = dealSecondPhase(currentState);
-      set({ state: { ...dealtState, phase: 'dealing2' } });
     }
+    // NOTE: For humans, dealRemainingCards is no longer called after winning bid.
+    // Instead, the trump picker modal shows while the player still has only 5 cards.
+    // When selectPlayerTrump is called, it selects trump AND deals remaining cards.
   },
 
   // ── AI Play ─────────────────────────────────────────────────────────────────
@@ -258,7 +253,12 @@ function afterBidState(
   if (newState.phase === 'bidding' && newState.currentSeat !== 'bottom') {
     setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
   } else if (newState.phase === 'dealing2') {
-    setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
+    // If human won bid, don't deal remaining cards yet — show trump picker first.
+    // If bot won bid, deal remaining cards (which includes bot trump selection).
+    if (newState.highestBidder !== 'bottom') {
+      setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
+    }
+    // For humans, dealRemainingCards will be called after selectPlayerTrump
   }
 }
 

@@ -98,54 +98,6 @@ export default function BidScreen() {
               </Text>
             </MotiView>
           </Center>
-        ) : showTrumpPicker ? (
-          /* ── TRUMP PICKER (landscape: horizontal row) ── */
-          <MotiView
-            key='trump'
-            from={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className='flex-1'
-          >
-            <HStack className='flex-1 px-16 items-center justify-center space-x-10'>
-              {/* Label block */}
-              <VStack className='space-y-2 mr-6'>
-                <Text className='text-amber-500 text-[10px] font-bold tracking-[3px] uppercase'>
-                  You won the bid
-                </Text>
-                <Heading className='text-amber-100 text-4xl font-black leading-tight'>
-                  Choose{'\n'}Trump
-                </Heading>
-              </VStack>
-
-              {/* Suit tiles */}
-              {ALL_SUITS.map((suit, i) => {
-                const m = SUIT_META[suit];
-                return (
-                  <MotiView
-                    key={suit}
-                    from={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: i * 100 }}
-                  >
-                    <Pressable
-                      onPress={() => {
-                        selectPlayerTrump(suit as Suit);
-                        setTimeout(() => router.replace('/game'), 400);
-                      }}
-                      className={`w-20 h-24 rounded-2xl border m-2 border-white/10 items-center justify-center space-y-2 active:scale-95 ${m.bg}`}
-                    >
-                      <Text className={`text-4xl ${m.color}`}>{m.symbol}</Text>
-                      <Text
-                        className={`text-[8px] font-bold tracking-widest uppercase ${m.color} opacity-60`}
-                      >
-                        {m.name}
-                      </Text>
-                    </Pressable>
-                  </MotiView>
-                );
-              })}
-            </HStack>
-          </MotiView>
         ) : (
           /* ── BIDDING SCREEN (landscape layout) ── */
           <Box key='bidding' className='flex-1'>
@@ -167,150 +119,230 @@ export default function BidScreen() {
                   bid={state.players.top.bid}
                 />
 
-                {/* ── BIDDING MODAL ── */}
-                <MotiView
-                  from={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: 'spring', damping: 20 }}
-                  style={{
-                    width: SCREEN_W * 0.44,
-                    borderRadius: 20,
-                    overflow: 'hidden',
-                    borderWidth: 1.5,
-                    borderColor: 'rgba(180,140,40,0.4)',
-                  }}
-                >
-                  {/* Modal inner gradient */}
-                  <LinearGradient
-                    colors={['#0D2B1A', '#120E00', '#1A1600']}
-                    style={{ padding: 16, borderRadius: 19 }}
+                {/* ── TRUMP PICKER MODAL (shows when trump selection is needed) ── */}
+                {showTrumpPicker && (
+                  <MotiView
+                    from={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', damping: 20 }}
+                    style={{
+                      width: SCREEN_W * 0.44,
+                      borderRadius: 20,
+                      overflow: 'hidden',
+                      borderWidth: 1.5,
+                      borderColor: 'rgba(180,140,40,0.4)',
+                    }}
                   >
-                    {/* Modal header */}
-                    <VStack
-                      className='items-center mb-3 pb-3'
-                      style={{
-                        borderBottomWidth: 1,
-                        borderBottomColor: 'rgba(100,80,20,0.3)',
-                      }}
+                    {/* Modal inner gradient */}
+                    <LinearGradient
+                      colors={['#0D2B1A', '#120E00', '#1A1600']}
+                      style={{ padding: 16, borderRadius: 19 }}
                     >
-                      <Heading className='text-amber-100 text-xl font-extrabold tracking-tight'>
-                        Place Your Bid
-                      </Heading>
-                      {state.highestBidder && (
-                        <HStack className='items-center space-x-1 mt-1'>
-                          <Text className='text-[10px] text-amber-100/30'>
-                            Leading:
-                          </Text>
-                          <Text className='text-[10px] text-amber-400 font-bold'>
-                            {state.players[state.highestBidder].name} —{' '}
-                            {state.highestBid}
-                          </Text>
-                        </HStack>
-                      )}
-                    </VStack>
+                      {/* Modal header */}
+                      <VStack
+                        className='items-center mb-4 pb-3'
+                        style={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: 'rgba(100,80,20,0.3)',
+                        }}
+                      >
+                        <Text className='text-amber-500 text-[10px] font-bold tracking-[3px] uppercase'>
+                          You won the bid
+                        </Text>
+                        <Heading className='text-amber-100 text-2xl font-extrabold tracking-tight mt-1'>
+                          Choose Trump
+                        </Heading>
+                      </VStack>
 
-                    {/* Bid number tiles */}
-                    {state.currentSeat === 'bottom' ? (
-                      <>
-                        <HStack className='justify-center mb-4' space='md'>
-                          {[7, 8, 9, 10].map((n) => {
-                            const active = selectedBid === n;
-                            const disabled = n <= state.highestBid;
-                            return (
+                      {/* Suit tiles in 2x2 grid */}
+
+                      <HStack className='justify-center' space='md'>
+                        {ALL_SUITS.map((suit, i) => {
+                          const m = SUIT_META[suit];
+                          return (
+                            <MotiView
+                              key={suit}
+                              from={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: i * 100 }}
+                            >
                               <Pressable
-                                key={n}
-                                disabled={disabled}
-                                onPress={() => setSelectedBid(n)}
+                                onPress={() => {
+                                  selectPlayerTrump(suit as Suit);
+                                  setTimeout(
+                                    () => router.replace('/game'),
+                                    400,
+                                  );
+                                }}
+                                className={`w-20 h-24 rounded-lg border items-center justify-center space-y-2 active:scale-95 ${m.bg}`}
                                 style={{
-                                  width: 52,
-                                  height: 52,
-                                  borderRadius: 12,
-                                  borderWidth: active ? 2 : 1.5,
-                                  borderColor: active
-                                    ? '#C8A840'
-                                    : 'rgba(255,255,255,0.08)',
-                                  backgroundColor: active
-                                    ? 'rgba(200,168,64,0.15)'
-                                    : 'rgba(255,255,255,0.03)',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  opacity: disabled ? 0.15 : 1,
+                                  borderWidth: 1.5,
+                                  borderColor: 'rgba(255,255,255,0.1)',
                                 }}
                               >
+                                <Text className={`text-4xl ${m.color}`}>
+                                  {m.symbol}
+                                </Text>
                                 <Text
-                                  style={{
-                                    fontSize: 20,
-                                    fontWeight: '900',
-                                    color: active
-                                      ? '#F0D080'
-                                      : 'rgba(240,208,128,0.35)',
-                                  }}
+                                  className={`text-[8px] font-bold tracking-widest uppercase ${m.color} opacity-60`}
                                 >
-                                  {n}
+                                  {m.name}
                                 </Text>
                               </Pressable>
-                            );
-                          })}
-                        </HStack>
+                            </MotiView>
+                          );
+                        })}
+                      </HStack>
+                    </LinearGradient>
+                  </MotiView>
+                )}
 
-                        {/* Action buttons */}
-                        <HStack className='space-x-2' space='lg'>
-                          <Button
-                            variant='outline'
-                            className='border-white/10 h-11 px-5 rounded-xl'
-                            onPress={() => passPlayerBid()}
-                          >
-                            <ButtonText className='text-amber-100/30 font-bold uppercase tracking-widest text-[10px]'>
-                              Pass
-                            </ButtonText>
-                          </Button>
-                          <Button
-                            className='flex-1 h-11 rounded-xl active:opacity-80'
-                            style={{
-                              backgroundColor: selectedBid
-                                ? '#C8A840'
-                                : 'rgba(200,168,64,0.15)',
-                            }}
-                            isDisabled={!selectedBid}
-                            onPress={() =>
-                              selectedBid && placePlayerBid(selectedBid)
-                            }
-                          >
-                            <ButtonText
-                              style={{
-                                color: selectedBid
-                                  ? '#1A1000'
-                                  : 'rgba(200,168,64,0.4)',
-                                fontWeight: '900',
-                                fontSize: 12,
-                                letterSpacing: 1,
-                                textTransform: 'uppercase',
-                              }}
+                {/* ── BIDDING MODAL (shows when not selecting trump) ── */}
+                {!showTrumpPicker && (
+                  <MotiView
+                    from={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ type: 'spring', damping: 20 }}
+                    style={{
+                      width: SCREEN_W * 0.44,
+                      borderRadius: 20,
+                      overflow: 'hidden',
+                      borderWidth: 1.5,
+                      borderColor: 'rgba(180,140,40,0.4)',
+                    }}
+                  >
+                    {/* Modal inner gradient */}
+                    <LinearGradient
+                      colors={['#0D2B1A', '#120E00', '#1A1600']}
+                      style={{ padding: 16, borderRadius: 19 }}
+                    >
+                      {/* Modal header */}
+                      <VStack
+                        className='items-center mb-3 pb-3'
+                        style={{
+                          borderBottomWidth: 1,
+                          borderBottomColor: 'rgba(100,80,20,0.3)',
+                        }}
+                      >
+                        <Heading className='text-amber-100 text-xl font-extrabold tracking-tight'>
+                          Place Your Bid
+                        </Heading>
+                        {state.highestBidder && (
+                          <HStack className='items-center space-x-1 mt-1'>
+                            <Text className='text-[10px] text-amber-100/30'>
+                              Leading:
+                            </Text>
+                            <Text className='text-[10px] text-amber-400 font-bold'>
+                              {state.players[state.highestBidder].name} —{' '}
+                              {state.highestBid}
+                            </Text>
+                          </HStack>
+                        )}
+                      </VStack>
+
+                      {/* Bid number tiles */}
+                      {state.currentSeat === 'bottom' ? (
+                        <>
+                          <HStack className='justify-center mb-4' space='md'>
+                            {[7, 8, 9, 10].map((n) => {
+                              const active = selectedBid === n;
+                              const disabled = n <= state.highestBid;
+                              return (
+                                <Pressable
+                                  key={n}
+                                  disabled={disabled}
+                                  onPress={() => setSelectedBid(n)}
+                                  style={{
+                                    width: 52,
+                                    height: 52,
+                                    borderRadius: 12,
+                                    borderWidth: active ? 2 : 1.5,
+                                    borderColor: active
+                                      ? '#C8A840'
+                                      : 'rgba(255,255,255,0.08)',
+                                    backgroundColor: active
+                                      ? 'rgba(200,168,64,0.15)'
+                                      : 'rgba(255,255,255,0.03)',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    opacity: disabled ? 0.15 : 1,
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      fontSize: 20,
+                                      fontWeight: '900',
+                                      color: active
+                                        ? '#F0D080'
+                                        : 'rgba(240,208,128,0.35)',
+                                    }}
+                                  >
+                                    {n}
+                                  </Text>
+                                </Pressable>
+                              );
+                            })}
+                          </HStack>
+
+                          {/* Action buttons */}
+                          <HStack className='space-x-2' space='lg'>
+                            <Button
+                              variant='outline'
+                              className='border-white/10 h-11 px-5 rounded-xl'
+                              onPress={() => passPlayerBid()}
                             >
-                              {selectedBid
-                                ? `Bid  ${selectedBid}`
-                                : 'Select a bid'}
-                            </ButtonText>
-                          </Button>
-                        </HStack>
-                      </>
-                    ) : (
-                      /* Waiting state */
-                      <Center className='py-3'>
-                        <HStack className='items-center space-x-2'>
-                          <MotiView
-                            animate={{ opacity: [0.2, 1, 0.2] }}
-                            transition={{ loop: true, duration: 900 }}
-                            className='w-1.5 h-1.5 bg-amber-500 rounded-full'
-                          />
-                          <Text className='text-amber-100/30 text-[10px] font-bold tracking-widest uppercase'>
-                            Waiting...
-                          </Text>
-                        </HStack>
-                      </Center>
-                    )}
-                  </LinearGradient>
-                </MotiView>
+                              <ButtonText className='text-amber-100/30 font-bold uppercase tracking-widest text-[10px]'>
+                                Pass
+                              </ButtonText>
+                            </Button>
+                            <Button
+                              className='flex-1 h-11 rounded-xl active:opacity-80'
+                              style={{
+                                backgroundColor: selectedBid
+                                  ? '#C8A840'
+                                  : 'rgba(200,168,64,0.15)',
+                              }}
+                              isDisabled={!selectedBid}
+                              onPress={() =>
+                                selectedBid && placePlayerBid(selectedBid)
+                              }
+                            >
+                              <ButtonText
+                                style={{
+                                  color: selectedBid
+                                    ? '#1A1000'
+                                    : 'rgba(200,168,64,0.4)',
+                                  fontWeight: '900',
+                                  fontSize: 12,
+                                  letterSpacing: 1,
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                {selectedBid
+                                  ? `Bid  ${selectedBid}`
+                                  : 'Select a bid'}
+                              </ButtonText>
+                            </Button>
+                          </HStack>
+                        </>
+                      ) : (
+                        /* Waiting state */
+                        <Center className='py-3'>
+                          <HStack className='items-center space-x-2'>
+                            <MotiView
+                              animate={{ opacity: [0.2, 1, 0.2] }}
+                              transition={{ loop: true, duration: 900 }}
+                              className='w-1.5 h-1.5 bg-amber-500 rounded-full'
+                            />
+                            <Text className='text-amber-100/30 text-[10px] font-bold tracking-widest uppercase'>
+                              Waiting...
+                            </Text>
+                          </HStack>
+                        </Center>
+                      )}
+                    </LinearGradient>
+                  </MotiView>
+                )}
               </VStack>
 
               {/* Right player */}
