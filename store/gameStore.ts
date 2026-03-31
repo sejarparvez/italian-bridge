@@ -27,7 +27,7 @@ interface GameStore {
   placePlayerBid: (bid: number) => void;
   passPlayerBid: () => void;
   selectPlayerTrump: (suit: Suit) => void;
-  playPlayerCard: (cardId: string) => void;
+  playPlayerCard: (cardId: string, wantsToTrump?: boolean) => void;
   runBotBids: () => void;
   dealRemainingCards: () => void;
   advanceAI: () => void;
@@ -78,13 +78,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ── Player Card Play ────────────────────────────────────────────────────────
 
-  playPlayerCard: (cardId) => {
+  playPlayerCard: (cardId, wantsToTrump = false) => {
     const card = get().state.players.bottom.hand.find(c => c.id === cardId);
     if (!card) return;
 
-    // FIX: removed manual trumpRevealed check — playCard in the engine now
-    // handles auto-reveal when a trump card is played. No need to duplicate here.
-    const newState = playCard(get().state, 'bottom', card);
+    const newState = playCard(get().state, 'bottom', card, wantsToTrump);
     set({ state: newState });
     afterPlayState(newState, get);
   },

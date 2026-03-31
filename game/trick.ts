@@ -97,19 +97,27 @@ export function getTrickWinner(trick: Trick, trump: Suit | null): SeatPosition {
  * Returns the subset of cards in `hand` that are legal to play.
  *
  * Rules:
- * - Leading the trick: any card is playable.
- * - Following: must follow lead suit if possible.
- * - Void in lead suit: any card is playable (including trump).
- *   The act of playing trump when void is what triggers trump reveal —
- *   this function doesn't restrict it, the engine's revealTrump handles that.
- * - If trump has not been revealed, trump cards are treated as ordinary cards
- *   and players are not forced to play them (they may choose to reveal).
+ * 1. Leading the trick: any card is playable.
+ * 2. Has cards in the led suit: must follow suit — only those cards are playable.
+ * 3. Void in led suit, NOT wanting to trump: any card is playable (player is
+ *    free to discard any suit, including trump if that's all they have).
+ * 4. Void in led suit, HAS declared intent to trump (`wantsToTrump = true`):
+ *    - If the hand contains trump cards → only trump cards are playable.
+ *      The player committed to trumping; they cannot back out by playing
+ *      a non-trump card while holding one.
+ *    - If the hand contains NO trump cards → any card is playable.
+ *      The player wanted to trump but is genuinely void in trump too.
+ *
+ * The trump reveal itself is handled by the engine (`wantsToTrump` flag on
+ * `playCard`), not here. This function only enforces what cards are legal
+ * given the declared intent.
  */
 export function getPlayableCards(
   hand: Card[],
   trick: Trick,
   trump: Suit | null,
-  trumpRevealed: boolean
+  trumpRevealed: boolean,
+  wantsToTrump = false,
 ): Card[] {
   // Leading — all cards are playable
   if (trick.cards.length === 0) return hand;
@@ -122,30 +130,54 @@ export function getPlayableCards(
   const leadSuitCards = hand.filter(c => c.suit === trick.leadSuit);
 
   if (leadSuitCards.length > 0) {
-    // Player has cards in lead suit — must follow suit
+    // Player has cards in lead suit — must follow suit regardless of intent
     return leadSuitCards;
   }
 
-  // Void in lead suit — any card is playable
+  // ── Void in led suit ──────────────────────────────────────────────────────
+
+  // Player declared intent to trump — enforce the commitment if they hold trump
+  // FIX: previously the function returned the full hand when void, with no
+  // regard for whether the player had committed to trumping. This allowed a
+  // player to say "I want to trump" and then legally play a non-trump discard
+  // while holding trump cards — violating the rule:
+  // "If they have it, they must play it."
+  if (wantsToTrump && trump !== null) {
+    const trumpCards = hand.filter(c => c.suit === trump);
+    if (trumpCards.length > 0) {
+      // Has trump — only trump cards are legal
+      return trumpCards;
+    }
+    // Wanted to trump but holds no trump — any card is playable
+    return hand;
+  }
+
+  // Player is void but did NOT declare intent to trump — any card is playable
+  // (they may freely discard any suit, including accidentally holding trump)
   return hand;
 }
 
 // ─── Card Validation ──────────────────────────────────────────────────────────
 
 /**
- * Returns true if `card` is a legal play given the current hand, trick, and trump state.
+ * Returns true if `card` is a legal play given the current hand, trick,
+ * trump state, and the player's declared intent.
+ *
+ * `wantsToTrump` must match the value passed to `playCard` in the engine —
+ * both must agree on whether the player has declared trump intent this turn.
  */
 export function isValidCard(
   card: Card,
   hand: Card[],
   trick: Trick,
   trump: Suit | null,
-  trumpRevealed: boolean
+  trumpRevealed: boolean,
+  wantsToTrump = false,
 ): boolean {
   // Card must actually be in the player's hand
   if (!hand.some(c => c.id === card.id)) return false;
 
-  const playable = getPlayableCards(hand, trick, trump, trumpRevealed);
+  const playable = getPlayableCards(hand, trick, trump, trumpRevealed, wantsToTrump);
   return playable.some(c => c.id === card.id);
 }
 

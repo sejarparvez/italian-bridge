@@ -1,7 +1,6 @@
 # Card Game Rules & Logic
 
 ## Overview
-
 A 4-player partnership card game with bidding and trump mechanics.  
 **Players:** 1 Human + 3 Bots → 2 Teams of 2  
 **Partners:** Human + Bot 2 vs Bot 1 + Bot 3 (opposite seats)
@@ -63,45 +62,85 @@ The round is dealt in **two phases**:
 ## Trump Card Rules
 
 ### Selecting the Trump
-
 - The player who **wins the bid** selects a trump suit.
 - The trump is represented by a **face-down hidden card** — its suit is the trump suit for the round.
 - The trump card is **not visible** to any player at the start of the round.
 
 ### Peeking at the Trump
-
 - If the **user (human player)** wins the bid and creates the trump, they may **peek** at the hidden trump card at any time during the round.
 - **Bots** that win the bid know the trump suit internally (they selected it), but the card remains hidden on the table.
 - Opponents **cannot** peek at the trump card.
 
-### Revealing the Trump
+---
 
-The trump card is **revealed to all players** the first time any player chooses to trump a trick.
+### Trumping a Trick — Full Rules
 
-| Event | Action |
-|-------|--------|
-| Player decides to trump | Trump card is **flipped and shown** to all players |
-| Trump suit is now public | All players can see the trump suit for the rest of the round |
+Trumping is a **deliberate decision**, not an obligation. A player who cannot follow the led suit is **allowed** to trump, but is never **required** to.
 
-### Playing a Trump
+#### Can vs. Want — the critical distinction
 
-When a player wants to trump a trick, the following rules apply:
+| Situation | Meaning |
+|-----------|---------|
+| Player **can** trump | They have no cards in the led suit — playing a trump is a legal option |
+| Player **wants** to trump | They actively choose to play a trump card to win the trick |
+
+These are independent. A player who cannot follow suit **may choose not to trump** and instead play any other card from their hand. Trump is only revealed and played when the player **actively decides** to trump.
+
+#### When a player cannot follow the led suit
+
+The player has three options:
+
+1. **Choose to trump** — play a trump card, revealing the trump suit to all players (first time only).
+2. **Discard another suit** — play any non-trump card from their hand. Trump is not revealed. The trick is not won by this player.
+3. *(For the human player)* The UI must present both options clearly so the player can choose consciously.
+
+> **Example:** Bot 1 leads 4♣. Bot 2 (partner) plays A♣. Bot 3 plays something. The human has no clubs. The human *can* trump — but their partner is already winning with the Ace. The human may choose to discard a low card from another suit instead, preserving their trump for a more important trick. Trump is not revealed.
+
+#### When a player chooses to trump
+
+1. The trump suit is **revealed to all players** (first time only — if already revealed, this step is skipped).
+2. The player **must** play a trump card if they hold one.
+3. If the player holds no trump cards, they may play any card from their hand.
 
 | Condition | Rule |
 |-----------|------|
-| Player has a trump suit card in hand | They **must** play a trump card — they cannot play another suit |
-| Player does **not** have a trump suit card | They may play any other card from their hand |
+| Player chooses to trump AND holds a trump card | **Must** play a trump card; trump suit revealed (first time) |
+| Player chooses to trump AND holds no trump card | May play any card; trump suit **still revealed** — the intent to trump triggers the reveal, not the card played |
+| Player cannot follow suit but does NOT choose to trump | Plays any non-trump card; trump is **not** revealed |
 
-> ⚠️ **Important:** A player cannot claim to trump and then play a non-trump card if they actually hold a trump card. The act of choosing to trump is a commitment — if they have it, they must play it.
+> ⚠️ **Important:** A player cannot claim to trump and then play a non-trump card if they actually hold a trump card. The act of *choosing* to trump is a commitment — if they have it, they must play it. However, the choice itself is always voluntary.
+
+#### Reveal Trigger Summary
+
+Trump is revealed the **first time any player declares their intent to trump**, regardless of whether they actually hold a trump card. Simply being unable to follow suit does not trigger a reveal — only the deliberate choice to trump does.
+
+| Event | Trump Revealed? |
+|-------|----------------|
+| Player declares intent to trump, plays a trump card | ✅ Yes (first time only) |
+| Player declares intent to trump, holds no trump card — plays any card | ✅ Yes (first time only) — intent triggers reveal |
+| Player cannot follow suit, discards a non-trump card | ❌ No |
+| Player follows suit normally | ❌ No |
+| User peeks at their own trump card | ❌ No — peek is private |
 
 ### Trump Card Visibility Summary
 
 | Who | Can See Trump? |
 |-----|----------------|
-| User (if they created the trump) | ✅ Can peek anytime |
-| Bots (if they created the trump) | ✅ Know internally, card stays hidden |
-| All players (after first trump played) | ✅ Trump card revealed to everyone |
-| Opponents before trump is revealed | ❌ Cannot see the trump card |
+| User (if they created the trump) | ✅ Can peek anytime — privately |
+| Bots (if they created the trump) | ✅ Know internally; card stays hidden |
+| All players (after first trump is played) | ✅ Revealed to everyone |
+| Opponents before any trump is played | ❌ Cannot see the trump card |
+
+---
+
+### Playing a Trump (once the decision is made)
+
+Once a player commits to trumping:
+
+| Condition | Rule |
+|-----------|------|
+| Player has a trump suit card in hand | They **must** play a trump card — they cannot play another suit |
+| Player does **not** have a trump suit card | They may play any other card from their hand |
 
 ---
 
@@ -186,27 +225,38 @@ The game ends immediately when **any** of the following conditions are met:
 ```
 1. Deal Phase 1
    └── Each player receives 5 cards (hand is partially visible)
+
 2. Bidding Phase
    └── Players bid from 7 to 10, or pass (seeing 5 cards only)
    └── Highest bidder wins → selects trump suit
+
 3. Trump Card Setup
    └── Trump card placed face-down (hidden)
-   └── If user won the bid → user may peek at trump anytime
+   └── If user won the bid → user may peek at trump anytime (privately, no reveal)
    └── If bot won the bid  → bot knows trump internally
+
 4. Deal Phase 2
    └── Each player receives remaining 8 cards (full 13-card hand)
+
 5. Play tricks
-   ├── If a player chooses to trump:
-   │   ├── Reveal trump card to all players (first time only)
-   │   ├── Player has trump suit? → Must play a trump card
-   │   └── Player has no trump?  → May play any other card
+   ├── On each trick, if a player cannot follow the led suit:
+   │   ├── Player CHOOSES to trump?
+   │   │   ├── YES → Reveal trump suit to all (first time only — triggered by intent)
+   │   │   │        → Player has a trump card? Must play it
+   │   │   │        → Player has no trump card? May play any card (reveal still fires)
+   │   │   └── NO  → Player discards any non-trump card
+   │   │             Trump is NOT revealed
+   │   └── (Human player must be given an explicit choice in the UI)
    └── Count points won by each team
+
 6. Evaluate Scores
    ├── Bidding Team:
    │   ├── bid == 10 and score == 10? → +13 (bonus round)
    │   └── score >= bid?             → +bid : -bid
    └── Opposing Team: score >= 4?    → +4   : -4
+
 7. Update cumulative totals
+
 8. Check end conditions
    ├── Any team total >= +30 → That team WINS
    ├── Any team total <= -30 → That team LOSES (opponent wins)
@@ -219,6 +269,9 @@ The game ends immediately when **any** of the following conditions are met:
 
 | Scenario | Rule |
 |----------|------|
+| Player cannot follow suit but partner is already winning the trick | Player may choose NOT to trump and discard instead — trump is not revealed |
+| Player cannot follow suit, chooses to trump, but holds no trump cards | May play any card; trump suit **is revealed** — intent to trump triggers the reveal |
+| Player peeks at the trump card (human only) | Private action — trump suit is not revealed to other players |
 | Both teams score exactly their target | Both teams score positively |
 | Bidding team scores all 10 points | Opponents are left with only 3 tricks — they always get −4 |
 | Bid 10 but only score 9 | No bonus; team gets −10 (failed bid) |

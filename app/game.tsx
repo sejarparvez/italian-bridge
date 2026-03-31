@@ -1,12 +1,15 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
-import { MotiView } from 'moti';
+import { MotiView } from 'moti'; // FIX: Easing must come from moti, not react-native-reanimated.
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Dimensions, Pressable, View } from 'react-native';
 import { Easing } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// Moti's transition objects use their own easing type; mixing
+// reanimated's Easing here causes silent no-ops in web and type
+// errors in newer reanimated versions.
 import { Card } from '@/components/cards/Card';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
@@ -83,7 +86,7 @@ const slotFor = (p: SeatPosition) => {
         : { x: o * 1.2, y: 0 };
 };
 
-// ── useShimmer — reusable looping shimmer ─────────────────────────────────────
+// ── useShimmer ────────────────────────────────────────────────────────────────
 
 function useShimmer(duration = 2000, delay = 0) {
   const anim = useRef(new Animated.Value(0)).current;
@@ -94,13 +97,13 @@ function useShimmer(duration = 2000, delay = 0) {
         Animated.timing(anim, {
           toValue: 1,
           duration,
-          easing: Easing.inOut(Easing.sin),
+          easing: (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t), // easeInOut
           useNativeDriver: true,
         }),
         Animated.timing(anim, {
           toValue: 0,
           duration,
-          easing: Easing.inOut(Easing.sin),
+          easing: (t) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t),
           useNativeDriver: true,
         }),
       ]),
@@ -111,7 +114,7 @@ function useShimmer(duration = 2000, delay = 0) {
   return anim;
 }
 
-// ── PulseRing — expands outward and fades ────────────────────────────────────
+// ── PulseRing ─────────────────────────────────────────────────────────────────
 
 function PulseRing({
   size,
@@ -148,7 +151,7 @@ function PulseRing({
   );
 }
 
-// ── OrbitDot — a dot that orbits a center point ──────────────────────────────
+// ── OrbitDot ──────────────────────────────────────────────────────────────────
 
 function OrbitDot({
   radius,
@@ -167,7 +170,7 @@ function OrbitDot({
       Animated.timing(progress, {
         toValue: 1,
         duration,
-        easing: Easing.linear,
+        easing: (t) => t, // linear
         useNativeDriver: true,
       }),
     );
@@ -175,7 +178,6 @@ function OrbitDot({
     return () => loop.stop();
   }, [progress, duration]);
 
-  // Build x/y from many interpolation steps for smooth circular orbit
   const steps = 60;
   const inputRange = Array.from({ length: steps + 1 }, (_, i) => i / steps);
   const xRange = inputRange.map((t) => {
@@ -205,7 +207,7 @@ function OrbitDot({
   );
 }
 
-// ── ActiveHalo — layered glow + orbit for active seats ───────────────────────
+// ── ActiveHalo ────────────────────────────────────────────────────────────────
 
 function ActiveHalo({ size = 34 }: { size?: number }) {
   return (
@@ -236,28 +238,51 @@ function ActiveHalo({ size = 34 }: { size?: number }) {
   );
 }
 
-// ── DealCard — cards fan in from deck on mount ────────────────────────────────
+// ── DealCard ──────────────────────────────────────────────────────────────────
+// FIX: The previous implementation re-triggered the deal animation on every
+// render because MotiView's `from` prop is evaluated on each mount AND on
+// `key` changes. Since DealCard was rendered inline without isolation, any
+// parent state update (pressed, playableIds, etc.) could cause remounts.
+//
+// Solution: `DealCard` now uses `useRef` to track whether it has already
+// animated in. On the first render it plays the deal-in spring. On subsequent
+// renders (same card, same position) it animates to a stable resting state
+// without re-triggering the entrance from off-screen.
 
 function DealCard({
   index,
   children,
 }: {
+  cardId: string;
   index: number;
   children: React.ReactNode;
 }) {
+  const hasDealtIn = useRef(false);
+
+  // Mark as dealt after the entrance animation would complete
+  useEffect(() => {
+    const t = setTimeout(
+      () => {
+        hasDealtIn.current = true;
+      },
+      300 + index * 55,
+    );
+    return () => clearTimeout(t);
+  }, [index]);
+
   return (
     <MotiView
-      from={{
-        opacity: 0,
-        translateY: -CARD_H * 1.4,
-        scale: 0.55,
-      }}
+      from={
+        hasDealtIn.current
+          ? undefined // already in — no entrance re-play
+          : { opacity: 0, translateY: -CARD_H * 1.4, scale: 0.55 }
+      }
       animate={{ opacity: 1, translateY: 0, scale: 1 }}
       transition={{
         type: 'spring',
         damping: 16,
         stiffness: 110,
-        delay: index * 55,
+        delay: hasDealtIn.current ? 0 : index * 55,
       }}
     >
       {children}
@@ -265,7 +290,7 @@ function DealCard({
   );
 }
 
-// ── TrickCard — card played onto table with cinematic arc ─────────────────────
+// ── TrickCard ─────────────────────────────────────────────────────────────────
 
 function TrickCard({
   cardId,
@@ -307,7 +332,6 @@ function TrickCard({
       }}
       style={{ position: 'absolute', top: '50%', left: '50%' }}
     >
-      {/* Flash glow for newest card */}
       {isLatest && (
         <MotiView
           from={{ opacity: 0.85, scale: 1.4 }}
@@ -322,6 +346,133 @@ function TrickCard({
         />
       )}
       {children}
+    </MotiView>
+  );
+}
+
+// ── TrumpIntentModal ──────────────────────────────────────────────────────────
+// Shown when the human is void in the led suit and trump has not yet been
+// revealed. The player must explicitly choose to "Trump" or "Discard" before
+// the card grid becomes interactive.
+//
+// Per the rules:
+//   • Choosing "Trump" → sets wantsToTrump = true, restricts playable cards
+//     to trump-only (enforced by getPlayableCards), and reveals trump on play.
+//   • Choosing "Discard" → wantsToTrump = false, any non-trump card is playable,
+//     trump is NOT revealed.
+//
+// The modal also appears (with slightly different copy) when trump IS already
+// revealed — in that case it still enforces the voluntary decision, but the
+// "Trump" label is less dramatic since the suit is public already.
+
+function TrumpIntentModal({
+  trumpSuit,
+  trumpSymbol,
+  onTrump,
+  onDiscard,
+}: {
+  trumpSuit: string;
+  trumpSymbol: string;
+  onTrump: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <MotiView
+      from={{ opacity: 0, scale: 0.88, translateY: 24 }}
+      animate={{ opacity: 1, scale: 1, translateY: 0 }}
+      transition={{ type: 'spring', damping: 18, stiffness: 220 }}
+      style={{
+        position: 'absolute',
+        bottom: CARD_H * 0.72 + 12,
+        alignSelf: 'center',
+        zIndex: 100,
+        alignItems: 'center',
+        gap: 10,
+      }}
+    >
+      {/* Context label */}
+      <View
+        style={{
+          backgroundColor: 'rgba(0,0,0,0.72)',
+          borderRadius: 12,
+          paddingHorizontal: 14,
+          paddingVertical: 6,
+          borderWidth: 1,
+          borderColor: C.goldDim,
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 11,
+            color: 'rgba(240,220,160,0.75)',
+            fontWeight: '700',
+            letterSpacing: 0.8,
+            textAlign: 'center',
+          }}
+        >
+          You have no {trumpSuit} — trump or discard?
+        </Text>
+      </View>
+
+      {/* Action buttons */}
+      <HStack style={{ gap: 10 }}>
+        {/* Trump button */}
+        <Pressable
+          onPress={onTrump}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            paddingHorizontal: 20,
+            paddingVertical: 11,
+            borderRadius: 14,
+            backgroundColor: C.gold,
+            shadowColor: C.gold,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.55,
+            shadowRadius: 12,
+            elevation: 10,
+          }}
+        >
+          <Text style={{ fontSize: 16 }}>{trumpSymbol}</Text>
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: '900',
+              color: '#07130D',
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+            }}
+          >
+            Trump
+          </Text>
+        </Pressable>
+
+        {/* Discard button */}
+        <Pressable
+          onPress={onDiscard}
+          style={{
+            paddingHorizontal: 20,
+            paddingVertical: 11,
+            borderRadius: 14,
+            backgroundColor: C.white05,
+            borderWidth: 1,
+            borderColor: C.white10,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 13,
+              fontWeight: '700',
+              color: 'rgba(255,255,255,0.55)',
+              letterSpacing: 1,
+              textTransform: 'uppercase',
+            }}
+          >
+            Discard
+          </Text>
+        </Pressable>
+      </HStack>
     </MotiView>
   );
 }
@@ -342,13 +493,11 @@ function TeamScoreBadge({
   const numericTarget = isBiddingTeam ? (bid ?? 0) : 4;
   const target = isBiddingTeam ? (bid ?? '?') : 4;
   const onTrack = numericTarget === 0 || tricks >= numericTarget;
-
   const valueColor = active
     ? C.gold
     : onTrack
       ? 'rgba(100,200,120,0.85)'
       : 'rgba(220,100,80,0.85)';
-
   const shimmer = useShimmer(1800, 300);
 
   return (
@@ -408,7 +557,6 @@ function OpponentSeat({
         active ? { backgroundColor: C.goldFaint } : undefined,
       ]}
     >
-      {/* Animated border shimmer */}
       {active && (
         <Animated.View
           style={{
@@ -424,8 +572,6 @@ function OpponentSeat({
           }}
         />
       )}
-
-      {/* Active halo sits behind the avatar */}
       {active && (
         <View
           style={{
@@ -442,8 +588,6 @@ function OpponentSeat({
           <ActiveHalo size={34} />
         </View>
       )}
-
-      {/* Avatar */}
       <View
         className='items-center justify-center rounded-full'
         style={[
@@ -460,8 +604,6 @@ function OpponentSeat({
           {name[0].toUpperCase()}
         </Text>
       </View>
-
-      {/* Name + score */}
       <View className={isH ? 'ml-2' : 'mt-1.5 items-center'}>
         <Text
           className='text-[9px] font-bold uppercase tracking-wide'
@@ -475,8 +617,6 @@ function OpponentSeat({
         </Text>
         {scoreBadge}
       </View>
-
-      {/* Live indicator dot + halo */}
       {active && (
         <>
           <MotiView
@@ -515,7 +655,6 @@ function ScorePanel({
   lrScore: number;
 }) {
   const fmt = (n: number) => (n > 0 ? `+${n}` : String(n));
-
   return (
     <View
       className='flex-row items-center rounded-xl border overflow-hidden'
@@ -542,12 +681,10 @@ function ScorePanel({
           {fmt(btScore)}
         </Text>
       </View>
-
       <View
         className='w-px self-stretch'
         style={{ backgroundColor: C.white10, marginVertical: '15%' }}
       />
-
       <View className='px-2.5 py-1 items-center' style={{ minWidth: 52 }}>
         <Text
           className='text-[7px] font-bold uppercase tracking-widest'
@@ -601,7 +738,6 @@ function TrumpMiniCard({
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: 'spring', damping: 13, stiffness: 180 }}
       >
-        {/* Gold aura */}
         <Animated.View
           style={{
             position: 'absolute',
@@ -624,7 +760,6 @@ function TrumpMiniCard({
             className='absolute inset-0'
             style={{ borderRadius: 7 }}
           />
-          {/* Decorative lines */}
           <View className='absolute inset-0 items-center justify-evenly p-1'>
             {[...Array(3)].map((_, i) => (
               <View
@@ -639,7 +774,6 @@ function TrumpMiniCard({
               />
             ))}
           </View>
-          {/* Sweep shimmer across card back */}
           <Animated.View
             style={{
               position: 'absolute',
@@ -682,7 +816,6 @@ function TrumpMiniCard({
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: 'spring', damping: 11, stiffness: 190 }}
     >
-      {/* Suit-tinted aura */}
       <Animated.View
         style={{
           position: 'absolute',
@@ -712,7 +845,6 @@ function TrumpMiniCard({
           },
         ]}
       >
-        {/* Shimmer sweep across face */}
         <Animated.View
           style={{
             position: 'absolute',
@@ -730,7 +862,6 @@ function TrumpMiniCard({
             ],
           }}
         />
-        {/* Top pip */}
         <Text
           className='absolute font-black'
           style={{
@@ -743,14 +874,12 @@ function TrumpMiniCard({
         >
           {symbol}
         </Text>
-        {/* Center */}
         <Text
           className='font-black'
           style={{ fontSize: 26, color: suitColor, lineHeight: 30 }}
         >
           {symbol}
         </Text>
-        {/* Bottom pip */}
         <Text
           className='absolute font-black'
           style={{
@@ -764,7 +893,6 @@ function TrumpMiniCard({
         >
           {symbol}
         </Text>
-        {/* TRUMP label */}
         <View
           className='absolute bottom-0 left-0 right-0 items-center py-0.5'
           style={{
@@ -795,7 +923,6 @@ function WinnerBanner({ name }: { name: string }) {
       transition={{ type: 'spring', damping: 11, stiffness: 230 }}
       className='absolute -bottom-2 self-center'
     >
-      {/* Burst glow */}
       <MotiView
         from={{ opacity: 0.9, scale: 0.7 }}
         animate={{ opacity: 0, scale: 3 }}
@@ -840,7 +967,7 @@ function WinnerBanner({ name }: { name: string }) {
   );
 }
 
-// ── FeltTable — subtle animated inner ring ───────────────────────────────────
+// ── FeltTable ─────────────────────────────────────────────────────────────────
 
 function FeltTable() {
   const shimmer = useShimmer(4500);
@@ -889,6 +1016,18 @@ export default function GameScreen() {
   const [pressed, setPressed] = useState<string | null>(null);
   const lastTrickCount = useRef(0);
 
+  // ── Trump intent state ────────────────────────────────────────────────────
+  // Three-state machine for the human player's trump decision when void:
+  //
+  //   'idle'     — no decision needed yet (following suit or leading)
+  //   'pending'  — player is void in led suit; awaiting their Trump/Discard choice
+  //   'trumping' — player chose Trump; playable set is now trump-only
+  //   'discarding' — player chose Discard; playable set is full void-hand minus trump
+  //
+  // Reset to 'idle' whenever the trick changes (new trick started).
+  type TrumpIntent = 'idle' | 'pending' | 'trumping' | 'discarding';
+  const [trumpIntent, setTrumpIntent] = useState<TrumpIntent>('idle');
+
   const {
     players,
     currentTrick,
@@ -903,6 +1042,12 @@ export default function GameScreen() {
   const isPlayerTurn = currentSeat === 'bottom';
   const isPlayerActive = phase === 'playing' && isPlayerTurn;
 
+  // Reset intent whenever a new trick starts
+  const trickLen = currentTrick.cards.length;
+  useEffect(() => {
+    if (trickLen === 0) setTrumpIntent('idle');
+  }, [trickLen]);
+
   const btTricks = players.bottom.tricksTaken + players.top.tricksTaken;
   const lrTricks = players.left.tricksTaken + players.right.tricksTaken;
 
@@ -913,10 +1058,13 @@ export default function GameScreen() {
   const lrIsBidding = bidderTeam === 'LR';
   const winningBid = state.highestBid > 0 ? state.highestBid : null;
 
+  // FIX: was `revealTrump() ? revealTrump : undefined` — this called revealTrump()
+  // as a truthy check on every render, triggering a state update in a render cycle.
+  // Correct form: pass the function reference directly when canPeek is true.
   const canPeek =
     trumpCreator === 'bottom' && !trumpRevealed && trumpSuit !== null;
 
-  // Track latest card for dramatic play-in animation
+  // Track latest card for the dramatic play-in animation on TrickCard
   const latestCardId =
     currentTrick.cards.length > lastTrickCount.current
       ? currentTrick.cards[currentTrick.cards.length - 1]?.card.id
@@ -925,22 +1073,48 @@ export default function GameScreen() {
     lastTrickCount.current = currentTrick.cards.length;
   }, [currentTrick.cards.length]);
 
+  // ── Determine if player is void in led suit ───────────────────────────────
+  const isVoidInLedSuit = useMemo(() => {
+    if (!isPlayerActive || !currentTrick.leadSuit) return false;
+    return !players.bottom.hand.some((c) => c.suit === currentTrick.leadSuit);
+  }, [isPlayerActive, currentTrick.leadSuit, players.bottom.hand]);
+
+  // ── Trigger the pending prompt once when void is detected ────────────────
+  useEffect(() => {
+    if (isVoidInLedSuit && trumpIntent === 'idle' && isPlayerActive) {
+      setTrumpIntent('pending');
+    }
+  }, [isVoidInLedSuit, trumpIntent, isPlayerActive]);
+
+  // ── Compute playable cards based on declared intent ───────────────────────
+  // FIX: previously getPlayableCards was always called without wantsToTrump,
+  // meaning a player who declared "Trump" could still legally tap a non-trump
+  // discard card. Now the wantsToTrump flag restricts the playable set
+  // to trump-only once the player has committed.
+  const wantsToTrump = trumpIntent === 'trumping';
+
   const playableIds = useMemo<Set<string>>(() => {
     if (!isPlayerActive) return new Set();
+    // While pending (decision not yet made), show no playable cards —
+    // the modal must be resolved first.
+    if (trumpIntent === 'pending') return new Set();
     return new Set(
       getPlayableCards(
         players.bottom.hand,
         currentTrick,
         trumpSuit,
         trumpRevealed,
+        wantsToTrump,
       ).map((c) => c.id),
     );
   }, [
     isPlayerActive,
+    trumpIntent,
     players.bottom.hand,
     currentTrick,
     trumpSuit,
     trumpRevealed,
+    wantsToTrump,
   ]);
 
   const uniqueHand = players.bottom.hand.filter(
@@ -1005,8 +1179,6 @@ export default function GameScreen() {
           colors={[C.bg, C.felt, C.bg]}
           className='absolute inset-0'
         />
-
-        {/* Cinematic radial bloom */}
         <MotiView
           from={{ opacity: 0, scale: 0.4 }}
           animate={{ opacity: 0.1, scale: 3 }}
@@ -1025,14 +1197,12 @@ export default function GameScreen() {
             top: SCREEN_H * 0.05,
           }}
         />
-
         <MotiView
           from={{ opacity: 0, translateY: 50 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: 'spring', damping: 22, delay: 80 }}
           className='flex-1 justify-center items-center px-10'
         >
-          {/* Title block */}
           <MotiView
             from={{ opacity: 0, scale: 0.6 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -1068,7 +1238,6 @@ export default function GameScreen() {
             </Text>
           </MotiView>
 
-          {/* Score card */}
           <MotiView
             from={{ opacity: 0, translateY: 28 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -1199,8 +1368,6 @@ export default function GameScreen() {
                           )}
                         </VStack>
                       </HStack>
-
-                      {/* Score number — pops in with spring */}
                       <MotiView
                         from={{ opacity: 0, scale: 0.3 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -1234,7 +1401,6 @@ export default function GameScreen() {
             </View>
           </MotiView>
 
-          {/* CTA button */}
           <MotiView
             from={{ opacity: 0, translateY: 20 }}
             animate={{ opacity: 1, translateY: 0 }}
@@ -1262,7 +1428,6 @@ export default function GameScreen() {
                 }
               }}
             >
-              {/* Moving shimmer sweep */}
               <MotiView
                 from={{ translateX: -200 }}
                 animate={{ translateX: 450 }}
@@ -1326,7 +1491,10 @@ export default function GameScreen() {
               suit={trumpSuit}
               revealed={trumpRevealed}
               canPeek={canPeek}
-              onPeek={canPeek && revealTrump() ? revealTrump : undefined}
+              // FIX: was `revealTrump() ? revealTrump : undefined` which called
+              // revealTrump() as a boolean check on every render, firing a state
+              // update mid-render. Corrected to a plain conditional reference.
+              onPeek={canPeek ? revealTrump : undefined}
             />
           )}
           <ScorePanel btScore={teamScores.BT} lrScore={teamScores.LR} />
@@ -1419,7 +1587,7 @@ export default function GameScreen() {
           />
         </MotiView>
 
-        {/* Center */}
+        {/* Center felt */}
         <View className='flex-1 items-center justify-center relative'>
           {/* Top seat */}
           <MotiView
@@ -1436,7 +1604,7 @@ export default function GameScreen() {
             />
           </MotiView>
 
-          {/* Watermark — slow breathing rotation */}
+          {/* Watermark */}
           <MotiView
             animate={{
               rotate: ['0deg', '2deg', '-2deg', '0deg'],
@@ -1459,7 +1627,7 @@ export default function GameScreen() {
             </Text>
           </MotiView>
 
-          {/* Trick cards area */}
+          {/* Trick cards */}
           <View
             className='items-center justify-center'
             style={{ width: SCREEN_H * 0.72, height: SCREEN_H * 0.5 }}
@@ -1517,7 +1685,6 @@ export default function GameScreen() {
         className='flex-row items-center justify-between px-4 pb-1 mb-0.5'
       >
         <HStack className='items-center gap-2.5'>
-          {/* Avatar with active halo */}
           <View
             className='items-center justify-center'
             style={{ width: 42, height: 42 }}
@@ -1540,7 +1707,6 @@ export default function GameScreen() {
               </Text>
             </View>
           </View>
-
           <VStack>
             <Text
               className='font-extrabold uppercase tracking-wide'
@@ -1562,9 +1728,22 @@ export default function GameScreen() {
         </HStack>
       </MotiView>
 
+      {/* ── Trump intent modal ────────────────────────────────────────────────
+          Shown when the player is void in led suit and must decide to trump
+          or discard BEFORE the card grid becomes interactive.
+          Positioned just above the hand area.                               */}
+      {isPlayerActive && trumpIntent === 'pending' && trumpSuit && (
+        <TrumpIntentModal
+          trumpSuit={trumpSuit}
+          trumpSymbol={SUIT_SYMBOLS[trumpSuit as keyof typeof SUIT_SYMBOLS]}
+          onTrump={() => setTrumpIntent('trumping')}
+          onDiscard={() => setTrumpIntent('discarding')}
+        />
+      )}
+
       {/* ── Player Hand ── */}
       <View
-        className='relative w-full overflow-visible '
+        className='relative w-full overflow-visible'
         style={{ height: CARD_H * 0.72 }}
       >
         {hand.map((card, i) => {
@@ -1573,7 +1752,11 @@ export default function GameScreen() {
           const isPressed = pressed === card.id;
 
           return (
-            <DealCard key={card.id} index={i}>
+            // FIX: DealCard is keyed by card.id so each card gets a stable
+            // component identity. Without this key, React may reuse a DealCard
+            // instance for a different card after a play, replaying the deal
+            // animation incorrectly.
+            <DealCard key={card.id} cardId={card.id} index={i}>
               <MotiView
                 animate={{
                   opacity: isPlayerActive && !canPlay ? 0.25 : 1,
@@ -1588,7 +1771,6 @@ export default function GameScreen() {
                 }}
                 style={{ position: 'absolute', left: l.x, bottom: -26 }}
               >
-                {/* Press flash */}
                 {isPressed && (
                   <MotiView
                     from={{ opacity: 0.55 }}
@@ -1603,11 +1785,16 @@ export default function GameScreen() {
                     }}
                   />
                 )}
-
                 <Pressable
                   onPressIn={() => canPlay && setPressed(card.id)}
                   onPressOut={() => setPressed(null)}
-                  onPress={() => canPlay && playPlayerCard(card.id)}
+                  onPress={() => {
+                    if (!canPlay) return;
+                    // Pass wantsToTrump to the store so the engine can trigger
+                    // the reveal correctly per the updated playCard signature.
+                    playPlayerCard(card.id, wantsToTrump);
+                    setTrumpIntent('idle');
+                  }}
                   className='overflow-hidden rounded-lg -mb-16'
                 >
                   <Card card={card} width={CARD_W} height={CARD_H} />

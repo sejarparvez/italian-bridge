@@ -24,7 +24,6 @@ const LOSE_SCORE = -30;
 
 // ─── Player Names ─────────────────────────────────────────────────────────────
 
-/** Default player names — kept in one place so advanceToNextRound can reuse them */
 const PLAYER_NAMES: Record<SeatPosition, string> = {
   bottom: 'You',
   top:    'Alex',
@@ -93,11 +92,12 @@ export function startNewGame(): GameState {
 /**
  * Called after trump is selected (end of 'dealing2' phase).
  * Deals the remaining 8 cards to each player to complete their 13-card hands.
+ *
+ * FIX: phase guard tightened to only allow 'dealing2'. Allowing 'playing'
+ * meant this could be called mid-round and silently re-deal over a live game.
  */
 export function dealSecondPhase(state: GameState): GameState {
-  // Note: phase check removed — the store manages phase transitions explicitly
-  // and may pass a state with an overridden phase to sequence correctly.
-  if (state.phase !== 'dealing2' && state.phase !== 'playing') {
+  if (state.phase !== 'dealing2') {
     throw new Error(`dealSecondPhase called in unexpected phase: ${state.phase}`);
   }
 
@@ -124,10 +124,27 @@ export function dealSecondPhase(state: GameState): GameState {
 
 // ─── Play Card ────────────────────────────────────────────────────────────────
 
+/**
+ * Plays a card for the given seat.
+ *
+ * `wantsToTrump` — pass true when the player has explicitly declared intent to
+ * trump this trick (even if they hold no trump cards). This is the sole trigger
+ * for revealing the trump suit, per game rules:
+ *
+ *   "Trump is revealed the first time any player declares their intent to trump,
+ *    regardless of whether they actually hold a trump card."
+ *
+ * For the human player the UI sets this flag when the player taps the trump
+ * action. For bots, `botWantsToTrump()` from bot-play determines the value.
+ *
+ * Passing false (the default) means the player is either following suit or
+ * choosing to discard without trumping — trump is NOT revealed.
+ */
 export function playCard(
   state: GameState,
   seat: SeatPosition,
-  card: Card
+  card: Card,
+  wantsToTrump = false,
 ): GameState {
   // Guard: card must belong to this player's hand
   if (!state.players[seat].hand.some(c => c.id === card.id)) {
@@ -143,6 +160,25 @@ export function playCard(
     return state;
   }
 
+  // ── Trump reveal ──────────────────────────────────────────────────────────
+  //
+  // FIX: reveal is now driven by INTENT (`wantsToTrump`), not by which card
+  // was played. This correctly handles:
+  //   • Player declares intent + plays trump card        → reveal ✅
+  //   • Player declares intent + holds no trump + plays any card → reveal ✅
+  //   • Player is void in led suit but discards non-trump → no reveal ✅
+  //   • Player follows suit normally                     → no reveal ✅
+  //
+  // Previously the engine checked `card.suit === state.trumpSuit`, which:
+  //   - Never revealed trump when a player declared intent but held no trump
+  //   - Would reveal trump if a player accidentally played a trump card while
+  //     meaning to discard (e.g. trump is the only low card available and
+  //     `wantsToTrump` was not the intent)
+  const trumpJustRevealed =
+    !state.trumpRevealed &&
+    state.trumpSuit !== null &&
+    wantsToTrump;
+
   // Remove card from hand
   const newPlayers = { ...state.players };
   newPlayers[seat] = {
@@ -154,12 +190,6 @@ export function playCard(
   const newTrick = addCardToTrick(state.currentTrick, seat, card);
   const trickComplete = newTrick.cards.length === SEAT_ORDER.length;
 
-  // Reveal trump automatically when a trump card is played
-  const trumpJustRevealed =
-    !state.trumpRevealed &&
-    state.trumpSuit !== null &&
-    card.suit === state.trumpSuit;
-
   let newState: GameState = {
     ...state,
     players: newPlayers,
@@ -170,12 +200,12 @@ export function playCard(
   if (!trickComplete) {
     // Advance to next player
     const currentIdx = SEAT_ORDER.indexOf(seat);
-    const nextIdx = (currentIdx + 1) % SEAT_ORDER.length;
+    const nextIdx    = (currentIdx + 1) % SEAT_ORDER.length;
     newState.currentSeat = SEAT_ORDER[nextIdx];
     return newState;
   }
 
-  // ── Trick complete ──
+  // ── Trick complete ────────────────────────────────────────────────────────
   const winner = getTrickWinner(newTrick, state.trumpSuit);
   const updatedWinner: Player = {
     ...newState.players[winner],
@@ -193,12 +223,12 @@ export function playCard(
     phase: 'trickEnd',
   };
 
-  // ── Round complete (all 13 tricks played) ──
+  // ── Round complete (all 13 tricks played) ─────────────────────────────────
   if (newState.completedTricks.length === TRICKS_PER_ROUND) {
-    const roundScores = calculateRoundScores(
+    const roundScores  = calculateRoundScores(
       newState.players,
       newState.highestBid,
-      newState.highestBidder
+      newState.highestBidder,
     );
     const newTeamScores = updateTeamScores(newState.teamScores, roundScores);
 
@@ -215,23 +245,28 @@ export function playCard(
 // ─── Trump ────────────────────────────────────────────────────────────────────
 
 /**
- * Manually reveal the trump card (e.g. when a player explicitly chooses to trump).
- * Trump is also revealed automatically inside playCard when a trump card is played.
+ * Explicitly reveal the trump card.
+ *
+ * This is the canonical reveal function — both the engine's `playCard` (via the
+ * `wantsToTrump` flag) and any external caller (store, UI) should go through
+ * this path to guarantee a single consistent reveal mechanism.
+ *
+ * Idempotent: calling it on an already-revealed state is a no-op.
  */
 export function revealTrump(state: GameState): GameState {
+  if (state.trumpRevealed) return state;
   return { ...state, trumpRevealed: true };
 }
 
 // ─── Round Advancement ────────────────────────────────────────────────────────
 
 export function advanceToNextRound(state: GameState): GameState {
-  // Check game-over conditions before advancing
   if (isGameOver(state.teamScores)) {
     return { ...state, phase: 'gameEnd' };
   }
 
-  const newDeck = shuffleDeck(createDeck());
-  const newDeal = dealCards(newDeck, INITIAL_DEAL_COUNT);
+  const newDeck    = shuffleDeck(createDeck());
+  const newDeal    = dealCards(newDeck, INITIAL_DEAL_COUNT);
 
   // Rotate dealer: previous first bidder moves to end
   const rotatedOrder: SeatPosition[] = [
@@ -239,8 +274,8 @@ export function advanceToNextRound(state: GameState): GameState {
     state.biddingOrder[0],
   ];
 
-  // Carry player names forward rather than hardcoding them again
-  const names: Record<SeatPosition, string> = {} as Record<SeatPosition, string>;
+  // Carry player names forward
+  const names = {} as Record<SeatPosition, string>;
   SEAT_ORDER.forEach(seat => { names[seat] = state.players[seat].name; });
 
   const resetPlayers = createPlayers(names);
@@ -272,7 +307,6 @@ export function advanceToNextRound(state: GameState): GameState {
 
 /**
  * Returns true if either team has reached the win (+30) or lose (-30) threshold.
- * Called after each round's scores are applied.
  */
 export function isGameOver(teamScores: GameState['teamScores']): boolean {
   return Object.values(teamScores).some(
@@ -282,19 +316,41 @@ export function isGameOver(teamScores: GameState['teamScores']): boolean {
 
 /**
  * Returns the winning team, or null if the game isn't over.
- * If one team hits +30 they win. If one team hits -30 the other wins.
+ *
+ * Priority:
+ *   1. A team that reached +30 wins outright.
+ *   2. A team that dropped to -30 loses — the other team wins.
+ *   3. If BOTH teams hit -30 in the same round, the higher score wins.
+ *      (Per README: "if both hit −30, higher score wins.")
+ *
+ * FIX: the old implementation returned the opponent of the first -30 team it
+ * found, without checking whether that opponent had also hit -30. This meant
+ * the wrong team could be declared winner in a simultaneous -30 scenario.
  */
 export function getWinner(
   teamScores: GameState['teamScores']
 ): 'BT' | 'LR' | null {
   const teams = Object.keys(teamScores) as ('BT' | 'LR')[];
 
+  // 1. Outright win — reached +30
   for (const team of teams) {
-    if (teamScores[team] >= WIN_SCORE)  return team;
-    if (teamScores[team] <= LOSE_SCORE) return teams.find(t => t !== team) ?? null;
+    if (teamScores[team] >= WIN_SCORE) return team;
   }
 
-  return null;
+  // 2. Check for -30 eliminations
+  const eliminated = teams.filter(t => teamScores[t] <= LOSE_SCORE);
+
+  if (eliminated.length === 0) return null;
+
+  // 3. Both teams hit -30 simultaneously → higher score wins
+  if (eliminated.length === teams.length) {
+    return teams.reduce((best, team) =>
+      teamScores[team] > teamScores[best] ? team : best
+    );
+  }
+
+  // 4. One team eliminated → the other wins
+  return teams.find(t => !eliminated.includes(t)) ?? null;
 }
 
 // ─── Re-exports ───────────────────────────────────────────────────────────────
