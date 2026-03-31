@@ -68,10 +68,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ── Trump Selection ─────────────────────────────────────────────────────────
 
   selectPlayerTrump: (suit) => {
+    console.log('[STORE] selectPlayerTrump called with suit:', suit);
     const newState = selectTrump(get().state, suit, 'bottom');
+    console.log('[STORE] After selectTrump - phase:', newState.phase, 'trumpSuit:', newState.trumpSuit);
     // selectTrump sets phase to 'playing', but dealSecondPhase requires 'dealing2'
     const dealtState = dealSecondPhase({ ...newState, phase: 'dealing2' });
-    set({ state: dealtState });
+    console.log('[STORE] After dealSecondPhase - phase:', dealtState.phase);
+    // Add delay before transitioning to playing so trump picker can show
+    set({ state: { ...dealtState, phase: 'dealing2' } });
+    console.log('[STORE] Set state with phase: dealing2, will transition to playing after delay');
+    setTimeout(() => {
+      console.log('[STORE] Timeout complete - transitioning to playing');
+      set(s => ({ state: { ...s.state, phase: 'playing' } }));
+    }, 800 / get().animSpeed);
   },
 
   // ── Player Card Play ────────────────────────────────────────────────────────
@@ -94,8 +103,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const processBots = () => {
       if (currentState.phase !== 'bidding') {
+        console.log('[RUN_BOTS] Phase not bidding, checking next steps');
         if (currentState.phase === 'dealing2') {
-          setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
+          // Only auto-deal if a BOT won the bid
+          if (currentState.highestBidder !== 'bottom') {
+            console.log('[RUN_BOTS] Bot won bid, auto-dealing remaining cards');
+            setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
+          } else {
+            console.log('[RUN_BOTS] Human won bid - waiting for human to select trump');
+          }
         }
         return;
       }
@@ -120,7 +136,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({ state: currentState });
 
       if (currentState.phase === 'dealing2') {
-        setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
+        // Only auto-deal if a BOT won the bid
+        if (currentState.highestBidder !== 'bottom') {
+          console.log('[RUN_BOTS] After bot bid, auto-dealing remaining cards');
+          setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
+        } else {
+          console.log('[RUN_BOTS] Human won bid after bot bid - waiting for human to select trump');
+        }
         return;
       }
 

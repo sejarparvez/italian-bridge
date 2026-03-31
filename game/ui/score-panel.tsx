@@ -23,7 +23,7 @@ export default function ScorePanel({
           US
         </Text>
         <Text
-          className='text-sm font-black'
+          className='text-sm font-black pt-2'
           style={{
             color:
               btScore > 0
@@ -48,7 +48,7 @@ export default function ScorePanel({
           THEM
         </Text>
         <Text
-          className='text-sm font-black'
+          className='text-sm font-black pt-2'
           style={{
             color:
               lrScore > 0

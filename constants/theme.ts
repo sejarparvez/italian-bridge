@@ -55,3 +55,18 @@ export const Spacing = {
 
 export const BottomTabInset = 80;
 export const MaxContentWidth = 800;
+
+export const C = {
+  bg: '#06110A',
+  felt: '#0A1C0F',
+  gold: '#C8A840',
+  goldBright: '#E8C84A',
+  goldDim: 'rgba(200,168,64,0.25)',
+  goldFaint: 'rgba(200,168,64,0.08)',
+  goldAccent: 'rgba(200,168,64,0.12)',
+  goldGlow: 'rgba(200,168,64,0.35)',
+  white10: 'rgba(255,255,255,0.10)',
+  white05: 'rgba(255,255,255,0.05)',
+  danger: 'rgba(248,113,113,0.7)',
+  dangerDim: 'rgba(248,113,113,0.5)',
+};
