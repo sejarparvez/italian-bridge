@@ -1,16 +1,14 @@
-import { MotiView } from 'moti';
-import { View } from 'react-native';
-import { Text } from '@/components/ui/text';
-import { HStack } from '@/components/ui/hstack';
 import { Card } from '@/components/cards/Card';
-import { C } from '@/constants/theme';
+import { HStack } from '@/components/ui/hstack';
+import { Text } from '@/components/ui/text';
 import { SUIT_SYMBOLS } from '@/constants/cards';
-import { Dimensions, Easing } from 'react-native';
-import OpponentSeat from '@/game/ui/opponent-seat';
-import TeamScoreBadge from '@/game/ui/team-score-badge';
-import TrickCard from '@/game/ui/trick-card';
-import WinnerBanner from '@/game/ui/winner-banner';
-import FeltTable from '@/game/ui/felt-table';
+import { C } from '@/constants/theme';
+import OpponentSeat from '@/game/components/opponent-seat';
+import TeamScoreBadge from '@/game/components/team-score-badge';
+import TrickCard from '@/game/components/trick-card';
+import WinnerBanner from '@/game/components/winner-banner';
+import { MotiView } from 'moti';
+import { Dimensions, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
@@ -62,7 +60,8 @@ export default function GameFelt({
         animate={{ opacity: 1, translateX: 0 }}
         transition={{ type: 'spring', damping: 18, delay: 180 }}
         className='items-center justify-center'
-        style={{ width: SCREEN_W * 0.13 }}
+        style={{ left: 40 }}
+    
       >
         <OpponentSeat name={players.left.name} active={currentSeat === 'left'} />
       </MotiView>
@@ -74,12 +73,14 @@ export default function GameFelt({
           from={{ opacity: 0, translateY: -28 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: 'spring', damping: 18, delay: 130 }}
-          className='absolute -top-12 items-center justify-center'
+          className='absolute items-center justify-center'
+          style={{ top: -80 }}
         >
           <OpponentSeat
             name={players.top.name}
             active={currentSeat === 'top'}
             orientation='horizontal'
+            
           />
         </MotiView>
 
@@ -138,7 +139,7 @@ export default function GameFelt({
         from={{ opacity: 0, translateX: 28 }}
         animate={{ opacity: 1, translateX: 0 }}
         transition={{ type: 'spring', damping: 18, delay: 180 }}
-        className='items-center justify-center right-8'
+       style={{ right: 30 }}
       >
         <OpponentSeat
           name={players.right.name}

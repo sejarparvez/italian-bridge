@@ -17,7 +17,7 @@ export default function ScorePanel({
     >
       <View className='px-2.5 py-1 items-center' style={{ minWidth: 52 }}>
         <Text
-          className='text-[7px] font-bold uppercase tracking-widest'
+          className='text-xs font-bold uppercase tracking-widest pb-3'
           style={{ color: 'rgba(200,168,64,0.45)' }}
         >
           US
@@ -42,7 +42,7 @@ export default function ScorePanel({
       />
       <View className='px-2.5 py-1 items-center' style={{ minWidth: 52 }}>
         <Text
-          className='text-[7px] font-bold uppercase tracking-widest'
+          className='text-xs font-bold uppercase pb-3 tracking-widest'
           style={{ color: 'rgba(200,168,64,0.45)' }}
         >
           THEM

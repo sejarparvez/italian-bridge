@@ -1,11 +1,11 @@
-import { MotiView } from 'moti';
-import { View } from 'react-native';
-import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
+import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { C } from '@/constants/theme';
-import { ActiveHalo } from '@/game/ui/active-halo';
-import TeamScoreBadge from '@/game/ui/team-score-badge';
+import { ActiveHalo } from '@/game/components/active-halo';
+import TeamScoreBadge from '@/game/components/team-score-badge';
+import { MotiView } from 'moti';
+import { View } from 'react-native';
 
 interface GamePlayerBarProps {
   playerName: string;
@@ -27,7 +27,8 @@ export default function GamePlayerBar({
       from={{ opacity: 0, translateY: 18 }}
       animate={{ opacity: 1, translateY: 0 }}
       transition={{ type: 'spring', damping: 18, delay: 240 }}
-      className='flex-row items-center justify-between px-4 pb-1 left-6 mb-0.5'
+      className='flex-row items-center justify-between px-4 pb-1  mb-0.5'
+      style={{ left: 40 }}
     >
       <HStack className='items-center gap-2.5'>
         <View className='items-center justify-center' style={{ width: 42, height: 42 }}>

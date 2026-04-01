@@ -1,16 +1,15 @@
-import { MotiView } from 'moti';
-import { Pressable, View } from 'react-native';
-import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
-import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
 import { Icon } from '@/components/ui/icon';
+import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
 import { C } from '@/constants/theme';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScorePanel from '@/game/components/score-panel';
+import TrumpMiniCard from '@/game/components/trump-mini-card';
+import { useGameStore } from '@/store/gameStore';
 import { useRouter } from 'expo-router';
 import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
-import TrumpMiniCard from '@/game/ui/trump-mini-card';
-import ScorePanel from '@/game/ui/score-panel';
-import { useGameStore } from '@/store/gameStore';
+import { MotiView } from 'moti';
+import { Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface GameHUDProps {
   trumpSuit: string | null;
@@ -29,8 +28,8 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
       from={{ opacity: 0, translateY: -24 }}
       animate={{ opacity: 1, translateY: 0 }}
       transition={{ type: 'spring', damping: 18, delay: 80 }}
-      className='absolute left-6 right-0 flex-row justify-between items-center px-3.5 z-50'
-      style={{ top: insets.top + 8 }}
+      className='flex-row justify-between items-center z-50'
+      style={{ top: insets.top + 8, paddingHorizontal: insets.left + 12 }}
     >
       <HStack space='4xl'>
         {trumpSuit && (trumpRevealed || canPeek) && (
@@ -44,7 +43,7 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
       </HStack>
 
       <Menu
-        offset={-20}
+        offset={10}
         trigger={({ ...triggerProps }) => (
           <Pressable
             {...triggerProps}
@@ -66,13 +65,14 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
         <MenuItem
           key='home'
           textValue='Home'
-          className='rounded-xl py-2.5 px-3 gap-2.5'
+          className='rounded-xl py-2.5 px-3'
           onPress={() => router.replace('/')}
+        
         >
           <Icon as={Home} size='sm' style={{ color: C.goldDim }} />
           <MenuItemLabel
             className='font-semibold text-sm'
-            style={{ color: 'rgba(232,213,163,0.85)' }}
+            style={{ color: 'rgba(232,213,163,0.85)', paddingLeft: 12 }}
           >
             Main Menu
           </MenuItemLabel>
@@ -89,7 +89,7 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
           <Icon as={RefreshCw} size='sm' style={{ color: C.goldDim }} />
           <MenuItemLabel
             className='font-semibold text-sm'
-            style={{ color: 'rgba(232,213,163,0.85)' }}
+           style={{ color: 'rgba(232,213,163,0.85)', paddingLeft: 12 }}
           >
             Restart Game
           </MenuItemLabel>
@@ -103,7 +103,7 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
           <Icon as={X} size='sm' style={{ color: C.dangerDim }} />
           <MenuItemLabel
             className='font-semibold text-sm'
-            style={{ color: C.danger }}
+            style={{ color: C.danger, paddingLeft: 12 }}
           >
             Close Menu
           </MenuItemLabel>

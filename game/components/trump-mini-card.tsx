@@ -1,6 +1,5 @@
 import { Text } from '@/components/ui/text';
 import { SUIT_SYMBOLS } from '@/constants/cards';
-import { C } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import type React from 'react';
@@ -214,12 +213,7 @@ export default function TrumpMiniCard({
             className='absolute bottom-0 left-0 right-0 items-center'
             style={{ paddingBottom: 5 }}
           >
-            <Text
-              className='font-black uppercase'
-              style={{ fontSize: 6, color: suitColor, letterSpacing: 1.5 }}
-            >
-              TRUMP
-            </Text>
+            
           </View>
         </View>
       </View>
@@ -235,18 +229,7 @@ export default function TrumpMiniCard({
           }}
           pointerEvents={isPeeking ? 'none' : 'auto'}
         >
-          <Animated.View
-            style={{
-              position: 'absolute',
-              inset: -8,
-              borderRadius: 15,
-              backgroundColor: C.gold,
-              opacity: shimmer.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.08, 0.28],
-              }),
-            }}
-          />
+         
           <Pressable
             onPress={handlePeek}
             className='items-center justify-center overflow-hidden border border-[rgba(255,255,255,0.15)]'
