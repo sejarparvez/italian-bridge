@@ -22,8 +22,8 @@ export default function TrumpMiniCard({
   const faceColor = isRed ? '#FFF5F5' : '#F5F7FF';
   const suitColor = isRed ? '#D42B2B' : '#1A1A2E';
   const borderColor = isRed ? 'rgba(212,43,43,0.3)' : 'rgba(26,26,46,0.25)';
-  const CARD_W = 44;
-  const CARD_H = 62;
+  const CARD_W = 34;
+  const CARD_H = 52;
   const cardStyle = { width: CARD_W, height: CARD_H, borderRadius: 7 };
   const shimmer = useShimmer(2600);
 
@@ -53,16 +53,7 @@ export default function TrumpMiniCard({
         transition={{ type: 'spring', damping: 11, stiffness: 190 }}
       >
         <Animated.View
-          style={{
-            position: 'absolute',
-            inset: -8,
-            borderRadius: 15,
-            backgroundColor: isRed ? 'rgba(212,43,43,0.3)' : 'rgba(50,50,160,0.3)',
-            opacity: shimmer.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0.3, 0.75],
-            }),
-          }}
+         
         />
         <View
           className='items-center justify-center overflow-hidden border'
@@ -127,12 +118,7 @@ export default function TrumpMiniCard({
               backgroundColor: isRed ? 'rgba(212,43,43,0.1)' : 'rgba(26,26,46,0.08)',
             }}
           >
-            <Text
-              className='font-black uppercase'
-              style={{ fontSize: 6, color: suitColor, letterSpacing: 1.5 }}
-            >
-              TRUMP
-            </Text>
+          
           </View>
         </View>
       </MotiView>

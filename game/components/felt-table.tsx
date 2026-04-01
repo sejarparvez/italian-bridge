@@ -17,9 +17,11 @@ export default function FeltTable() {
   return (
     <>
       <View
-        className='absolute self-center border'
         style={{
-          top: SCREEN_H * 0.05,
+          position: 'absolute',
+          alignSelf: 'center',
+          top: SCREEN_H * 0.07,
+          borderWidth: 1,
           width: SCREEN_W * 0.62,
           height: SCREEN_H * 0.72,
           borderRadius: SCREEN_H * 0.36,
@@ -29,6 +31,7 @@ export default function FeltTable() {
         pointerEvents='none'
       />
       <Animated.View
+      
         style={{
           position: 'absolute',
           alignSelf: 'center',

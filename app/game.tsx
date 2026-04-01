@@ -1,7 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { MotiView } from 'moti';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, Pressable, View } from 'react-native';
 import { Card } from '@/components/cards/Card';
 import { SUIT_SYMBOLS } from '@/constants/cards';
 import { C } from '@/constants/theme';
@@ -17,6 +13,10 @@ import GameScoreboard from '@/game/sections/game-scoreboard';
 import { getPlayableCards } from '@/game/trick';
 import { useGameStore } from '@/store/gameStore';
 import { sortHandAlternating } from '@/utils/card-sort';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MotiView } from 'moti';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Dimensions, Pressable, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
@@ -29,14 +29,6 @@ export default function GameScreen() {
   const [pressed, setPressed] = useState<string | null>(null);
   const lastTrickCount = useRef(0);
 
-  // ── Trump intent state machine ─────────────────────────────────────────────
-  // idle      → player's turn starts; waiting to see if void in led suit
-  // pending   → player IS void in led suit AND trump is still hidden → show modal
-  // trumping  → player chose "Reveal & Trump" → wantsToTrump=true for card play
-  // discarding→ player chose "Discard"        → wantsToTrump=false, play any non-trump
-  //
-  // Key rule from engine: modal only fires when trump is NOT yet revealed.
-  // Once trumpRevealed=true the player plays freely, no modal ever shown.
   type TrumpIntent = 'idle' | 'pending' | 'trumping' | 'discarding';
   const [trumpIntent, setTrumpIntent] = useState<TrumpIntent>('idle');
 
@@ -82,12 +74,6 @@ export default function GameScreen() {
     lastTrickCount.current = currentTrick.cards.length;
   }, [currentTrick.cards.length]);
 
-  // ── Void-in-led-suit detection ─────────────────────────────────────────────
-  // Player is void when:
-  //   • it is their turn
-  //   • there is a led suit (not leading the trick)
-  //   • trump is still hidden  ← KEY: if already revealed, no modal needed
-  //   • their hand has no card of the led suit
   const isVoidInLedSuit = useMemo(() => {
     if (!isPlayerActive) return false;
     if (!currentTrick.leadSuit) return false;
@@ -110,12 +96,6 @@ export default function GameScreen() {
   // wantsToTrump is passed to the engine — true only when player explicitly chose "Reveal & Trump"
   const wantsToTrump = trumpIntent === 'trumping';
 
-  // ── Playable card calculation ──────────────────────────────────────────────
-  // During 'pending' no cards are selectable (waiting for modal choice).
-  // After choosing:
-  //   trumping   → getPlayableCards returns trump cards only (engine enforces this)
-  //   discarding → getPlayableCards returns non-trump cards (wantsToTrump=false)
-  //   normal     → getPlayableCards returns all legal cards
   const playableIds = useMemo<Set<string>>(() => {
     if (!isPlayerActive) return new Set();
     if (trumpIntent === 'pending') return new Set(); // block until modal resolved
@@ -188,14 +168,6 @@ export default function GameScreen() {
         winningBid={winningBid}
       />
 
-      {/*
-        Modal conditions (all must be true):
-          • It is the player's active turn
-          • They are void in the led suit
-          • Trump is still hidden (trumpRevealed=false)  ← enforced by isVoidInLedSuit
-          • We have a trump suit and led suit to display
-          • Intent state is 'pending'
-      */}
       {isPlayerActive &&
         trumpIntent === 'pending' &&
         trumpSuit !== null &&

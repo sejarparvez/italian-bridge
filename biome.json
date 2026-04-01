@@ -14,6 +14,7 @@
       "components/**/*.tsx",
       "hooks/**/*.ts",
       "constants/**/*.ts",
+      "store/**/*.ts",
       "!!**/components/ui/gluestack-ui-provider"
     ]
   },

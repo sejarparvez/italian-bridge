@@ -85,14 +85,9 @@ export default function GameFelt({
         </MotiView>
 
         {/* Watermark */}
-        <MotiView
-          animate={{
-            rotate: ['0deg', '2deg', '-2deg', '0deg'],
-            opacity: [0.035, 0.05, 0.035],
-          }}
-          transition={{ loop: true, duration: 9000, type: 'timing' }}
-          className='absolute'
-          pointerEvents='none'
+        <View className=' absolute'
+        style={{ opacity: 0.08 }}
+         
         >
           <Text
             className='font-black text-center'
@@ -105,7 +100,7 @@ export default function GameFelt({
           >
             {SUIT_SYMBOLS.spades}
           </Text>
-        </MotiView>
+        </View>
 
         {/* Trick cards */}
         <View

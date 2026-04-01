@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Difficulty } from '../game/types';
+import type { Difficulty } from '../game/types';
 
 interface SettingsStore {
   soundEnabled: boolean;

@@ -29,17 +29,10 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
       animate={{ opacity: 1, translateY: 0 }}
       transition={{ type: 'spring', damping: 18, delay: 80 }}
       className='flex-row justify-between items-center z-50'
-      style={{ top: insets.top + 8, paddingHorizontal: insets.left + 12 }}
+      style={{ top: insets.top + 8, paddingHorizontal: insets.left + 8 }}
     >
       <HStack space='4xl'>
-        {/*
-          Always render TrumpMiniCard — it handles all three states internally:
-            • suit=null            → dimmed face-down (bidding phase)
-            • suit set, !revealed  → face-down back, peek button if canPeek
-            • suit set, revealed   → face-up with shimmer + TRUMP label
-          The old condition `trumpSuit && (trumpRevealed || canPeek)` was hiding
-          the card whenever the opponent won the bid (canPeek=false, !revealed).
-        */}
+       
         <TrumpMiniCard
           suit={trumpSuit}
           revealed={trumpRevealed}
