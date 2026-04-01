@@ -25,7 +25,7 @@ const CARD_W = SCREEN_H * 0.17;
 const CARD_H = CARD_W * 1.45;
 
 export default function GameScreen() {
-  const { state, playPlayerCard } = useGameStore();
+  const { state, playPlayerCard, revealTrump } = useGameStore();
   const [pressed, setPressed] = useState<string | null>(null);
   const lastTrickCount = useRef(0);
 
@@ -204,7 +204,10 @@ export default function GameScreen() {
             trumpSuit={trumpSuit}
             trumpSymbol={SUIT_SYMBOLS[trumpSuit as keyof typeof SUIT_SYMBOLS]}
             ledSuit={currentTrick.leadSuit}
-            onTrump={() => setTrumpIntent('trumping')}
+            onTrump={() => {
+              setTrumpIntent('trumping');
+              revealTrump();
+            }}
             onDiscard={() => setTrumpIntent('discarding')}
           />
         )}

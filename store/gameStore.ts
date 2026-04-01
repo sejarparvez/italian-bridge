@@ -28,6 +28,7 @@ interface GameStore {
   passPlayerBid: () => void;
   selectPlayerTrump: (suit: Suit) => void;
   playPlayerCard: (cardId: string, wantsToTrump?: boolean) => void;
+  revealTrump: () => void;
   runBotBids: () => void;
   dealRemainingCards: () => void;
   advanceAI: () => void;
@@ -102,6 +103,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const newState = playCard(get().state, 'bottom', card, wantsToTrump);
     set({ state: newState });
     afterPlayState(newState, get);
+  },
+
+  revealTrump: () => {
+    const { state } = get();
+    if (state.trumpRevealed) return;
+    set({ state: { ...state, trumpRevealed: true } });
   },
 
   // ── Bot Bidding ─────────────────────────────────────────────────────────────
