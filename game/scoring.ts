@@ -1,11 +1,11 @@
 import { BID_MAX } from './bidding';
-import { Player, SeatPosition, TeamId } from './types';
+import type { Player, SeatPosition, TeamId } from './types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /** Points awarded to the opposing team for successfully scoring 4+ tricks */
-const OPPONENT_TARGET  = 4;
-const OPPONENT_REWARD  = 4;
+const OPPONENT_TARGET = 4;
+const OPPONENT_REWARD = 4;
 const OPPONENT_PENALTY = -4;
 
 /** Bonus points for successfully making a bid of 10 (scores all tricks) */
@@ -29,7 +29,7 @@ export interface RoundScore {
 export function calculateRoundScores(
   players: Record<SeatPosition, Player>,
   highestBid: number,
-  highestBidder: SeatPosition | null
+  highestBidder: SeatPosition | null,
 ): RoundScore[] {
   const btTricks = players.bottom.tricksTaken + players.top.tricksTaken;
   const lrTricks = players.left.tricksTaken + players.right.tricksTaken;
@@ -47,19 +47,20 @@ export function calculateRoundScores(
     ];
   }
 
-  const bidderTeam    = players[highestBidder].team;
+  const bidderTeam = players[highestBidder].team;
   const opponentTeam: TeamId = bidderTeam === 'BT' ? 'LR' : 'BT';
 
-  const bidderTricks  = bidderTeam === 'BT' ? btTricks : lrTricks;
+  const bidderTricks = bidderTeam === 'BT' ? btTricks : lrTricks;
   const opponentTricks = bidderTeam === 'BT' ? lrTricks : btTricks;
 
   // Label which team held the bid (for UI display)
   if (bidderTeam === 'BT') btBid = highestBid;
-  else                      lrBid = highestBid;
+  else lrBid = highestBid;
 
   // ── Bidding team score ──
   const bidMet = bidderTricks >= highestBid;
-  const bidMaxBonus = highestBid === BID_MAX && bidderTricks === BID_MAX ? BID_MAX_BONUS : 0;
+  const bidMaxBonus =
+    highestBid === BID_MAX && bidderTricks === BID_MAX ? BID_MAX_BONUS : 0;
   const bidderPoints = bidMet ? highestBid + bidMaxBonus : -highestBid;
 
   // ── Opposing team score ──
@@ -67,9 +68,8 @@ export function calculateRoundScores(
   // Note: if bidder scores all 10 tricks, opponents only have 3 —
   // they can never reach 4, so they always get OPPONENT_PENALTY in that case.
   // Both outcomes (+4 / -4) are possible and must both be applied.
-  const opponentPoints = opponentTricks >= OPPONENT_TARGET
-    ? OPPONENT_REWARD
-    : OPPONENT_PENALTY;
+  const opponentPoints =
+    opponentTricks >= OPPONENT_TARGET ? OPPONENT_REWARD : OPPONENT_PENALTY;
 
   // Assign points to the correct teams
   if (bidderTeam === 'BT') {
@@ -90,7 +90,7 @@ export function calculateRoundScores(
 
 export function updateTeamScores(
   currentScores: Record<TeamId, number>,
-  roundScores: RoundScore[]
+  roundScores: RoundScore[],
 ): Record<TeamId, number> {
   const newScores = { ...currentScores };
   for (const score of roundScores) {

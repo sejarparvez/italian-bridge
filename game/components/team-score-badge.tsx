@@ -1,8 +1,8 @@
+import type React from 'react';
+import { Animated, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { C } from '@/constants/theme';
 import { useShimmer } from '@/game/components/hooks';
-import type React from 'react';
-import { Animated, View } from 'react-native';
 
 export default function TeamScoreBadge({
   tricks,

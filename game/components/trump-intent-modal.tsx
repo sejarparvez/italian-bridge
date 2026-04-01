@@ -1,8 +1,8 @@
+import { MotiView } from 'moti';
+import { Dimensions, Pressable, View } from 'react-native';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { C } from '@/constants/theme';
-import { MotiView } from 'moti';
-import { Dimensions, Pressable, View } from 'react-native';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const { width, height } = Dimensions.get('window');
@@ -13,13 +13,13 @@ const CARD_H = CARD_W * 1.45;
 export default function TrumpIntentModal({
   trumpSuit,
   trumpSymbol,
-  ledSuit,       // ← NEW: the suit that was led this trick
+  ledSuit, // ← NEW: the suit that was led this trick
   onTrump,
   onDiscard,
 }: {
   trumpSuit: string;
   trumpSymbol: string;
-  ledSuit: string;    // ← the suit the player is void in
+  ledSuit: string; // ← the suit the player is void in
   onTrump: () => void;
   onDiscard: () => void;
 }) {

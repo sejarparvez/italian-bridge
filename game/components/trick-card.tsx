@@ -1,10 +1,9 @@
-import { C } from '@/constants/theme';
-import type { SeatPosition } from '@/game/types';
-import { slotFor, stableRot } from '@/game/components/helpers';
 import { MotiView } from 'moti';
 import type React from 'react';
 import { Dimensions } from 'react-native';
-
+import { C } from '@/constants/theme';
+import { slotFor, stableRot } from '@/game/components/helpers';
+import type { SeatPosition } from '@/game/types';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);

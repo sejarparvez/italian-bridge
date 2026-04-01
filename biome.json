@@ -7,34 +7,33 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": [
-      "app/**/*.ts",
-      "app/**/*.tsx",
-      "components/**/*.ts",
-      "components/**/*.tsx",
-      "hooks/**/*.ts",
-      "constants/**/*.ts",
-      "store/**/*.ts",
-      "!!**/components/ui/gluestack-ui-provider"
-    ]
+    "includes": ["**", "!node_modules", "!.next", "!dist", "!build"]
   },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
-    "lineWidth": 80
+    "indentWidth": 2
   },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
-      "correctness": {
-        "noUnusedImports": {
-          "level": "error",
-          "fix": "safe"
-        }
-      },
       "suspicious": {
-        "noConsole": "error"
+        "noUnknownAtRules": "off"
+      },
+      "correctness": {
+        "noUnusedImports": "error"
+      }
+    },
+    "domains": {
+      "next": "recommended",
+      "react": "recommended"
+    }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
       }
     }
   },
@@ -42,14 +41,6 @@
     "formatter": {
       "quoteStyle": "single",
       "jsxQuoteStyle": "single"
-    }
-  },
-  "assist": {
-    "enabled": true,
-    "actions": {
-      "source": {
-        "organizeImports": "on"
-      }
     }
   }
 }

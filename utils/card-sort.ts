@@ -1,4 +1,4 @@
-import { Card, Suit } from '@/constants/cards';
+import type { Card, Suit } from '@/constants/cards';
 
 const RED_SUITS: Suit[] = ['hearts', 'diamonds'];
 const BLACK_SUITS: Suit[] = ['spades', 'clubs'];
@@ -29,14 +29,14 @@ export function sortHandAlternating(hand: Card[]): Card[] {
   }
 
   // Which suits does the player actually hold, split by color
-  const reds = RED_SUITS
-    .filter(s => bySuit[s])
-    .sort((a, b) => SUIT_RANK[b] - SUIT_RANK[a]); // hearts before diamonds
-  const blacks = BLACK_SUITS
-    .filter(s => bySuit[s])
-    .sort((a, b) => SUIT_RANK[b] - SUIT_RANK[a]); // spades before clubs
+  const reds = RED_SUITS.filter((s) => bySuit[s]).sort(
+    (a, b) => SUIT_RANK[b] - SUIT_RANK[a],
+  ); // hearts before diamonds
+  const blacks = BLACK_SUITS.filter((s) => bySuit[s]).sort(
+    (a, b) => SUIT_RANK[b] - SUIT_RANK[a],
+  ); // spades before clubs
 
-  const r = reds.length;   // 0–2
+  const r = reds.length; // 0–2
   const b = blacks.length; // 0–2
 
   // Build the interleaved suit order:
@@ -62,5 +62,5 @@ export function sortHandAlternating(hand: Card[]): Card[] {
     suitOrder = [reds[0], blacks[0], reds[1], blacks[1]];
   }
 
-  return suitOrder.flatMap(suit => bySuit[suit] ?? []);
+  return suitOrder.flatMap((suit) => bySuit[suit] ?? []);
 }

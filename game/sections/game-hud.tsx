@@ -1,3 +1,8 @@
+import { useRouter } from 'expo-router';
+import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
+import { MotiView } from 'moti';
+import { Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HStack } from '@/components/ui/hstack';
 import { Icon } from '@/components/ui/icon';
 import { Menu, MenuItem, MenuItemLabel } from '@/components/ui/menu';
@@ -5,20 +10,20 @@ import { C } from '@/constants/theme';
 import ScorePanel from '@/game/components/score-panel';
 import TrumpMiniCard from '@/game/components/trump-mini-card';
 import { useGameStore } from '@/store/gameStore';
-import { useRouter } from 'expo-router';
-import { Home, RefreshCw, Settings, X } from 'lucide-react-native';
-import { MotiView } from 'moti';
-import { Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface GameHUDProps {
-  trumpSuit: string
+  trumpSuit: string;
   trumpRevealed: boolean;
   canPeek: boolean;
   teamScores: { BT: number; LR: number };
 }
 
-export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores }: GameHUDProps) {
+export default function GameHUD({
+  trumpSuit,
+  trumpRevealed,
+  canPeek,
+  teamScores,
+}: GameHUDProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { startNewGame } = useGameStore();
@@ -32,7 +37,6 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
       style={{ top: insets.top + 8, paddingHorizontal: insets.left + 8 }}
     >
       <HStack space='4xl'>
-       
         <TrumpMiniCard
           suit={trumpSuit}
           revealed={trumpRevealed}

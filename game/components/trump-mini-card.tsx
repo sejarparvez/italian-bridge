@@ -1,12 +1,11 @@
-import { Text } from '@/components/ui/text';
-import { SUIT_SYMBOLS } from '@/constants/cards';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import type React from 'react';
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, View } from 'react-native';
-import { useShimmer } from "./hooks";
-
+import { Text } from '@/components/ui/text';
+import { SUIT_SYMBOLS } from '@/constants/cards';
+import { useShimmer } from './hooks';
 
 export default function TrumpMiniCard({
   suit,
@@ -52,9 +51,7 @@ export default function TrumpMiniCard({
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: 'spring', damping: 11, stiffness: 190 }}
       >
-        <Animated.View
-         
-        />
+        <Animated.View />
         <View
           className='items-center justify-center overflow-hidden border'
           style={[
@@ -89,7 +86,13 @@ export default function TrumpMiniCard({
           />
           <Text
             className='absolute font-black'
-            style={{ top: 4, left: 5, fontSize: 10, color: suitColor, lineHeight: 12 }}
+            style={{
+              top: 4,
+              left: 5,
+              fontSize: 10,
+              color: suitColor,
+              lineHeight: 12,
+            }}
           >
             {symbol}
           </Text>
@@ -115,11 +118,11 @@ export default function TrumpMiniCard({
           <View
             className='absolute bottom-0 left-0 right-0 items-center py-0.5'
             style={{
-              backgroundColor: isRed ? 'rgba(212,43,43,0.1)' : 'rgba(26,26,46,0.08)',
+              backgroundColor: isRed
+                ? 'rgba(212,43,43,0.1)'
+                : 'rgba(26,26,46,0.08)',
             }}
-          >
-          
-          </View>
+          ></View>
         </View>
       </MotiView>
     );
@@ -130,7 +133,6 @@ export default function TrumpMiniCard({
   // shifts, meaning the setTimeout callback always fires on the live instance.
   return (
     <View style={{ width: CARD_W, height: CARD_H }}>
-
       {/* ── PEEK FACE (visible only during isPeeking window) ────────────────── */}
       <View
         style={{
@@ -158,7 +160,13 @@ export default function TrumpMiniCard({
         >
           <Text
             className='absolute font-black'
-            style={{ top: 4, left: 5, fontSize: 10, color: suitColor, lineHeight: 12 }}
+            style={{
+              top: 4,
+              left: 5,
+              fontSize: 10,
+              color: suitColor,
+              lineHeight: 12,
+            }}
           >
             {symbol}
           </Text>
@@ -198,9 +206,7 @@ export default function TrumpMiniCard({
           <View
             className='absolute bottom-0 left-0 right-0 items-center'
             style={{ paddingBottom: 5 }}
-          >
-            
-          </View>
+          ></View>
         </View>
       </View>
 
@@ -215,7 +221,6 @@ export default function TrumpMiniCard({
           }}
           pointerEvents={isPeeking ? 'none' : 'auto'}
         >
-         
           <Pressable
             onPress={handlePeek}
             className='items-center justify-center overflow-hidden border border-[rgba(255,255,255,0.15)]'
@@ -314,7 +319,11 @@ export default function TrumpMiniCard({
               }}
             />
             <Text
-              style={{ fontSize: 18, color: 'rgba(200,168,64,0.25)', lineHeight: 20 }}
+              style={{
+                fontSize: 18,
+                color: 'rgba(200,168,64,0.25)',
+                lineHeight: 20,
+              }}
             >
               ✦
             </Text>

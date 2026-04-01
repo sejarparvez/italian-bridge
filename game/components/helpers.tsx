@@ -1,5 +1,5 @@
-import type { SeatPosition } from '@/game/types';
 import { Dimensions } from 'react-native';
+import type { SeatPosition } from '@/game/types';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
@@ -8,7 +8,6 @@ const SCREEN_W = Math.max(width, height);
 const CARD_W = SCREEN_H * 0.17;
 const CARD_OVERLAP = CARD_W * 0.52;
 const TRICK_OFFSET = SCREEN_H * 0.18;
-
 
 export function stableRot(id: string) {
   let h = 0;

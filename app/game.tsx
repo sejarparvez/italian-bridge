@@ -1,3 +1,7 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { MotiView } from 'moti';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Dimensions, Pressable, View } from 'react-native';
 import { Card } from '@/components/cards/Card';
 import { SUIT_SYMBOLS } from '@/constants/cards';
 import { C } from '@/constants/theme';
@@ -13,10 +17,6 @@ import GameScoreboard from '@/game/sections/game-scoreboard';
 import { getPlayableCards } from '@/game/trick';
 import { useGameStore } from '@/store/gameStore';
 import { sortHandAlternating } from '@/utils/card-sort';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MotiView } from 'moti';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, Pressable, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 
 export function useShimmer(duration = 2000, delay = 0) {

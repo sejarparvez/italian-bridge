@@ -1,10 +1,10 @@
-import { Card, Suit } from '../constants/cards';
+import type { Card, Suit } from '../constants/cards';
 
 // ─── Primitives ───────────────────────────────────────────────────────────────
 
 export type SeatPosition = 'bottom' | 'top' | 'left' | 'right';
-export type TeamId       = 'BT' | 'LR';
-export type Difficulty   = 'easy' | 'medium' | 'hard';
+export type TeamId = 'BT' | 'LR';
+export type Difficulty = 'easy' | 'medium' | 'hard';
 
 export type GamePhase =
   | 'dealing1'
@@ -101,7 +101,7 @@ export interface GameState {
   highestBidder: SeatPosition | null;
 
   // Trump
-  trumpSuit: Suit
+  trumpSuit: Suit;
   trumpRevealed: boolean;
   /**
    * The seat that won the bid and selected the trump suit.

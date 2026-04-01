@@ -1,9 +1,9 @@
-import { View } from '@/components/ui/view';
-import { C } from '@/constants/theme';
 import { MotiView } from 'moti';
 import { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 import { Easing } from 'react-native-reanimated';
+import { View } from '@/components/ui/view';
+import { C } from '@/constants/theme';
 
 export function ActiveHalo({ size = 34 }: { size?: number }) {
   return (

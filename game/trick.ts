@@ -1,5 +1,5 @@
-import { Card, Suit } from '../constants/cards';
-import { SeatPosition } from './types';
+import type { Card, Suit } from '../constants/cards';
+import type { SeatPosition } from './types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,10 +27,10 @@ export function createEmptyTrick(): Trick {
 export function addCardToTrick(
   trick: Trick,
   player: SeatPosition,
-  card: Card
+  card: Card,
 ): Trick {
   // Guard: prevent duplicate players in the same trick
-  if (trick.cards.some(tc => tc.player === player)) {
+  if (trick.cards.some((tc) => tc.player === player)) {
     throw new Error(`Player '${player}' has already played in this trick.`);
   }
 
@@ -69,7 +69,7 @@ export function getTrickWinner(trick: Trick, trump: Suit | null): SeatPosition {
 
   // Trump cards beat all non-trump; highest trump wins
   if (trump !== null) {
-    const trumpCards = trick.cards.filter(tc => tc.card.suit === trump);
+    const trumpCards = trick.cards.filter((tc) => tc.card.suit === trump);
     if (trumpCards.length > 0) {
       return highestCard(trumpCards).player;
     }
@@ -80,11 +80,13 @@ export function getTrickWinner(trick: Trick, trump: Suit | null): SeatPosition {
     throw new Error('Trick has cards but no lead suit — data integrity error.');
   }
 
-  const leadSuitCards = trick.cards.filter(tc => tc.card.suit === trick.leadSuit);
+  const leadSuitCards = trick.cards.filter(
+    (tc) => tc.card.suit === trick.leadSuit,
+  );
 
   if (leadSuitCards.length === 0) {
     throw new Error(
-      `No cards found for lead suit '${trick.leadSuit}' — data integrity error.`
+      `No cards found for lead suit '${trick.leadSuit}' — data integrity error.`,
     );
   }
 
@@ -127,7 +129,7 @@ export function getPlayableCards(
     return hand;
   }
 
-  const leadSuitCards = hand.filter(c => c.suit === trick.leadSuit);
+  const leadSuitCards = hand.filter((c) => c.suit === trick.leadSuit);
 
   if (leadSuitCards.length > 0) {
     // Player has cards in lead suit — must follow suit regardless of intent
@@ -143,7 +145,7 @@ export function getPlayableCards(
   // while holding trump cards — violating the rule:
   // "If they have it, they must play it."
   if (wantsToTrump && trump !== null) {
-    const trumpCards = hand.filter(c => c.suit === trump);
+    const trumpCards = hand.filter((c) => c.suit === trump);
     if (trumpCards.length > 0) {
       // Has trump — only trump cards are legal
       return trumpCards;
@@ -175,10 +177,16 @@ export function isValidCard(
   wantsToTrump = false,
 ): boolean {
   // Card must actually be in the player's hand
-  if (!hand.some(c => c.id === card.id)) return false;
+  if (!hand.some((c) => c.id === card.id)) return false;
 
-  const playable = getPlayableCards(hand, trick, trump, trumpRevealed, wantsToTrump);
-  return playable.some(c => c.id === card.id);
+  const playable = getPlayableCards(
+    hand,
+    trick,
+    trump,
+    trumpRevealed,
+    wantsToTrump,
+  );
+  return playable.some((c) => c.id === card.id);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -189,6 +197,6 @@ export function isValidCard(
  */
 function highestCard(cards: TrickCard[]): TrickCard {
   return cards.reduce((best, curr) =>
-    curr.card.value > best.card.value ? curr : best
+    curr.card.value > best.card.value ? curr : best,
   );
 }

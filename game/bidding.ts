@@ -1,5 +1,5 @@
-import { Card, Suit } from '../constants/cards';
-import { GameState, Player, SeatPosition } from './types';
+import type { Card, Suit } from '../constants/cards';
+import type { GameState, Player, SeatPosition } from './types';
 
 export const BID_MIN = 7;
 export const BID_MAX = 10;
@@ -22,7 +22,7 @@ export function getBiddingOrder(startSeat: SeatPosition): SeatPosition[] {
 export function getNextBidder(
   currentIndex: number,
   bids: Record<SeatPosition, number | null>,
-  biddingOrder: SeatPosition[]
+  biddingOrder: SeatPosition[],
 ): number {
   for (let i = currentIndex + 1; i < biddingOrder.length; i++) {
     const seat = biddingOrder[i];
@@ -35,10 +35,10 @@ export function getNextBidder(
 }
 
 function extractBids(
-  players: Record<SeatPosition, Player>
+  players: Record<SeatPosition, Player>,
 ): Record<SeatPosition, number | null> {
   return Object.fromEntries(
-    Object.entries(players).map(([s, p]) => [s, p.bid])
+    Object.entries(players).map(([s, p]) => [s, p.bid]),
   ) as Record<SeatPosition, number | null>;
 }
 
@@ -47,7 +47,7 @@ function extractBids(
 export function placeBid(
   state: GameState,
   seat: SeatPosition,
-  bid: number
+  bid: number,
 ): GameState {
   // Validate: must be the current bidder
   if (state.currentSeat !== seat) {
@@ -56,13 +56,15 @@ export function placeBid(
 
   // Validate: bid must be within allowed range
   if (bid < BID_MIN || bid > BID_MAX) {
-    throw new Error(`Bid must be between ${BID_MIN} and ${BID_MAX}. Got: ${bid}`);
+    throw new Error(
+      `Bid must be between ${BID_MIN} and ${BID_MAX}. Got: ${bid}`,
+    );
   }
 
   // Validate: bid must strictly exceed the current highest bid
   if (bid <= state.highestBid) {
     throw new Error(
-      `Bid of ${bid} must exceed the current highest bid of ${state.highestBid}.`
+      `Bid of ${bid} must exceed the current highest bid of ${state.highestBid}.`,
     );
   }
 
@@ -70,7 +72,11 @@ export function placeBid(
   newPlayers[seat] = { ...newPlayers[seat], bid };
 
   const newBids = extractBids(newPlayers);
-  const nextIndex = getNextBidder(state.currentBidderIndex, newBids, state.biddingOrder);
+  const nextIndex = getNextBidder(
+    state.currentBidderIndex,
+    newBids,
+    state.biddingOrder,
+  );
   const allBidsPlaced = nextIndex === -1;
 
   const currentSeat = allBidsPlaced
@@ -90,10 +96,7 @@ export function placeBid(
 
 // ─── Pass Bid ─────────────────────────────────────────────────────────────────
 
-export function passBid(
-  state: GameState,
-  seat: SeatPosition
-): GameState {
+export function passBid(state: GameState, seat: SeatPosition): GameState {
   // Validate: must be the current bidder
   if (state.currentSeat !== seat) {
     throw new Error(`It is not ${seat}'s turn to bid.`);
@@ -104,7 +107,11 @@ export function passBid(
   newPlayers[seat] = { ...newPlayers[seat], bid: 0 };
 
   const newBids = extractBids(newPlayers);
-  const nextIndex = getNextBidder(state.currentBidderIndex, newBids, state.biddingOrder);
+  const nextIndex = getNextBidder(
+    state.currentBidderIndex,
+    newBids,
+    state.biddingOrder,
+  );
   const allBidsPlaced = nextIndex === -1;
 
   if (allBidsPlaced) {
@@ -139,16 +146,20 @@ export function passBid(
 export function selectTrump(
   state: GameState,
   suit: Suit,
-  seat: SeatPosition
+  seat: SeatPosition,
 ): GameState {
   // Validate: only the highest bidder can select trump
   if (state.highestBidder !== seat) {
-    throw new Error(`Only the highest bidder (${state.highestBidder}) can select the trump suit.`);
+    throw new Error(
+      `Only the highest bidder (${state.highestBidder}) can select the trump suit.`,
+    );
   }
 
   // Validate: trump can only be selected in the dealing2 phase
   if (state.phase !== 'dealing2') {
-    throw new Error(`Trump can only be selected in the 'dealing2' phase. Current phase: ${state.phase}`);
+    throw new Error(
+      `Trump can only be selected in the 'dealing2' phase. Current phase: ${state.phase}`,
+    );
   }
 
   // Validate: suit must be a valid suit
@@ -160,8 +171,8 @@ export function selectTrump(
   return {
     ...state,
     trumpSuit: suit,
-    trumpRevealed: false,  // trump card starts hidden
-    trumpCreator: seat,    // track who created the trump (for peek privilege)
+    trumpRevealed: false, // trump card starts hidden
+    trumpCreator: seat, // track who created the trump (for peek privilege)
     phase: 'playing',
   };
 }
@@ -171,9 +182,9 @@ export function selectTrump(
 export function getEstimatedBid(
   hand: Card[],
   difficulty: 'easy' | 'medium' | 'hard',
-  currentHighestBid: number  // bots must bid above this or pass (return 0)
+  currentHighestBid: number, // bots must bid above this or pass (return 0)
 ): number {
-  const highCards = hand.filter(c => c.value >= 11).length;
+  const highCards = hand.filter((c) => c.value >= 11).length;
   const voids = countVoids(hand);
 
   // Raw estimate of what this hand is worth
@@ -181,8 +192,12 @@ export function getEstimatedBid(
 
   // Apply difficulty variance — easier bots make less accurate estimates
   const variance = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 1 : 0;
-  const randomOffset = Math.floor(Math.random() * (variance * 2 + 1)) - variance;
-  const estimate = Math.min(BID_MAX, Math.max(BID_MIN, rawEstimate + randomOffset));
+  const randomOffset =
+    Math.floor(Math.random() * (variance * 2 + 1)) - variance;
+  const estimate = Math.min(
+    BID_MAX,
+    Math.max(BID_MIN, rawEstimate + randomOffset),
+  );
 
   // Bot must bid strictly above the current highest bid, or pass
   if (estimate <= currentHighestBid) {
@@ -192,7 +207,8 @@ export function getEstimatedBid(
   // Extra caution around bid 10: failing it is a heavy penalty (-10).
   // Only bid 10 if the hand is genuinely strong (hard bots are more willing).
   if (estimate === BID_MAX) {
-    const bid10Threshold = difficulty === 'hard' ? 4 : difficulty === 'medium' ? 5 : 6;
+    const bid10Threshold =
+      difficulty === 'hard' ? 4 : difficulty === 'medium' ? 5 : 6;
     if (highCards < bid10Threshold) {
       // Hand isn't strong enough to risk bid 10 — step down to 9 or pass
       const safeBid = BID_MAX - 1;
@@ -209,7 +225,10 @@ export function getEstimatedBid(
  * Calculate the score delta for the bidding team after a round.
  * Bid 10 + score 10 earns a +3 bonus (total +13).
  */
-export function calculateBiddingTeamScore(bid: number, tricksWon: number): number {
+export function calculateBiddingTeamScore(
+  bid: number,
+  tricksWon: number,
+): number {
   if (tricksWon >= bid) {
     const bonus = bid === BID_MAX && tricksWon === BID_MAX ? BID_10_BONUS : 0;
     return bid + bonus;
@@ -238,5 +257,5 @@ function countVoids(hand: Card[]): number {
   for (const card of hand) {
     suitCounts[card.suit]++;
   }
-  return Object.values(suitCounts).filter(count => count === 0).length;
+  return Object.values(suitCounts).filter((count) => count === 0).length;
 }

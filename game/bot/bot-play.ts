@@ -1,6 +1,11 @@
-import { Card, Suit } from '../../constants/cards';
-import { getPlayableCards, getTrickWinner, Trick } from '../trick';
-import { BotPlayResult, Difficulty, GameState, SeatPosition } from '../types';
+import type { Card, Suit } from '../../constants/cards';
+import { getPlayableCards, getTrickWinner, type Trick } from '../trick';
+import type {
+  BotPlayResult,
+  Difficulty,
+  GameState,
+  SeatPosition,
+} from '../types';
 import { HIGH_CARD_THRESHOLD } from './bot-bidding';
 
 // ─── Entry Point ──────────────────────────────────────────────────────────────
@@ -25,17 +30,25 @@ export function getBotPlay(
   trumpRevealed: boolean,
   gameState: GameState,
   difficulty: Difficulty,
-  seat: SeatPosition
+  seat: SeatPosition,
 ): BotPlayResult | null {
   const playable = getPlayableCards(hand, trick, trump, trumpRevealed);
   if (playable.length === 0) return null;
 
   let card: Card;
   switch (difficulty) {
-    case 'easy':   card = playEasy(playable, trump, trick, trumpRevealed); break;
-    case 'medium': card = playMedium(playable, trick, trump, trumpRevealed, gameState, seat); break;
-    case 'hard':   card = playHard(playable, trick, trump, trumpRevealed, gameState, seat); break;
-    default:       card = playEasy(playable, trump, trick, trumpRevealed); break;
+    case 'easy':
+      card = playEasy(playable, trump, trick, trumpRevealed);
+      break;
+    case 'medium':
+      card = playMedium(playable, trick, trump, trumpRevealed, gameState, seat);
+      break;
+    case 'hard':
+      card = playHard(playable, trick, trump, trumpRevealed, gameState, seat);
+      break;
+    default:
+      card = playEasy(playable, trump, trick, trumpRevealed);
+      break;
   }
 
   return {
@@ -60,7 +73,7 @@ export function botWantsToTrump(
   chosenCard: Card,
   trick: Trick,
   trump: Suit | null,
-  trumpRevealed: boolean
+  trumpRevealed: boolean,
 ): boolean {
   // Already revealed — no action needed
   if (trumpRevealed || trump === null) return false;
@@ -83,16 +96,16 @@ function playEasy(
   playable: Card[],
   trump: Suit | null,
   trick: Trick,
-  trumpRevealed: boolean
+  trumpRevealed: boolean,
 ): Card {
-  const isVoidInLedSuit = trick.leadSuit !== null &&
-    !playable.some(c => c.suit === trick.leadSuit);
+  const isVoidInLedSuit =
+    trick.leadSuit !== null && !playable.some((c) => c.suit === trick.leadSuit);
 
   // Only apply the trump/discard split when void in led suit and trump is
   // relevant — otherwise just pick randomly from all playable cards.
   if (isVoidInLedSuit && trump !== null) {
-    const trumpCards    = playable.filter(c => c.suit === trump);
-    const nonTrumpCards = playable.filter(c => c.suit !== trump);
+    const trumpCards = playable.filter((c) => c.suit === trump);
+    const nonTrumpCards = playable.filter((c) => c.suit !== trump);
 
     if (trumpCards.length > 0 && nonTrumpCards.length > 0) {
       // Randomly decide to trump (~40% of the time) or discard
@@ -113,19 +126,20 @@ function playMedium(
   trump: Suit | null,
   trumpRevealed: boolean,
   gameState: GameState,
-  seat: SeatPosition
+  seat: SeatPosition,
 ): Card {
-  if (!gameState.highestBidder) return playEasy(playable, trump, trick, trumpRevealed);
+  if (!gameState.highestBidder)
+    return playEasy(playable, trump, trick, trumpRevealed);
 
-  const myTeam         = gameState.players[seat].team;
-  const bidderTeam     = gameState.players[gameState.highestBidder].team;
-  const isBiddingTeam  = myTeam === bidderTeam;
+  const myTeam = gameState.players[seat].team;
+  const bidderTeam = gameState.players[gameState.highestBidder].team;
+  const isBiddingTeam = myTeam === bidderTeam;
   const partnerWinning = isMyPartnerWinning(trick, gameState, seat);
-  const trickPosition  = getTrickPosition(trick);
+  const trickPosition = getTrickPosition(trick);
 
   // ── Follow the led suit if possible ──────────────────────────────────────
   const leadSuitCards = trick.leadSuit
-    ? playable.filter(c => c.suit === trick.leadSuit)
+    ? playable.filter((c) => c.suit === trick.leadSuit)
     : [];
 
   if (leadSuitCards.length > 0) {
@@ -135,8 +149,10 @@ function playMedium(
   }
 
   // ── Void in led suit — make the "want to trump?" decision ────────────────
-  const trumpCards    = trump ? playable.filter(c => c.suit === trump) : [];
-  const nonTrumpCards = trump ? playable.filter(c => c.suit !== trump) : playable;
+  const trumpCards = trump ? playable.filter((c) => c.suit === trump) : [];
+  const nonTrumpCards = trump
+    ? playable.filter((c) => c.suit !== trump)
+    : playable;
 
   // Defending team: prefer discarding to preserve trump
   if (!isBiddingTeam) {
@@ -152,7 +168,7 @@ function playMedium(
 
   // Bidding team, partner not winning — consider trumping
   if (trumpCards.length > 0) {
-    const highTrumps = trumpCards.filter(c => c.value >= HIGH_CARD_THRESHOLD);
+    const highTrumps = trumpCards.filter((c) => c.value >= HIGH_CARD_THRESHOLD);
     if (highTrumps.length > 0) return getLowestCard(highTrumps);
     return getLowestCard(trumpCards);
   }
@@ -169,45 +185,61 @@ function playHard(
   trump: Suit | null,
   trumpRevealed: boolean,
   gameState: GameState,
-  seat: SeatPosition
+  seat: SeatPosition,
 ): Card {
   if (!gameState.highestBidder) {
     return playMedium(playable, trick, trump, trumpRevealed, gameState, seat);
   }
 
-  const myTeam         = gameState.players[seat].team;
-  const bidderTeam     = gameState.players[gameState.highestBidder].team;
-  const isBiddingTeam  = myTeam === bidderTeam;
+  const myTeam = gameState.players[seat].team;
+  const bidderTeam = gameState.players[gameState.highestBidder].team;
+  const isBiddingTeam = myTeam === bidderTeam;
   const partnerWinning = isMyPartnerWinning(trick, gameState, seat);
-  const trickPosition  = getTrickPosition(trick);
+  const trickPosition = getTrickPosition(trick);
 
   // ── Follow the led suit if possible ──────────────────────────────────────
   const leadSuitCards = trick.leadSuit
-    ? playable.filter(c => c.suit === trick.leadSuit)
+    ? playable.filter((c) => c.suit === trick.leadSuit)
     : [];
 
   if (leadSuitCards.length > 0) {
     if (trickPosition === 4) {
       if (partnerWinning) return getLowestCard(leadSuitCards);
-      const winning = leadSuitCards.filter(c => canCardWinTrick(c, trick, trump, seat));
-      return winning.length > 0 ? getLowestCard(winning) : getLowestCard(leadSuitCards);
+      const winning = leadSuitCards.filter((c) =>
+        canCardWinTrick(c, trick, trump, seat),
+      );
+      return winning.length > 0
+        ? getLowestCard(winning)
+        : getLowestCard(leadSuitCards);
     }
     if (trickPosition === 3) {
       if (partnerWinning) return getLowestCard(leadSuitCards);
-      const winning = leadSuitCards.filter(c => canCardWinTrick(c, trick, trump, seat));
-      return winning.length > 0 ? getLowestCard(winning) : getLowestCard(leadSuitCards);
+      const winning = leadSuitCards.filter((c) =>
+        canCardWinTrick(c, trick, trump, seat),
+      );
+      return winning.length > 0
+        ? getLowestCard(winning)
+        : getLowestCard(leadSuitCards);
     }
     if (trickPosition === 2) return getLowestCard(leadSuitCards);
   }
 
   // ── 1st player (leading the trick) ───────────────────────────────────────
   if (trickPosition === 1) {
-    return getSmartLead(playable, trump, trumpRevealed, gameState, isBiddingTeam);
+    return getSmartLead(
+      playable,
+      trump,
+      trumpRevealed,
+      gameState,
+      isBiddingTeam,
+    );
   }
 
   // ── Void in led suit — make the "want to trump?" decision ────────────────
-  const trumpCards    = trump ? playable.filter(c => c.suit === trump) : [];
-  const nonTrumpCards = trump ? playable.filter(c => c.suit !== trump) : playable;
+  const trumpCards = trump ? playable.filter((c) => c.suit === trump) : [];
+  const nonTrumpCards = trump
+    ? playable.filter((c) => c.suit !== trump)
+    : playable;
 
   if (trickPosition === 4) {
     if (partnerWinning) {
@@ -216,7 +248,9 @@ function playHard(
         : getLowestCard(playable);
     }
     if (trumpCards.length > 0) {
-      const winningTrumps = trumpCards.filter(c => canCardWinTrick(c, trick, trump, seat));
+      const winningTrumps = trumpCards.filter((c) =>
+        canCardWinTrick(c, trick, trump, seat),
+      );
       if (winningTrumps.length > 0) return getLowestCard(winningTrumps);
     }
     return getCheapestDiscard(playable, trump);
@@ -229,7 +263,9 @@ function playHard(
         : getLowestCard(playable);
     }
     if (trumpCards.length > 0) {
-      const winningTrumps = trumpCards.filter(c => canCardWinTrick(c, trick, trump, seat));
+      const winningTrumps = trumpCards.filter((c) =>
+        canCardWinTrick(c, trick, trump, seat),
+      );
       if (winningTrumps.length > 0) return getLowestCard(winningTrumps);
     }
     return getCheapestDiscard(playable, trump);
@@ -249,10 +285,10 @@ function getSmartLead(
   trump: Suit | null,
   trumpRevealed: boolean,
   gameState: GameState,
-  isBiddingTeam: boolean
+  isBiddingTeam: boolean,
 ): Card {
-  const nonTrump   = trump ? playable.filter(c => c.suit !== trump) : playable;
-  const trumpCards = trump ? playable.filter(c => c.suit === trump) : [];
+  const nonTrump = trump ? playable.filter((c) => c.suit !== trump) : playable;
+  const trumpCards = trump ? playable.filter((c) => c.suit === trump) : [];
 
   if (isBiddingTeam) {
     if (nonTrump.length > 0) {
@@ -273,7 +309,11 @@ function getTrickPosition(trick: Trick): 1 | 2 | 3 | 4 {
   return Math.min(4, Math.max(1, pos)) as 1 | 2 | 3 | 4;
 }
 
-function isMyPartnerWinning(trick: Trick, gameState: GameState, seat: SeatPosition): boolean {
+function isMyPartnerWinning(
+  trick: Trick,
+  gameState: GameState,
+  seat: SeatPosition,
+): boolean {
   if (trick.cards.length === 0) return false;
   const currentWinner = getTrickWinner(trick, gameState.trumpSuit);
   return gameState.players[currentWinner].team === gameState.players[seat].team;
@@ -283,7 +323,7 @@ function canCardWinTrick(
   card: Card,
   trick: Trick,
   trump: Suit | null,
-  seat: SeatPosition
+  seat: SeatPosition,
 ): boolean {
   const simulatedTrick: Trick = {
     ...trick,
@@ -294,7 +334,7 @@ function canCardWinTrick(
 }
 
 function getCheapestDiscard(playable: Card[], trump: Suit | null): Card {
-  const nonTrump = trump ? playable.filter(c => c.suit !== trump) : playable;
+  const nonTrump = trump ? playable.filter((c) => c.suit !== trump) : playable;
   if (nonTrump.length > 0) return getLowestCard(nonTrump);
   return getLowestCard(playable);
 }
@@ -309,18 +349,18 @@ function getLongestSuitCards(cards: Card[], trump: Suit | null): Card[] {
   }
   if (suitGroups.size === 0) return cards;
   return [...suitGroups.values()].reduce((longest, group) =>
-    group.length > longest.length ? group : longest
+    group.length > longest.length ? group : longest,
   );
 }
 
 function getLowestCard(cards: Card[]): Card {
   return cards.reduce((lowest, card) =>
-    card.value < lowest.value ? card : lowest
+    card.value < lowest.value ? card : lowest,
   );
 }
 
 function getHighestCard(cards: Card[]): Card {
   return cards.reduce((highest, card) =>
-    card.value > highest.value ? card : highest
+    card.value > highest.value ? card : highest,
   );
 }

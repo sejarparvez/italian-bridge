@@ -4,7 +4,7 @@ import { useCustomFonts } from './useFonts';
 
 interface FontLoaderProps {
   children: React.ReactNode;
-  onReady?: () => void;  // ✅ add this
+  onReady?: () => void; // ✅ add this
 }
 
 export function FontLoader({ children, onReady }: FontLoaderProps) {
@@ -12,9 +12,9 @@ export function FontLoader({ children, onReady }: FontLoaderProps) {
 
   useEffect(() => {
     if (fontsLoaded) {
-      onReady?.();  // ✅ call it once fonts are loaded
+      onReady?.(); // ✅ call it once fonts are loaded
     }
-  }, [fontsLoaded]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fontsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!fontsLoaded) {
     return (

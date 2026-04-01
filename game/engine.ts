@@ -1,9 +1,21 @@
-import { Card } from '../constants/cards';
-import { BID_MAX, BID_MIN, getEstimatedBid, passBid, placeBid, selectTrump } from './bidding';
+import type { Card } from '../constants/cards';
+import {
+  BID_MAX,
+  BID_MIN,
+  getEstimatedBid,
+  passBid,
+  placeBid,
+  selectTrump,
+} from './bidding';
 import { createDeck, dealCards, dealRemainingCards, shuffleDeck } from './deck';
 import { calculateRoundScores, updateTeamScores } from './scoring';
-import { addCardToTrick, createEmptyTrick, getTrickWinner, isValidCard } from './trick';
-import { GameState, Player, SeatPosition } from './types';
+import {
+  addCardToTrick,
+  createEmptyTrick,
+  getTrickWinner,
+  isValidCard,
+} from './trick';
+import type { GameState, Player, SeatPosition } from './types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -19,16 +31,16 @@ const TRICKS_PER_ROUND = 13;
  * Score thresholds that end the game.
  * Win: reach +30. Lose: drop to -30.
  */
-const WIN_SCORE  =  30;
+const WIN_SCORE = 30;
 const LOSE_SCORE = -30;
 
 // ─── Player Names ─────────────────────────────────────────────────────────────
 
 const PLAYER_NAMES: Record<SeatPosition, string> = {
   bottom: 'You',
-  top:    'Alex',
-  left:   'Jordan',
-  right:  'Sam',
+  top: 'Alex',
+  left: 'Jordan',
+  right: 'Sam',
 };
 
 const HUMAN_SEAT: SeatPosition = 'bottom';
@@ -40,7 +52,7 @@ export function createInitialState(): GameState {
   const initialDeal = dealCards(deck, INITIAL_DEAL_COUNT);
 
   const players = createPlayers(PLAYER_NAMES);
-  SEAT_ORDER.forEach(seat => {
+  SEAT_ORDER.forEach((seat) => {
     players[seat].hand = initialDeal[seat];
   });
 
@@ -67,7 +79,7 @@ export function createInitialState(): GameState {
 }
 
 function createPlayers(
-  names: Record<SeatPosition, string>
+  names: Record<SeatPosition, string>,
 ): Record<SeatPosition, Player> {
   const players = {} as Record<SeatPosition, Player>;
   for (const seat of SEAT_ORDER) {
@@ -98,20 +110,26 @@ export function startNewGame(): GameState {
  */
 export function dealSecondPhase(state: GameState): GameState {
   if (state.phase !== 'dealing2') {
-    throw new Error(`dealSecondPhase called in unexpected phase: ${state.phase}`);
+    throw new Error(
+      `dealSecondPhase called in unexpected phase: ${state.phase}`,
+    );
   }
 
   const currentHands = {
     bottom: state.players.bottom.hand,
-    top:    state.players.top.hand,
-    left:   state.players.left.hand,
-    right:  state.players.right.hand,
+    top: state.players.top.hand,
+    left: state.players.left.hand,
+    right: state.players.right.hand,
   };
 
-  const fullHands = dealRemainingCards(state.deck, currentHands, INITIAL_DEAL_COUNT);
+  const fullHands = dealRemainingCards(
+    state.deck,
+    currentHands,
+    INITIAL_DEAL_COUNT,
+  );
 
   const newPlayers = { ...state.players };
-  SEAT_ORDER.forEach(seat => {
+  SEAT_ORDER.forEach((seat) => {
     newPlayers[seat] = { ...newPlayers[seat], hand: fullHands[seat] };
   });
 
@@ -148,16 +166,25 @@ export function playCard(
   wantsToTrump = false,
 ): GameState {
   // Guard: card must belong to this player's hand
-  if (!state.players[seat].hand.some(c => c.id === card.id)) {
+  if (!state.players[seat].hand.some((c) => c.id === card.id)) {
     return state;
   }
 
   // Guard: player must not have already played in this trick
-  if (state.currentTrick.cards.some(tc => tc.player === seat)) {
+  if (state.currentTrick.cards.some((tc) => tc.player === seat)) {
     return state;
   }
 
-  if (!isValidCard(card, state.players[seat].hand, state.currentTrick, state.trumpSuit, state.trumpRevealed, wantsToTrump)) {
+  if (
+    !isValidCard(
+      card,
+      state.players[seat].hand,
+      state.currentTrick,
+      state.trumpSuit,
+      state.trumpRevealed,
+      wantsToTrump,
+    )
+  ) {
     return state;
   }
 
@@ -170,15 +197,13 @@ export function playCard(
   //   • Player is void in led suit but discards non-trump   → no reveal ✅
   //   • Player follows suit normally                        → no reveal ✅
   const trumpJustRevealed =
-    !state.trumpRevealed &&
-    state.trumpSuit !== null &&
-    wantsToTrump;
+    !state.trumpRevealed && state.trumpSuit !== null && wantsToTrump;
 
   // Remove card from hand
   const newPlayers = { ...state.players };
   newPlayers[seat] = {
     ...newPlayers[seat],
-    hand: newPlayers[seat].hand.filter(c => c.id !== card.id),
+    hand: newPlayers[seat].hand.filter((c) => c.id !== card.id),
   };
 
   // Add card to trick
@@ -194,7 +219,7 @@ export function playCard(
 
   if (!trickComplete) {
     const currentIdx = SEAT_ORDER.indexOf(seat);
-    const nextIdx    = (currentIdx + 1) % SEAT_ORDER.length;
+    const nextIdx = (currentIdx + 1) % SEAT_ORDER.length;
     newState.currentSeat = SEAT_ORDER[nextIdx];
     return newState;
   }
@@ -219,7 +244,7 @@ export function playCard(
 
   // ── Round complete (all 13 tricks played) ─────────────────────────────────
   if (newState.completedTricks.length === TRICKS_PER_ROUND) {
-    const roundScores  = calculateRoundScores(
+    const roundScores = calculateRoundScores(
       newState.players,
       newState.highestBid,
       newState.highestBidder,
@@ -259,8 +284,8 @@ export function advanceToNextRound(state: GameState): GameState {
     return { ...state, phase: 'gameEnd' };
   }
 
-  const newDeck    = shuffleDeck(createDeck());
-  const newDeal    = dealCards(newDeck, INITIAL_DEAL_COUNT);
+  const newDeck = shuffleDeck(createDeck());
+  const newDeal = dealCards(newDeck, INITIAL_DEAL_COUNT);
 
   const rotatedOrder: SeatPosition[] = [
     ...state.biddingOrder.slice(1),
@@ -268,10 +293,12 @@ export function advanceToNextRound(state: GameState): GameState {
   ];
 
   const names = {} as Record<SeatPosition, string>;
-  SEAT_ORDER.forEach(seat => { names[seat] = state.players[seat].name; });
+  SEAT_ORDER.forEach((seat) => {
+    names[seat] = state.players[seat].name;
+  });
 
   const resetPlayers = createPlayers(names);
-  SEAT_ORDER.forEach(seat => {
+  SEAT_ORDER.forEach((seat) => {
     resetPlayers[seat].hand = newDeal[seat];
   });
 
@@ -292,7 +319,7 @@ export function advanceToNextRound(state: GameState): GameState {
     highestBid: 0,
     highestBidder: null,
     trumpSuit: null,
-    trumpRevealed: false,   // reset for the new round — new trump is hidden
+    trumpRevealed: false, // reset for the new round — new trump is hidden
     trumpCreator: null,
     currentTrick: createEmptyTrick(),
     completedTricks: [],
@@ -307,7 +334,7 @@ export function advanceToNextRound(state: GameState): GameState {
 
 export function isGameOver(teamScores: GameState['teamScores']): boolean {
   return Object.values(teamScores).some(
-    score => score >= WIN_SCORE || score <= LOSE_SCORE
+    (score) => score >= WIN_SCORE || score <= LOSE_SCORE,
   );
 }
 
@@ -320,7 +347,7 @@ export function isGameOver(teamScores: GameState['teamScores']): boolean {
  *   3. If BOTH teams hit -30 in the same round, the higher score wins.
  */
 export function getWinner(
-  teamScores: GameState['teamScores']
+  teamScores: GameState['teamScores'],
 ): 'BT' | 'LR' | null {
   const teams = Object.keys(teamScores) as ('BT' | 'LR')[];
 
@@ -328,17 +355,17 @@ export function getWinner(
     if (teamScores[team] >= WIN_SCORE) return team;
   }
 
-  const eliminated = teams.filter(t => teamScores[t] <= LOSE_SCORE);
+  const eliminated = teams.filter((t) => teamScores[t] <= LOSE_SCORE);
 
   if (eliminated.length === 0) return null;
 
   if (eliminated.length === teams.length) {
     return teams.reduce((best, team) =>
-      teamScores[team] > teamScores[best] ? team : best
+      teamScores[team] > teamScores[best] ? team : best,
     );
   }
 
-  return teams.find(t => !eliminated.includes(t)) ?? null;
+  return teams.find((t) => !eliminated.includes(t)) ?? null;
 }
 
 // ─── Re-exports ───────────────────────────────────────────────────────────────
@@ -359,5 +386,5 @@ export {
   placeBid,
   selectTrump,
   shuffleDeck,
-  updateTeamScores
+  updateTeamScores,
 };

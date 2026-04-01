@@ -1,5 +1,10 @@
-import { ALL_RANKS, ALL_SUITS, Card, RANK_ORDER } from '../constants/cards';
-import { SeatPosition } from './types';
+import {
+  ALL_RANKS,
+  ALL_SUITS,
+  type Card,
+  RANK_ORDER,
+} from '../constants/cards';
+import type { SeatPosition } from './types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -55,7 +60,7 @@ export function dealCards(deck: Card[], cardsPerPlayer: number): DealResult {
   if (deck.length < required) {
     throw new Error(
       `Deck too small to deal ${cardsPerPlayer} cards to ${TOTAL_PLAYERS} players. ` +
-      `Need ${required}, got ${deck.length}.`
+        `Need ${required}, got ${deck.length}.`,
     );
   }
 
@@ -90,7 +95,7 @@ export function dealCards(deck: Card[], cardsPerPlayer: number): DealResult {
 export function dealRemainingCards(
   deck: Card[],
   currentHands: DealResult,
-  initialCardsPerPlayer: number
+  initialCardsPerPlayer: number,
 ): DealResult {
   const dealtSoFar = initialCardsPerPlayer * TOTAL_PLAYERS;
   const remaining = deck.slice(dealtSoFar);
@@ -99,7 +104,7 @@ export function dealRemainingCards(
   if (remaining.length % TOTAL_PLAYERS !== 0) {
     throw new Error(
       `Remaining cards (${remaining.length}) don't divide evenly among ` +
-      `${TOTAL_PLAYERS} players.`
+        `${TOTAL_PLAYERS} players.`,
     );
   }
 
@@ -111,16 +116,16 @@ export function dealRemainingCards(
 
   let idx = 0;
   const addCards = (hand: Card[], count: number): Card[] => {
-    const newCards = remaining.slice(idx, idx + count).map(c => ({ ...c }));
+    const newCards = remaining.slice(idx, idx + count).map((c) => ({ ...c }));
     idx += count;
     return [...hand, ...newCards];
   };
 
   return {
     bottom: addCards(currentHands.bottom, cardsPerPlayer),
-    top:    addCards(currentHands.top,    cardsPerPlayer),
-    left:   addCards(currentHands.left,   cardsPerPlayer),
-    right:  addCards(currentHands.right,  cardsPerPlayer),
+    top: addCards(currentHands.top, cardsPerPlayer),
+    left: addCards(currentHands.left, cardsPerPlayer),
+    right: addCards(currentHands.right, cardsPerPlayer),
   };
 }
 
@@ -138,11 +143,14 @@ export function countDealtCards(hands: DealResult): number {
  * Validates that a deal result has the expected number of cards per player.
  * Throws a descriptive error if any hand is the wrong size.
  */
-export function validateDeal(hands: DealResult, expectedPerPlayer: number): void {
+export function validateDeal(
+  hands: DealResult,
+  expectedPerPlayer: number,
+): void {
   for (const seat of SEAT_ORDER) {
     if (hands[seat].length !== expectedPerPlayer) {
       throw new Error(
-        `Invalid deal: ${seat} has ${hands[seat].length} cards, expected ${expectedPerPlayer}.`
+        `Invalid deal: ${seat} has ${hands[seat].length} cards, expected ${expectedPerPlayer}.`,
       );
     }
   }

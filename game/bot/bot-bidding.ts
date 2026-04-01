@@ -1,6 +1,6 @@
-import { ALL_SUITS, Card, Suit } from '../../constants/cards';
+import { ALL_SUITS, type Card, type Suit } from '../../constants/cards';
 import { BID_MAX, BID_MIN } from '../bidding';
-import { Difficulty } from '../types';
+import type { Difficulty } from '../types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -20,10 +20,10 @@ const HARD_BOT_MIN_TRUMP_LENGTH = 3;
 // ─── Hand Evaluation (shared) ─────────────────────────────────────────────────
 
 export interface HandStrength {
-  highCards: number;   // Jacks and above
-  voids: number;       // suits with 0 cards (ruffing power)
-  longSuits: number;   // suits with 4+ cards (control)
-  total: number;       // combined estimate before clamping
+  highCards: number; // Jacks and above
+  voids: number; // suits with 0 cards (ruffing power)
+  longSuits: number; // suits with 4+ cards (control)
+  total: number; // combined estimate before clamping
 }
 
 /**
@@ -37,9 +37,13 @@ export function evaluateHand(hand: Card[]): HandStrength {
     suitCounts.set(card.suit, (suitCounts.get(card.suit) ?? 0) + 1);
   }
 
-  const highCards = hand.filter(c => c.value >= HIGH_CARD_THRESHOLD).length;
-  const voids = ALL_SUITS.filter((s: Suit) => !suitCounts.has(s) || suitCounts.get(s) === 0).length;
-  const longSuits = [...suitCounts.values()].filter(count => count >= LONG_SUIT_THRESHOLD).length;
+  const highCards = hand.filter((c) => c.value >= HIGH_CARD_THRESHOLD).length;
+  const voids = ALL_SUITS.filter(
+    (s: Suit) => !suitCounts.has(s) || suitCounts.get(s) === 0,
+  ).length;
+  const longSuits = [...suitCounts.values()].filter(
+    (count) => count >= LONG_SUIT_THRESHOLD,
+  ).length;
 
   return {
     highCards,
@@ -62,7 +66,7 @@ export function evaluateHand(hand: Card[]): HandStrength {
 export function getBotBid(
   hand: Card[],
   difficulty: Difficulty,
-  currentHighestBid: number
+  currentHighestBid: number,
 ): number {
   const { total, highCards } = evaluateHand(hand);
 
@@ -72,7 +76,7 @@ export function getBotBid(
   // Apply difficulty variance — easier bots are less accurate
   const variance = difficulty === 'easy' ? 2 : difficulty === 'medium' ? 1 : 0;
   const offset = Math.floor(Math.random() * (variance * 2 + 1)) - variance;
-  let estimate = Math.min(BID_MAX, Math.max(BID_MIN, baseBid + offset));
+  const estimate = Math.min(BID_MAX, Math.max(BID_MIN, baseBid + offset));
 
   // Must exceed the current highest bid or pass
   if (estimate <= currentHighestBid) {
@@ -108,10 +112,10 @@ export function getBotBid(
 export function selectBotTrump(
   hand: Card[],
   bid: number,
-  difficulty: Difficulty
+  difficulty: Difficulty,
 ): Suit {
   const getSuitScore = (suit: Suit): number => {
-    const suitCards = hand.filter(c => c.suit === suit);
+    const suitCards = hand.filter((c) => c.suit === suit);
     const length = suitCards.length;
 
     if (length === 0) return -Infinity;
@@ -121,7 +125,9 @@ export function selectBotTrump(
       return -Infinity;
     }
 
-    const highCards = suitCards.filter(c => c.value >= HIGH_CARD_THRESHOLD).length;
+    const highCards = suitCards.filter(
+      (c) => c.value >= HIGH_CARD_THRESHOLD,
+    ).length;
 
     // At higher bids, prioritise length even more since you need more tricks.
     // bid 7–8: balanced weight. bid 9–10: length is critical.
@@ -139,8 +145,8 @@ export function selectBotTrump(
   // fall back to the longest suit without the length restriction.
   if (getSuitScore(ranked[0]) === -Infinity) {
     return (ALL_SUITS as Suit[]).slice().sort((a, b) => {
-      const aLen = hand.filter(c => c.suit === a).length;
-      const bLen = hand.filter(c => c.suit === b).length;
+      const aLen = hand.filter((c) => c.suit === a).length;
+      const bLen = hand.filter((c) => c.suit === b).length;
       return bLen - aLen;
     })[0];
   }

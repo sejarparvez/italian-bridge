@@ -1,7 +1,7 @@
+import { create } from 'zustand';
 import type { Card, Suit } from '@/constants/cards';
 import { getBotBid, selectBotTrump } from '@/game/bot/bot-bidding';
 import { getBotPlay } from '@/game/bot/bot-play';
-import { create } from 'zustand';
 import {
   passBid as enginePassBid,
   placeBid,
@@ -135,7 +135,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       if (currentState.phase === 'dealing2') {
         // Only auto-deal if a BOT won the bid
         if (currentState.highestBidder !== 'bottom') {
-
           setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
         } else {
           console.log(
@@ -243,7 +242,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
 // ─── Shared Transition Helpers ────────────────────────────────────────────────
 
-
 function afterBidState(newState: GameState, get: () => GameStore): void {
   if (newState.phase === 'bidding' && newState.currentSeat !== 'bottom') {
     setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
@@ -253,7 +251,6 @@ function afterBidState(newState: GameState, get: () => GameStore): void {
     }
   }
 }
-
 
 function afterPlayState(newState: GameState, get: () => GameStore): void {
   if (newState.phase === 'trickEnd') {

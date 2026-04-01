@@ -1,12 +1,18 @@
-import { MotiView } from 'moti';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MotiView } from 'moti';
 import { Text, View } from 'react-native';
 import { C } from '@/constants/theme';
 
 export default function GameDealingLoader() {
   return (
-    <View className='flex-1 items-center justify-center' style={{ backgroundColor: C.bg }}>
-      <LinearGradient colors={[C.bg, C.felt, C.bg]} className='absolute inset-0' />
+    <View
+      className='flex-1 items-center justify-center'
+      style={{ backgroundColor: C.bg }}
+    >
+      <LinearGradient
+        colors={[C.bg, C.felt, C.bg]}
+        className='absolute inset-0'
+      />
       <MotiView
         animate={{
           rotate: ['0deg', '8deg', '-8deg', '0deg'],

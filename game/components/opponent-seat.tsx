@@ -1,8 +1,7 @@
-import { Text } from "@/components/ui/text";
-import { View } from "@/components/ui/view";
-import { C } from "@/constants/theme";
-import { ActiveHalo } from "./active-halo";
-import { useShimmer } from "./hooks";
+import { Text } from '@/components/ui/text';
+import { View } from '@/components/ui/view';
+import { C } from '@/constants/theme';
+import { ActiveHalo } from './active-halo';
 export default function OpponentSeat({
   name,
   active,
@@ -15,14 +14,11 @@ export default function OpponentSeat({
   scoreBadge?: React.ReactNode;
 }) {
   const isH = orientation === 'horizontal';
-  const borderShimmer = useShimmer(2200, 100);
 
   return (
     <View
       className={`items-center ${isH ? 'flex-row' : 'flex-col'} py-1 gap-2 rounded-full`}
-     
     >
-      
       {active && (
         <View
           style={{

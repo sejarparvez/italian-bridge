@@ -1,11 +1,11 @@
+import { MotiView } from 'moti';
+import { View } from 'react-native';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { C } from '@/constants/theme';
 import { ActiveHalo } from '@/game/components/active-halo';
 import TeamScoreBadge from '@/game/components/team-score-badge';
-import { MotiView } from 'moti';
-import { View } from 'react-native';
 
 interface GamePlayerBarProps {
   playerName: string;
@@ -31,7 +31,10 @@ export default function GamePlayerBar({
       style={{ left: 40 }}
     >
       <HStack className='items-center gap-2.5'>
-        <View className='items-center justify-center' style={{ width: 42, height: 42 }}>
+        <View
+          className='items-center justify-center'
+          style={{ width: 42, height: 42 }}
+        >
           {isPlayerActive && <ActiveHalo size={38} />}
           <View
             className='items-center justify-center rounded-full'

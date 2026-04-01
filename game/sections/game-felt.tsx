@@ -1,3 +1,5 @@
+import { MotiView } from 'moti';
+import { Dimensions, View } from 'react-native';
 import { Card } from '@/components/cards/Card';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
@@ -7,8 +9,6 @@ import OpponentSeat from '@/game/components/opponent-seat';
 import TeamScoreBadge from '@/game/components/team-score-badge';
 import TrickCard from '@/game/components/trick-card';
 import WinnerBanner from '@/game/components/winner-banner';
-import { MotiView } from 'moti';
-import { Dimensions, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
@@ -53,7 +53,10 @@ export default function GameFelt({
   winningBid,
 }: GameFeltProps) {
   return (
-    <HStack className='flex-1 items-center' style={{ marginTop: SCREEN_H * 0.1, marginBottom: 4 }}>
+    <HStack
+      className='flex-1 items-center'
+      style={{ marginTop: SCREEN_H * 0.1, marginBottom: 4 }}
+    >
       {/* Left */}
       <MotiView
         from={{ opacity: 0, translateX: -28 }}
@@ -61,9 +64,11 @@ export default function GameFelt({
         transition={{ type: 'spring', damping: 18, delay: 180 }}
         className='items-center justify-center'
         style={{ left: 40 }}
-    
       >
-        <OpponentSeat name={players.left.name} active={currentSeat === 'left'} />
+        <OpponentSeat
+          name={players.left.name}
+          active={currentSeat === 'left'}
+        />
       </MotiView>
 
       {/* Center felt */}
@@ -80,15 +85,11 @@ export default function GameFelt({
             name={players.top.name}
             active={currentSeat === 'top'}
             orientation='horizontal'
-            
           />
         </MotiView>
 
         {/* Watermark */}
-        <View className=' absolute'
-        style={{ opacity: 0.08 }}
-         
-        >
+        <View className=' absolute' style={{ opacity: 0.08 }}>
           <Text
             className='font-black text-center'
             style={{
@@ -134,7 +135,7 @@ export default function GameFelt({
         from={{ opacity: 0, translateX: 28 }}
         animate={{ opacity: 1, translateX: 0 }}
         transition={{ type: 'spring', damping: 18, delay: 180 }}
-       style={{ right: 30 }}
+        style={{ right: 30 }}
       >
         <OpponentSeat
           name={players.right.name}

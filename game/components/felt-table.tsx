@@ -1,7 +1,7 @@
-import { C } from '@/constants/theme';
 import type React from 'react';
 import { Animated, Dimensions, View } from 'react-native';
-import { useShimmer } from "./hooks";
+import { C } from '@/constants/theme';
+import { useShimmer } from './hooks';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
@@ -31,7 +31,6 @@ export default function FeltTable() {
         pointerEvents='none'
       />
       <Animated.View
-      
         style={{
           position: 'absolute',
           alignSelf: 'center',
