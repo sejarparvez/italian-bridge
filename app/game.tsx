@@ -29,6 +29,14 @@ export default function GameScreen() {
   const [pressed, setPressed] = useState<string | null>(null);
   const lastTrickCount = useRef(0);
 
+  // ── Trump intent state machine ─────────────────────────────────────────────
+  // idle      → player's turn starts; waiting to see if void in led suit
+  // pending   → player IS void in led suit AND trump is still hidden → show modal
+  // trumping  → player chose "Reveal & Trump" → wantsToTrump=true for card play
+  // discarding→ player chose "Discard"        → wantsToTrump=false, play any non-trump
+  //
+  // Key rule from engine: modal only fires when trump is NOT yet revealed.
+  // Once trumpRevealed=true the player plays freely, no modal ever shown.
   type TrumpIntent = 'idle' | 'pending' | 'trumping' | 'discarding';
   const [trumpIntent, setTrumpIntent] = useState<TrumpIntent>('idle');
 
@@ -46,6 +54,7 @@ export default function GameScreen() {
   const isPlayerTurn = currentSeat === 'bottom';
   const isPlayerActive = phase === 'playing' && isPlayerTurn;
 
+  // Reset intent whenever a new trick starts (cards cleared)
   const trickLen = currentTrick.cards.length;
   useEffect(() => {
     if (trickLen === 0) setTrumpIntent('idle');
@@ -61,6 +70,7 @@ export default function GameScreen() {
   const lrIsBidding = bidderTeam === 'LR';
   const winningBid = state.highestBid > 0 ? state.highestBid : null;
 
+  // canPeek: only the player who chose trump can peek, and only while hidden
   const canPeek =
     trumpCreator === 'bottom' && !trumpRevealed && trumpSuit !== null;
 
@@ -72,30 +82,51 @@ export default function GameScreen() {
     lastTrickCount.current = currentTrick.cards.length;
   }, [currentTrick.cards.length]);
 
+  // ── Void-in-led-suit detection ─────────────────────────────────────────────
+  // Player is void when:
+  //   • it is their turn
+  //   • there is a led suit (not leading the trick)
+  //   • trump is still hidden  ← KEY: if already revealed, no modal needed
+  //   • their hand has no card of the led suit
   const isVoidInLedSuit = useMemo(() => {
-    if (!isPlayerActive || !currentTrick.leadSuit) return false;
+    if (!isPlayerActive) return false;
+    if (!currentTrick.leadSuit) return false;
+    if (trumpRevealed) return false; // ← already revealed → no modal
     return !players.bottom.hand.some((c) => c.suit === currentTrick.leadSuit);
-  }, [isPlayerActive, currentTrick.leadSuit, players.bottom.hand]);
+  }, [
+    isPlayerActive,
+    currentTrick.leadSuit,
+    trumpRevealed,
+    players.bottom.hand,
+  ]);
 
+  // Trigger modal only once per void situation (idle → pending)
   useEffect(() => {
     if (isVoidInLedSuit && trumpIntent === 'idle' && isPlayerActive) {
       setTrumpIntent('pending');
     }
   }, [isVoidInLedSuit, trumpIntent, isPlayerActive]);
 
+  // wantsToTrump is passed to the engine — true only when player explicitly chose "Reveal & Trump"
   const wantsToTrump = trumpIntent === 'trumping';
 
+  // ── Playable card calculation ──────────────────────────────────────────────
+  // During 'pending' no cards are selectable (waiting for modal choice).
+  // After choosing:
+  //   trumping   → getPlayableCards returns trump cards only (engine enforces this)
+  //   discarding → getPlayableCards returns non-trump cards (wantsToTrump=false)
+  //   normal     → getPlayableCards returns all legal cards
   const playableIds = useMemo<Set<string>>(() => {
     if (!isPlayerActive) return new Set();
+    if (trumpIntent === 'pending') return new Set(); // block until modal resolved
 
-    if (trumpIntent === 'pending') return new Set();
     return new Set(
       getPlayableCards(
         players.bottom.hand,
         currentTrick,
         trumpSuit,
         trumpRevealed,
-        wantsToTrump,
+        wantsToTrump, // ← propagated correctly
       ).map((c) => c.id),
     );
   }, [
@@ -123,12 +154,7 @@ export default function GameScreen() {
   }
 
   return (
-    <View
-      className='flex-1'
-      style={{
-        backgroundColor: C.bg,
-      }}
-    >
+    <View className='flex-1' style={{ backgroundColor: C.bg }}>
       <LinearGradient
         colors={[C.bg, '#0B1E10', C.bg]}
         className='absolute inset-0'
@@ -162,14 +188,26 @@ export default function GameScreen() {
         winningBid={winningBid}
       />
 
-      {isPlayerActive && trumpIntent === 'pending' && trumpSuit && (
-        <TrumpIntentModal
-          trumpSuit={trumpSuit}
-          trumpSymbol={SUIT_SYMBOLS[trumpSuit as keyof typeof SUIT_SYMBOLS]}
-          onTrump={() => setTrumpIntent('trumping')}
-          onDiscard={() => setTrumpIntent('discarding')}
-        />
-      )}
+      {/*
+        Modal conditions (all must be true):
+          • It is the player's active turn
+          • They are void in the led suit
+          • Trump is still hidden (trumpRevealed=false)  ← enforced by isVoidInLedSuit
+          • We have a trump suit and led suit to display
+          • Intent state is 'pending'
+      */}
+      {isPlayerActive &&
+        trumpIntent === 'pending' &&
+        trumpSuit !== null &&
+        currentTrick.leadSuit !== null && (
+          <TrumpIntentModal
+            trumpSuit={trumpSuit}
+            trumpSymbol={SUIT_SYMBOLS[trumpSuit as keyof typeof SUIT_SYMBOLS]}
+            ledSuit={currentTrick.leadSuit}
+            onTrump={() => setTrumpIntent('trumping')}
+            onDiscard={() => setTrumpIntent('discarding')}
+          />
+        )}
 
       <View
         className='relative w-full overflow-visible'
@@ -215,6 +253,7 @@ export default function GameScreen() {
                   onPressOut={() => setPressed(null)}
                   onPress={() => {
                     if (!canPlay) return;
+                    // Pass wantsToTrump so engine knows to reveal trump suit
                     playPlayerCard(card.id, wantsToTrump);
                     setTrumpIntent('idle');
                   }}

@@ -1,6 +1,6 @@
-import { Suit } from '@/constants/cards';
-import { getBotBid, selectBotTrump } from '@/game/ai/bot-bidding';
-import { getBotPlay } from '@/game/ai/bot-play';
+import { Card, Suit } from '@/constants/cards';
+import { getBotBid, selectBotTrump } from '@/game/bot/bot-bidding';
+import { getBotPlay } from '@/game/bot/bot-play';
 import { create } from 'zustand';
 import {
   passBid as enginePassBid,
@@ -13,7 +13,7 @@ import {
   dealSecondPhase,
   playCard
 } from '../game/engine';
-import { Difficulty, GameState } from '../game/types';
+import { BotPlayResult, Difficulty, GameState } from '../game/types';
 
 // ─── Store Interface ──────────────────────────────────────────────────────────
 
@@ -33,8 +33,11 @@ interface GameStore {
   advanceAI: () => void;
   clearTrick: () => void;
   nextRound: () => void;
-  revealTrump: () => void;
   getState: () => GameStore;
+  // NOTE: revealTrump() has been removed. Trump reveal is now atomic with card
+  // play — triggered by wantsToTrump=true inside playCard. A standalone reveal
+  // action would allow the reveal to fire without a card following it, which
+  // violates the rule that only a committed trump play triggers the reveal.
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -85,6 +88,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   // ── Player Card Play ────────────────────────────────────────────────────────
 
+  // wantsToTrump should be true ONLY when:
+  //   (a) trump is still hidden (state.trumpRevealed === false), AND
+  //   (b) the player cannot follow the led suit, AND
+  //   (c) the player consciously chose "Reveal & Trump" in the UI dialog.
+  //
+  // When trump is already revealed, the UI skips the dialog entirely and calls
+  // this with no flag (defaults to false). playCard handles the rest.
   playPlayerCard: (cardId, wantsToTrump = false) => {
     const card = get().state.players.bottom.hand.find(c => c.id === cardId);
     if (!card) return;
@@ -124,9 +134,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
       const hand = currentState.players[seat].hand;
 
-      // FIX: pass currentHighestBid so getBotBid can decide to pass (return 0)
-      // if its estimate doesn't beat the table. The old inline `highCards <= 1`
-      // pass check is removed — getBotBid handles all pass logic internally.
       const botBid = getBotBid(hand, difficulty, currentState.highestBid);
 
       currentState = botBid === 0
@@ -156,41 +163,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   dealRemainingCards: () => {
     const currentState = get().state;
-
-    // FIX: removed inline hand-merging logic — delegate entirely to the engine's
-    // dealSecondPhase which handles offset calculation and phase transition.
-    // Also fixed: selectBotTrump now receives difficulty as third argument,
-    // and selectTrump now receives seat for caller validation.
     const { difficulty } = get();
     const bidder = currentState.highestBidder;
 
     if (bidder && !currentState.players[bidder].isHuman) {
-      // Bot won the bid — select trump FIRST (phase must still be 'dealing2'),
-      // then deal the remaining cards which transitions phase to 'playing'.
-      //
-      // BUG FIX: previous order called dealSecondPhase first, which internally
-      // sets phase to 'playing'. selectTrump then threw a phase validation error
-      // because it only accepts calls in 'dealing2'. Reversing the order fixes this.
-      //
-      // Note: selectBotTrump uses the bot's 5-card hand here. This is intentional —
-      // bots evaluate trump from their initial hand just like they bid from it.
-      // The remaining 8 cards are dealt immediately after, before play begins.
       const trump = selectBotTrump(
         currentState.players[bidder].hand,
         currentState.highestBid,
         difficulty
       );
-      // selectTrump sets phase to 'playing' internally, but dealSecondPhase
-      // requires 'dealing2'. Override the phase back so the sequence works:
-      // dealing2 → selectTrump (→ playing) → force back to dealing2 → dealSecondPhase (→ playing)
       const trumpState  = selectTrump(currentState, trump, bidder);
       const nextState   = dealSecondPhase({ ...trumpState, phase: 'dealing2' });
       set({ state: nextState });
       afterPlayState(nextState, get);
     }
-    // NOTE: For humans, dealRemainingCards is no longer called after winning bid.
-    // Instead, the trump picker modal shows while the player still has only 5 cards.
-    // When selectPlayerTrump is called, it selects trump AND deals remaining cards.
   },
 
   // ── AI Play ─────────────────────────────────────────────────────────────────
@@ -203,7 +189,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (currentSeat === 'bottom') return;
 
     const hand = state.players[currentSeat].hand;
-    const botCard = getBotPlay(
+
+    // getBotPlay returns { card, wantsToTrump } so the bot can signal its intent
+    // to reveal trump — matching the same rule the human follows:
+    //   - wantsToTrump=true only when trump is hidden AND the bot cannot follow
+    //     suit AND it decides trumping is strategically worthwhile.
+    //   - wantsToTrump=false (or omitted) when trump is already revealed — the
+    //     bot simply plays freely with no reveal step needed.
+    const botPlay = getBotPlay(
       hand,
       state.currentTrick,
       state.trumpSuit,
@@ -213,16 +206,27 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentSeat
     );
 
-    if (!botCard) return;
+    if (!botPlay) return;
 
-    // FIX: removed manual trumpRevealed check — playCard handles auto-reveal.
-    const newState = playCard(state, currentSeat, botCard);
+    // Type guard — returns true only when getBotPlay has been updated to return
+    // BotPlayResult. Falls back gracefully to treating the return as a bare Card
+    // so this compiles without error before bot-play.ts is updated.
+    const isBotPlayResult = (v: unknown): v is BotPlayResult =>
+      typeof v === 'object' && v !== null && 'card' in v && 'wantsToTrump' in v;
+
+    const botCard      = isBotPlayResult(botPlay) ? botPlay.card      : (botPlay as Card);
+    const wantsToTrump = isBotPlayResult(botPlay) ? botPlay.wantsToTrump : false;
+
+    const newState = playCard(state, currentSeat, botCard, wantsToTrump);
     set({ state: newState });
     afterPlayState(newState, get);
   },
 
   // ── Trick Cleanup ───────────────────────────────────────────────────────────
 
+  // trumpRevealed is intentionally NOT reset here — it must persist for the
+  // entire round. Once trump is revealed in any trick, all subsequent tricks
+  // in the same round have it revealed. Only advanceToNextRound resets it.
   clearTrick: () => {
     const { state } = get();
     const trickWinner = state.currentTrick.winningSeat ?? state.currentSeat;
@@ -232,6 +236,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentTrick: { cards: [], leadSuit: null, winningSeat: null },
       currentSeat: trickWinner,
       phase: state.phase === 'roundEnd' ? 'roundEnd' : 'playing',
+      // trumpRevealed is preserved via the spread above — do not override it here
     };
 
     set({ state: newState });
@@ -241,20 +246,15 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
   },
 
-  // ── Trump Reveal ────────────────────────────────────────────────────────────
-
-  revealTrump: () => {
-    set(s => ({ state: { ...s.state, trumpRevealed: true } }));
-  },
-
   // ── Round Advancement ───────────────────────────────────────────────────────
 
+  // advanceToNextRound in the engine is responsible for resetting trumpRevealed
+  // to false along with all other per-round state. Verify this in engine.ts if
+  // trump ever appears pre-revealed at the start of a new round.
   nextRound: () => {
     const newState = advanceToNextRound(get().state);
     set({ state: newState });
 
-    // FIX: check for gameEnd before trying to start bot bids.
-    // advanceToNextRound returns phase: 'gameEnd' if ±30 threshold is hit.
     if (newState.phase === 'gameEnd') return;
 
     if (newState.phase === 'bidding' && newState.currentSeat !== 'bottom') {
@@ -275,12 +275,9 @@ function afterBidState(
   if (newState.phase === 'bidding' && newState.currentSeat !== 'bottom') {
     setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
   } else if (newState.phase === 'dealing2') {
-    // If human won bid, don't deal remaining cards yet — show trump picker first.
-    // If bot won bid, deal remaining cards (which includes bot trump selection).
     if (newState.highestBidder !== 'bottom') {
       setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
     }
-    // For humans, dealRemainingCards will be called after selectPlayerTrump
   }
 }
 

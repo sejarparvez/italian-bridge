@@ -12,7 +12,7 @@ import { Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface GameHUDProps {
-  trumpSuit: string | null;
+  trumpSuit: string
   trumpRevealed: boolean;
   canPeek: boolean;
   teamScores: { BT: number; LR: number };
@@ -32,13 +32,19 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
       style={{ top: insets.top + 8, paddingHorizontal: insets.left + 12 }}
     >
       <HStack space='4xl'>
-        {trumpSuit && (trumpRevealed || canPeek) && (
-          <TrumpMiniCard
-            suit={trumpSuit}
-            revealed={trumpRevealed}
-            canPeek={canPeek}
-          />
-        )}
+        {/*
+          Always render TrumpMiniCard — it handles all three states internally:
+            • suit=null            → dimmed face-down (bidding phase)
+            • suit set, !revealed  → face-down back, peek button if canPeek
+            • suit set, revealed   → face-up with shimmer + TRUMP label
+          The old condition `trumpSuit && (trumpRevealed || canPeek)` was hiding
+          the card whenever the opponent won the bid (canPeek=false, !revealed).
+        */}
+        <TrumpMiniCard
+          suit={trumpSuit}
+          revealed={trumpRevealed}
+          canPeek={canPeek}
+        />
         <ScorePanel btScore={teamScores.BT} lrScore={teamScores.LR} />
       </HStack>
 
@@ -67,7 +73,6 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
           textValue='Home'
           className='rounded-xl py-2.5 px-3'
           onPress={() => router.replace('/')}
-        
         >
           <Icon as={Home} size='sm' style={{ color: C.goldDim }} />
           <MenuItemLabel
@@ -77,6 +82,7 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
             Main Menu
           </MenuItemLabel>
         </MenuItem>
+
         <MenuItem
           key='new-game'
           textValue='New Game'
@@ -89,11 +95,12 @@ export default function GameHUD({ trumpSuit, trumpRevealed, canPeek, teamScores 
           <Icon as={RefreshCw} size='sm' style={{ color: C.goldDim }} />
           <MenuItemLabel
             className='font-semibold text-sm'
-           style={{ color: 'rgba(232,213,163,0.85)', paddingLeft: 12 }}
+            style={{ color: 'rgba(232,213,163,0.85)', paddingLeft: 12 }}
           >
             Restart Game
           </MenuItemLabel>
         </MenuItem>
+
         <MenuItem
           key='close'
           textValue='Close'

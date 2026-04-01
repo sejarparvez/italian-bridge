@@ -5,27 +5,27 @@ import { MotiView } from 'moti';
 import { Dimensions, Pressable, View } from 'react-native';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
-const SCREEN_W = Math.max(width, height);
-
 const CARD_W = SCREEN_H * 0.17;
 const CARD_H = CARD_W * 1.45;
-
-
 
 export default function TrumpIntentModal({
   trumpSuit,
   trumpSymbol,
+  ledSuit,       // ← NEW: the suit that was led this trick
   onTrump,
   onDiscard,
 }: {
   trumpSuit: string;
   trumpSymbol: string;
+  ledSuit: string;    // ← the suit the player is void in
   onTrump: () => void;
   onDiscard: () => void;
 }) {
+  // Capitalise for display
+  const ledSuitDisplay = ledSuit.charAt(0).toUpperCase() + ledSuit.slice(1);
+
   return (
     <MotiView
       from={{ opacity: 0, scale: 0.88, translateY: 24 }}
@@ -40,7 +40,7 @@ export default function TrumpIntentModal({
         gap: 10,
       }}
     >
-      {/* Context label */}
+      {/* Context label — correctly names the LED suit the player is void in */}
       <View
         style={{
           backgroundColor: 'rgba(0,0,0,0.72)',
@@ -60,13 +60,13 @@ export default function TrumpIntentModal({
             textAlign: 'center',
           }}
         >
-          You have no {trumpSuit} — trump or discard?
+          No {ledSuitDisplay} — reveal trump or discard?
         </Text>
       </View>
 
       {/* Action buttons */}
       <HStack style={{ gap: 10 }}>
-        {/* Trump button */}
+        {/* Trump button — triggers trump reveal per engine rule */}
         <Pressable
           onPress={onTrump}
           style={{
@@ -94,11 +94,11 @@ export default function TrumpIntentModal({
               textTransform: 'uppercase',
             }}
           >
-            Trump
+            Reveal &amp; Trump
           </Text>
         </Pressable>
 
-        {/* Discard button */}
+        {/* Discard button — player stays void, does NOT reveal trump */}
         <Pressable
           onPress={onDiscard}
           style={{

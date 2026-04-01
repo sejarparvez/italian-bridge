@@ -45,6 +45,28 @@ export interface Trick {
   winningSeat: SeatPosition | null;
 }
 
+// ─── Bot Play ─────────────────────────────────────────────────────────────────
+
+/**
+ * Return type for getBotPlay.
+ *
+ * `wantsToTrump` signals whether the bot intends to reveal trump this play.
+ * The store's advanceAI passes this directly to playCard, mirroring the same
+ * flag the human sends via the "Reveal & Trump" dialog.
+ *
+ * Rules for when a bot should set wantsToTrump=true:
+ *   - trumpRevealed is false (trump is still hidden), AND
+ *   - the bot cannot follow the led suit, AND
+ *   - the bot strategically decides trumping is worthwhile.
+ *
+ * When trumpRevealed is already true, wantsToTrump must always be false —
+ * the reveal has already happened and no dialog or flag is needed.
+ */
+export interface BotPlayResult {
+  card: Card;
+  wantsToTrump: boolean;
+}
+
 // ─── Player ───────────────────────────────────────────────────────────────────
 
 export interface Player {
@@ -79,7 +101,7 @@ export interface GameState {
   highestBidder: SeatPosition | null;
 
   // Trump
-  trumpSuit: Suit | null;
+  trumpSuit: Suit
   trumpRevealed: boolean;
   /**
    * The seat that won the bid and selected the trump suit.
@@ -97,6 +119,17 @@ export interface GameState {
   round: number;
   // NOTE: totalRounds removed — game end is score-driven (±30), not round-count-driven.
   teamScores: Record<TeamId, number>;
+
+  /**
+   * Per-round score history. Each entry records what both teams scored in that
+   * round. Used for the score log / end-of-round summary UI.
+   *
+   * Appended by advanceToNextRound after evaluating the round outcome.
+   */
+  roundScores: Array<{
+    round: number;
+    scores: Record<TeamId, number>;
+  }>;
 
   /**
    * The full shuffled deck for this round.

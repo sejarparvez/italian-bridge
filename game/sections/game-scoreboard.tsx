@@ -1,14 +1,14 @@
-import { MotiView } from 'moti';
-import { LinearGradient } from 'expo-linear-gradient';
-import { View, Pressable } from 'react-native';
-import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
+import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { C } from '@/constants/theme';
 import { getWinner } from '@/game/engine';
-import { Dimensions, Easing } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useGameStore } from '@/store/gameStore';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { MotiView } from 'moti';
+import { Dimensions, Pressable, View } from 'react-native';
+import { Easing } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
