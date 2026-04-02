@@ -1,4 +1,3 @@
-import type React from 'react';
 import { Animated, Dimensions, View } from 'react-native';
 import { C } from '@/constants/theme';
 import { useShimmer } from './hooks';
@@ -6,11 +5,6 @@ import { useShimmer } from './hooks';
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
 const SCREEN_W = Math.max(width, height);
-
-const CARD_W = SCREEN_H * 0.17;
-const CARD_H = CARD_W * 1.45;
-const TRICK_CARD_W = SCREEN_H * 0.13;
-const TRICK_CARD_H = TRICK_CARD_W * 1.55;
 
 export default function FeltTable() {
   const shimmer = useShimmer(4500);

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Italian Bridge",
     "slug": "italian-bridge",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "italianbridge",

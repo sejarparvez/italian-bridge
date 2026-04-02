@@ -22,9 +22,10 @@ export function sortHandAlternating(hand: Card[]): Card[] {
   const bySuit: Partial<Record<Suit, Card[]>> = {};
   for (const card of hand) {
     if (!bySuit[card.suit]) bySuit[card.suit] = [];
-    bySuit[card.suit]!.push(card);
+    bySuit[card.suit]?.push(card);
   }
   for (const suit in bySuit) {
+    // biome-ignore lint/style/noNonNullAssertion: this is fine
     bySuit[suit as Suit] = sortCardsWithinSuit(bySuit[suit as Suit]!);
   }
 

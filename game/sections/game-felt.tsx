@@ -12,7 +12,6 @@ import WinnerBanner from '@/game/components/winner-banner';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
-const SCREEN_W = Math.max(width, height);
 const TRICK_CARD_W = SCREEN_H * 0.13;
 const TRICK_CARD_H = TRICK_CARD_W * 1.55;
 
@@ -46,10 +45,10 @@ export default function GameFelt({
   currentSeat,
   currentTrick,
   latestCardId,
-  btTricks,
+
   lrTricks,
   lrIsBidding,
-  btIsBidding,
+
   winningBid,
 }: GameFeltProps) {
   return (
@@ -117,6 +116,7 @@ export default function GameFelt({
               isLatest={tc.card.id === latestCardId}
             >
               <Card
+                // biome-ignore lint/suspicious/noExplicitAny: this is fine
                 card={tc.card as any}
                 width={TRICK_CARD_W}
                 height={TRICK_CARD_H}

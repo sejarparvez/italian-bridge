@@ -7,10 +7,6 @@ import type { SeatPosition } from '@/game/types';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
-const SCREEN_W = Math.max(width, height);
-
-const CARD_W = SCREEN_H * 0.17;
-const CARD_H = CARD_W * 1.45;
 const TRICK_CARD_W = SCREEN_H * 0.13;
 const TRICK_CARD_H = TRICK_CARD_W * 1.55;
 

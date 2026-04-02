@@ -40,7 +40,7 @@ function makePlayer(
 function makePlayers(
   btTricks: number,
   lrTricks: number,
-  bidder: SeatPosition = 'bottom',
+  _bidder: SeatPosition = 'bottom',
 ): Record<SeatPosition, Player> {
   const btEach = Math.floor(btTricks / 2);
   const lrEach = Math.floor(lrTricks / 2);
@@ -60,8 +60,8 @@ describe('calculateRoundScores — no valid bid', () => {
   test('returns 0 points for both teams when highestBidder is null', () => {
     const players = makePlayers(7, 3);
     const scores = calculateRoundScores(players, 0, null);
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(0);
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(0);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(0);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(0);
   });
 
   test('returns 0 points when highestBid is 0', () => {
@@ -75,25 +75,25 @@ describe('calculateRoundScores — bidding team BT wins bid', () => {
   test('BT bids 7 and scores 7 → +7', () => {
     const players = makePlayers(7, 3);
     const scores = calculateRoundScores(players, 7, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(7);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(7);
   });
 
   test('BT bids 7 and scores 8 → +7 (only bid amount, not tricks)', () => {
     const players = makePlayers(8, 2);
     const scores = calculateRoundScores(players, 7, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(7);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(7);
   });
 
   test('BT bids 8 and scores 9 → +8', () => {
     const players = makePlayers(9, 1);
     const scores = calculateRoundScores(players, 8, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(8);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(8);
   });
 
   test('BT bids 9 and scores 9 → +9', () => {
     const players = makePlayers(9, 1);
     const scores = calculateRoundScores(players, 9, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(9);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(9);
   });
 });
 
@@ -101,19 +101,19 @@ describe('calculateRoundScores — bidding team BT fails bid', () => {
   test('BT bids 8 and scores 6 → −8', () => {
     const players = makePlayers(6, 4);
     const scores = calculateRoundScores(players, 8, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(-8);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(-8);
   });
 
   test('BT bids 7 and scores 6 → −7', () => {
     const players = makePlayers(6, 4);
     const scores = calculateRoundScores(players, 7, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(-7);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(-7);
   });
 
   test('BT bids 9 and scores 8 → −9', () => {
     const players = makePlayers(8, 2);
     const scores = calculateRoundScores(players, 9, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(-9);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(-9);
   });
 });
 
@@ -121,19 +121,19 @@ describe('calculateRoundScores — bid 10 (max bid)', () => {
   test('BT bids 10 and scores all 10 → +13 (10 + 3 bonus)', () => {
     const players = makePlayers(10, 0);
     const scores = calculateRoundScores(players, 10, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(13);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(13);
   });
 
   test('BT bids 10 and scores 9 → −10 (no bonus, failed bid)', () => {
     const players = makePlayers(9, 1);
     const scores = calculateRoundScores(players, 10, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(-10);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(-10);
   });
 
   test('BT bids 10 and scores 8 → −10', () => {
     const players = makePlayers(8, 2);
     const scores = calculateRoundScores(players, 10, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(-10);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(-10);
   });
 });
 
@@ -141,33 +141,33 @@ describe('calculateRoundScores — opposing team scoring (independent)', () => {
   test('opponents score 4+ → +4', () => {
     const players = makePlayers(6, 4);
     const scores = calculateRoundScores(players, 7, 'bottom');
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(4);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(4);
   });
 
   test('opponents score exactly 4 → +4', () => {
     const players = makePlayers(6, 4);
     const scores = calculateRoundScores(players, 7, 'bottom');
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(4);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(4);
   });
 
   test('opponents score 3 → −4', () => {
     const players = makePlayers(7, 3);
     const scores = calculateRoundScores(players, 7, 'bottom');
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(-4);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(-4);
   });
 
   test('opponents score 0 (bidder takes all 10) → −4', () => {
     const players = makePlayers(10, 0);
     const scores = calculateRoundScores(players, 10, 'bottom');
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(-4);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(-4);
   });
 
   test('opponent scoring is independent of whether bidding team passed or failed', () => {
     // BT fails bid but LR scores 5 → LR still gets +4
     const players = makePlayers(6, 4);
     const scores = calculateRoundScores(players, 8, 'bottom'); // BT fails 8
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(-8);
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(4);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(-8);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(4);
   });
 });
 
@@ -175,21 +175,21 @@ describe('calculateRoundScores — LR team as bidder', () => {
   test('LR bids 7 and scores 7 → LR +7, BT evaluated as opponents', () => {
     const players = makePlayers(3, 7, 'left'); // LR has 7 tricks
     const scores = calculateRoundScores(players, 7, 'left');
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(7);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(7);
   });
 
   test('LR fails bid → LR gets negative, BT gets opponent reward', () => {
     const players = makePlayers(5, 5, 'left'); // LR needs 8 but only has 5
     const scores = calculateRoundScores(players, 8, 'left');
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(-8);
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(4); // BT scored 5 ≥ 4
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(-8);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(4); // BT scored 5 ≥ 4
   });
 
   test('LR bids 10 and scores all 10 → LR +13, BT −4', () => {
     const players = makePlayers(0, 10, 'left');
     const scores = calculateRoundScores(players, 10, 'left');
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(13);
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(-4);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(13);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(-4);
   });
 });
 
@@ -197,8 +197,8 @@ describe('calculateRoundScores — bid field assignment', () => {
   test('bidding team entry has bid = highestBid, opposing entry has bid = null', () => {
     const players = makePlayers(7, 3);
     const scores = calculateRoundScores(players, 7, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.bid).toBe(7);
-    expect(scores.find((s) => s.team === 'LR')!.bid).toBeNull();
+    expect(scores.find((s) => s.team === 'BT')?.bid).toBe(7);
+    expect(scores.find((s) => s.team === 'LR')?.bid).toBeNull();
   });
 
   test('always returns exactly 2 score entries', () => {
@@ -210,66 +210,49 @@ describe('calculateRoundScores — bid field assignment', () => {
   test('tricks field matches actual tricks taken', () => {
     const players = makePlayers(8, 2);
     const scores = calculateRoundScores(players, 8, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.tricks).toBe(8);
-    expect(scores.find((s) => s.team === 'LR')!.tricks).toBe(2);
+    expect(scores.find((s) => s.team === 'BT')?.tricks).toBe(8);
+    expect(scores.find((s) => s.team === 'LR')?.tricks).toBe(2);
   });
 });
 
 describe('calculateRoundScores — full outcome table from game rules', () => {
   // ✅ Met bid (7–9) | ✅ Scored 4+ → +bid | +4
   test('met bid 8 AND opponents scored 4+ → +8 / +4', () => {
-    const players = makePlayers(8, 2);
-    const scores = calculateRoundScores(players, 8, 'bottom');
-    // LR has 2 tricks — below 4 — let's use 8/2 split properly
-    // Actually 2 < 4, so LR gets -4. Use 6/4 split to get both positive.
-    const players2 = makePlayers(6, 4);
-    const scores2 = calculateRoundScores(players2, 6, 'bottom');
     // BT bid 6? No, BID_MIN is 7. Use bid 6 → treated as invalid?
     // Let's use a valid bid with proper split:
     const p = makePlayers(7, 3);
     // LR only has 3 — gets -4. Use 6/4 for valid positive opponent result:
-    const p2 = makePlayers(6, 4);
-    const s2 = calculateRoundScores(p2, 6, 'bottom');
+
     // bid 6 is below BID_MIN but scoring doesn't validate — it will still compute
     // Use bid=7 with 7 tricks for BT, 3 for LR → BT +7, LR -4
     const s = calculateRoundScores(p, 7, 'bottom');
-    expect(s.find((r) => r.team === 'BT')!.points).toBe(7);
-    expect(s.find((r) => r.team === 'LR')!.points).toBe(-4);
+    expect(s.find((r) => r.team === 'BT')?.points).toBe(7);
+    expect(s.find((r) => r.team === 'LR')?.points).toBe(-4);
   });
 
   // ✅ Met bid (7–9) | ✅ Both scored targets
   test('BT meets bid AND LR scores 4+ → both positive', () => {
-    const players = makePlayers(8, 2);
-    // LR has 2 tricks: -4. Try 9 BT / 1 LR:
-    // Let's use: BT=9 tricks, LR=1 → LR gets -4
-    // For both positive: BT=6 tricks meeting bid 6 + LR=4. bid must be >= 7 per rules.
-    // With bid=7: BT needs 7, LR needs 4. Total = 11 > 10, impossible simultaneously.
-    // Per game rules table row 1: ✅ met bid | ✅ scored 4+ → +bid / +4
-    // This CAN happen: BT bid 7, BT scores 7, LR scores 3. But LR=3 < 4 → -4.
-    // Actually impossible: 7 + 4 = 11 > 10 tricks. So we can never have both positive
-    // in the same round when bid ≥ 7. The rules doc acknowledges this edge case.
-    // Closest valid: bid=7, BT=7, LR=3 → +7 / -4
     const p = makePlayers(7, 3);
     const s = calculateRoundScores(p, 7, 'bottom');
-    expect(s.find((r) => r.team === 'BT')!.points).toBeGreaterThan(0);
+    expect(s.find((r) => r.team === 'BT')?.points).toBeGreaterThan(0);
     // With only 3 tricks opponents always get -4 when bid is met
-    expect(s.find((r) => r.team === 'LR')!.points).toBe(-4);
+    expect(s.find((r) => r.team === 'LR')?.points).toBe(-4);
   });
 
   // ✅ Bid 10, scored all 10 → +13 / −4 (opponents always fail)
   test('bid 10 success: +13 for bidder, −4 for opponents (impossible for them to reach 4)', () => {
     const players = makePlayers(10, 0);
     const scores = calculateRoundScores(players, 10, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(13);
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(-4);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(13);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(-4);
   });
 
   // ❌ Failed bid | ✅ Opponents scored 4+
   test('failed bid AND opponents scored 4+ → −bid / +4', () => {
     const players = makePlayers(5, 5);
     const scores = calculateRoundScores(players, 8, 'bottom'); // BT fails 8
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(-8);
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(4);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(-8);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(4);
   });
 
   // ❌ Failed bid | ❌ Opponents also failed
@@ -278,8 +261,8 @@ describe('calculateRoundScores — full outcome table from game rules', () => {
     // LR would get +4. Need LR < 4: BT=7, LR=3. BT fails bid=8.
     const players = makePlayers(7, 3);
     const scores = calculateRoundScores(players, 8, 'bottom');
-    expect(scores.find((s) => s.team === 'BT')!.points).toBe(-8);
-    expect(scores.find((s) => s.team === 'LR')!.points).toBe(-4);
+    expect(scores.find((s) => s.team === 'BT')?.points).toBe(-8);
+    expect(scores.find((s) => s.team === 'LR')?.points).toBe(-4);
   });
 });
 

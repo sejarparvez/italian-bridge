@@ -14,7 +14,7 @@ export function FontLoader({ children, onReady }: FontLoaderProps) {
     if (fontsLoaded) {
       onReady?.(); // ✅ call it once fonts are loaded
     }
-  }, [fontsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fontsLoaded, onReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!fontsLoaded) {
     return (

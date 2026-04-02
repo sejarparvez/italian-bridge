@@ -10,7 +10,6 @@ const SCREEN_H = Math.min(width, height);
 
 const CARD_W = SCREEN_H * 0.17;
 const CARD_H = CARD_W * 1.45;
-const TRICK_CARD_W = SCREEN_H * 0.13;
 
 export default function DealCard({
   index,

@@ -11,9 +11,8 @@ const CARD_W = SCREEN_H * 0.17;
 const CARD_H = CARD_W * 1.45;
 
 export default function TrumpIntentModal({
-  trumpSuit,
   trumpSymbol,
-  ledSuit, // ← NEW: the suit that was led this trick
+  ledSuit,
   onTrump,
   onDiscard,
 }: {

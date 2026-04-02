@@ -1,5 +1,4 @@
 import { MotiView } from 'moti';
-import type React from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { C } from '@/constants/theme';

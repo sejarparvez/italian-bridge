@@ -1,6 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
-import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, View } from 'react-native';
 import { Text } from '@/components/ui/text';
@@ -234,6 +233,7 @@ export default function TrumpMiniCard({
             <View className='absolute inset-0 items-center justify-evenly p-1'>
               {[...Array(3)].map((_, i) => (
                 <View
+                  // biome-ignore lint/suspicious/noArrayIndexKey: this is fine
                   key={i}
                   style={{
                     width: '80%',

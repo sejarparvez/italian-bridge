@@ -1,4 +1,3 @@
-import type React from 'react';
 import { Animated, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { C } from '@/constants/theme';

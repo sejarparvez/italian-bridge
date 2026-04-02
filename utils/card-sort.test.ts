@@ -4,11 +4,6 @@ import { sortHandAlternating } from './card-sort';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-// Reverse lookup: value → Rank label
-const VALUE_TO_RANK = Object.fromEntries(
-  Object.entries(RANK_ORDER).map(([rank, value]) => [value, rank]),
-) as Record<number, Rank>;
-
 let _id = 0;
 function card(suit: Suit, rank: Rank): Card {
   return {
@@ -283,11 +278,11 @@ describe('all 4 suits → R B R B', () => {
     const grouped: Partial<Record<Suit, number[]>> = {};
     for (const c of result) {
       if (!grouped[c.suit]) grouped[c.suit] = [];
-      grouped[c.suit]!.push(c.value);
+      grouped[c.suit]?.push(c.value);
     }
     for (const values of Object.values(grouped)) {
-      for (let i = 0; i < values!.length - 1; i++) {
-        expect(values![i]).toBeGreaterThanOrEqual(values![i + 1]);
+      for (let i = 0; i < values?.length - 1; i++) {
+        expect(values?.[i]).toBeGreaterThanOrEqual(values?.[i + 1]);
       }
     }
   });

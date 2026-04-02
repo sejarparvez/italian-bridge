@@ -48,7 +48,6 @@ export function calculateRoundScores(
   }
 
   const bidderTeam = players[highestBidder].team;
-  const opponentTeam: TeamId = bidderTeam === 'BT' ? 'LR' : 'BT';
 
   const bidderTricks = bidderTeam === 'BT' ? btTricks : lrTricks;
   const opponentTricks = bidderTeam === 'BT' ? lrTricks : btTricks;

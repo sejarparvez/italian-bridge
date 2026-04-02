@@ -118,7 +118,7 @@ export function getPlayableCards(
   hand: Card[],
   trick: Trick,
   trump: Suit | null,
-  trumpRevealed: boolean,
+  _trumpRevealed: boolean,
   wantsToTrump = false,
 ): Card[] {
   // Leading — all cards are playable

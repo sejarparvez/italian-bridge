@@ -96,7 +96,7 @@ function playEasy(
   playable: Card[],
   trump: Suit | null,
   trick: Trick,
-  trumpRevealed: boolean,
+  _trumpRevealed: boolean,
 ): Card {
   const isVoidInLedSuit =
     trick.leadSuit !== null && !playable.some((c) => c.suit === trick.leadSuit);
@@ -136,6 +136,13 @@ function playMedium(
   const isBiddingTeam = myTeam === bidderTeam;
   const partnerWinning = isMyPartnerWinning(trick, gameState, seat);
   const trickPosition = getTrickPosition(trick);
+
+  // ── Leading the trick ─────────────────────────────────────────────────────
+  // Bidding team leads high (aggressive, building toward bid target).
+  // Defending team leads low (passive, probing without committing strength).
+  if (trickPosition === 1) {
+    return isBiddingTeam ? getHighestCard(playable) : getLowestCard(playable);
+  }
 
   // ── Follow the led suit if possible ──────────────────────────────────────
   const leadSuitCards = trick.leadSuit
@@ -283,8 +290,8 @@ function playHard(
 function getSmartLead(
   playable: Card[],
   trump: Suit | null,
-  trumpRevealed: boolean,
-  gameState: GameState,
+  _trumpRevealed: boolean,
+  _gameState: GameState,
   isBiddingTeam: boolean,
 ): Card {
   const nonTrump = trump ? playable.filter((c) => c.suit !== trump) : playable;

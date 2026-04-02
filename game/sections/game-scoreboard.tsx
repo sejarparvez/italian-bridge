@@ -1,14 +1,14 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { MotiView } from 'moti';
+import { Dimensions, Pressable, View } from 'react-native';
+import { Easing } from 'react-native-reanimated';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { C } from '@/constants/theme';
 import { getWinner } from '@/game/engine';
 import { useGameStore } from '@/store/gameStore';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { MotiView } from 'moti';
-import { Dimensions, Pressable, View } from 'react-native';
-import { Easing } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
@@ -19,7 +19,10 @@ interface GameScoreboardProps {
   teamScores: { BT: number; LR: number };
 }
 
-export default function GameScoreboard({ phase, teamScores }: GameScoreboardProps) {
+export default function GameScoreboard({
+  phase,
+  teamScores,
+}: GameScoreboardProps) {
   const router = useRouter();
   const { startNewGame, nextRound } = useGameStore();
   const isGameEnd = phase === 'gameEnd';
@@ -40,7 +43,10 @@ export default function GameScoreboard({ phase, teamScores }: GameScoreboardProp
 
   return (
     <View className='flex-1' style={{ backgroundColor: C.bg }}>
-      <LinearGradient colors={[C.bg, C.felt, C.bg]} className='absolute inset-0' />
+      <LinearGradient
+        colors={[C.bg, C.felt, C.bg]}
+        className='absolute inset-0'
+      />
       <MotiView
         from={{ opacity: 0, scale: 0.4 }}
         animate={{ opacity: 0.1, scale: 3 }}
@@ -120,8 +126,16 @@ export default function GameScoreboard({ phase, teamScores }: GameScoreboardProp
           >
             {(
               [
-                { teamId: 'BT' as const, names: 'You & Alex', score: teamScores.BT },
-                { teamId: 'LR' as const, names: 'Jordan & Sam', score: teamScores.LR },
+                {
+                  teamId: 'BT' as const,
+                  names: 'You & Alex',
+                  score: teamScores.BT,
+                },
+                {
+                  teamId: 'LR' as const,
+                  names: 'Jordan & Sam',
+                  score: teamScores.LR,
+                },
               ] as const
             ).map((row, i) => {
               const isWinner = winner === row.teamId;
@@ -142,7 +156,10 @@ export default function GameScoreboard({ phase, teamScores }: GameScoreboardProp
                   }}
                 >
                   {i > 0 && (
-                    <View className='h-px' style={{ backgroundColor: 'rgba(200,168,64,0.08)' }} />
+                    <View
+                      className='h-px'
+                      style={{ backgroundColor: 'rgba(200,168,64,0.08)' }}
+                    />
                   )}
                   <HStack className='justify-between items-center py-4'>
                     <HStack className='items-center gap-3'>
