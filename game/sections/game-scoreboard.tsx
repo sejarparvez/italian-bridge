@@ -1,3 +1,9 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { ArrowRight, RotateCcw, Trophy } from 'lucide-react-native';
+import { MotiView } from 'moti';
+import { Dimensions, View } from 'react-native';
+import { Easing } from 'react-native-reanimated';
 import { Button, ButtonIcon, ButtonText } from '@/components/ui/button';
 import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
@@ -5,12 +11,6 @@ import { VStack } from '@/components/ui/vstack';
 import { C } from '@/constants/theme';
 import { getWinner } from '@/game/engine';
 import { useGameStore } from '@/store/gameStore';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import { ArrowRight, RotateCcw, Trophy } from 'lucide-react-native';
-import { MotiView } from 'moti';
-import { Dimensions, View } from 'react-native';
-import { Easing } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);

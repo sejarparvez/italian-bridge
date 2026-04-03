@@ -12,7 +12,7 @@ import TrumpMiniCard from '@/game/components/trump-mini-card';
 import { useGameStore } from '@/store/gameStore';
 
 interface GameHUDProps {
-  trumpSuit: string;
+  trumpSuit: string | null;
   trumpRevealed: boolean;
   canPeek: boolean;
   teamScores: { BT: number; LR: number };

@@ -1,4 +1,6 @@
 import type { Card, Suit } from '../constants/cards';
+import { logger } from '../utils/logger';
+import { SEAT_ORDER } from './engine';
 import type { GameState, Player, SeatPosition } from './types';
 
 export const BID_MIN = 7;
@@ -49,13 +51,26 @@ export function placeBid(
   seat: SeatPosition,
   bid: number,
 ): GameState {
+  logger.debug(
+    'Bidding',
+    `placeBid: seat=${seat}, bid=${bid}, currentSeat=${state.currentSeat}, highestBid=${state.highestBid}`,
+  );
+
   // Validate: must be the current bidder
   if (state.currentSeat !== seat) {
+    logger.error(
+      'Bidding',
+      `Not ${seat}'s turn to bid. Current: ${state.currentSeat}`,
+    );
     throw new Error(`It is not ${seat}'s turn to bid.`);
   }
 
   // Validate: bid must be within allowed range
   if (bid < BID_MIN || bid > BID_MAX) {
+    logger.error(
+      'Bidding',
+      `Invalid bid: ${bid} not in range ${BID_MIN}-${BID_MAX}`,
+    );
     throw new Error(
       `Bid must be between ${BID_MIN} and ${BID_MAX}. Got: ${bid}`,
     );
@@ -63,6 +78,7 @@ export function placeBid(
 
   // Validate: bid must strictly exceed the current highest bid
   if (bid <= state.highestBid) {
+    logger.error('Bidding', `Bid too low: ${bid} <= ${state.highestBid}`);
     throw new Error(
       `Bid of ${bid} must exceed the current highest bid of ${state.highestBid}.`,
     );
@@ -97,8 +113,17 @@ export function placeBid(
 // ─── Pass Bid ─────────────────────────────────────────────────────────────────
 
 export function passBid(state: GameState, seat: SeatPosition): GameState {
+  logger.debug(
+    'Bidding',
+    `passBid: seat=${seat}, currentSeat=${state.currentSeat}`,
+  );
+
   // Validate: must be the current bidder
   if (state.currentSeat !== seat) {
+    logger.error(
+      'Bidding',
+      `Not ${seat}'s turn to pass. Current: ${state.currentSeat}`,
+    );
     throw new Error(`It is not ${seat}'s turn to bid.`);
   }
 
@@ -123,6 +148,10 @@ export function passBid(state: GameState, seat: SeatPosition): GameState {
       resolvedBid = BID_MIN;
     }
 
+    logger.info(
+      'Bidding',
+      `All passed - resolved to ${resolvedBidder} with bid ${resolvedBid}`,
+    );
     return {
       ...state,
       players: newPlayers,
@@ -168,12 +197,22 @@ export function selectTrump(
     throw new Error(`Invalid suit: ${suit}`);
   }
 
+  const bidderIdx = SEAT_ORDER.indexOf(seat);
+  const nextPlayerIdx = (bidderIdx + 1) % SEAT_ORDER.length;
+  const firstToPlay = SEAT_ORDER[nextPlayerIdx];
+
+  logger.info(
+    'Bidding',
+    `Trump selected by ${seat}, first to play: ${firstToPlay}`,
+  );
+
   return {
     ...state,
     trumpSuit: suit,
-    trumpRevealed: false, // trump card starts hidden
-    trumpCreator: seat, // track who created the trump (for peek privilege)
-    phase: 'playing',
+    trumpRevealed: false,
+    trumpCreator: seat,
+    phase: 'dealing2',
+    currentSeat: firstToPlay,
   };
 }
 

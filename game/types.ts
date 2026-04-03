@@ -101,7 +101,7 @@ export interface GameState {
   highestBidder: SeatPosition | null;
 
   // Trump
-  trumpSuit: Suit;
+  trumpSuit: Suit | null;
   trumpRevealed: boolean;
   /**
    * The seat that won the bid and selected the trump suit.
@@ -117,6 +117,8 @@ export interface GameState {
 
   // Round & scoring
   round: number;
+  /** The seat that dealt the cards this round. Determines who bids/plays first. */
+  dealer: SeatPosition;
   // NOTE: totalRounds removed — game end is score-driven (±30), not round-count-driven.
   teamScores: Record<TeamId, number>;
 

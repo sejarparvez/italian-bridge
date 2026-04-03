@@ -61,8 +61,13 @@ const SUIT_META: Record<
 export default function BidScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { state, placePlayerBid, passPlayerBid, selectPlayerTrump } =
-    useGameStore();
+  const {
+    state,
+    placePlayerBid,
+    passPlayerBid,
+    selectPlayerTrump,
+    runBotBids,
+  } = useGameStore();
   const [selectedBid, setSelectedBid] = useState<number | null>(null);
 
   const hand = state.players.bottom.hand;
@@ -73,6 +78,16 @@ export default function BidScreen() {
   useEffect(() => {
     if (state.phase === 'playing') router.replace('/game');
   }, [state.phase, router]);
+
+  useEffect(() => {
+    if (
+      state.phase === 'bidding' &&
+      state.currentSeat !== 'bottom' &&
+      state.highestBidder === null
+    ) {
+      runBotBids();
+    }
+  }, [state.phase, state.currentSeat, state.highestBidder, runBotBids]);
 
   return (
     <Box

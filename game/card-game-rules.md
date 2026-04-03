@@ -18,6 +18,28 @@ A 4-player partnership card game with bidding and trump mechanics.
 
 ---
 
+## Seating & Turn Order
+
+Players are seated in a fixed clockwise arrangement:
+
+```
+           Bot 2 (Player 3)
+                [Top]
+
+Bot 1                        Bot 3
+(Player 2)                (Player 4)
+ [Left]                    [Right]
+
+           Human (Player 1)
+              [Bottom]
+```
+
+**Clockwise order:** Player 1 → Player 2 → Player 3 → Player 4 → Player 1 → …
+
+This order governs dealer rotation, bidding turns, and trick play.
+
+---
+
 ## Card Dealing
 
 The round is dealt in **two phases**:
@@ -31,19 +53,27 @@ The round is dealt in **two phases**:
 - Once the bid winner selects a trump suit, all players receive their remaining **8 cards**.
 - Players now hold a full hand of **13 cards** for the playing phase.
 
+### Dealer Rotation
+
+- The first dealer is **Player 1 (Human)** at the start of the game.
+- After each round, the dealer rotates **clockwise** to the next player.
+  - Rotation order: Player 1 → Player 2 → Player 3 → Player 4 → Player 1 → …
+- **Bidding starts from the player immediately to the dealer's left** (i.e., the next player clockwise).
+- **The first trick is also led by the player immediately to the dealer's left.**
+
 | Phase | When | Cards Dealt | Total in Hand |
 |-------|------|-------------|---------------|
-| Phase 1 | Game start | 5 | 5 |
+| Phase 1 | Round start | 5 | 5 |
 | Phase 2 | After trump selected | 8 | 13 |
 
-> ⚠️ **Important:** Players must commit to their bid based on only 5 cards. The remaining 8 cards are unknown during bidding — this is intentional and adds strategic risk to higher bids.
+> ⚠️ **Important:** Players commit to their bid based on only 5 cards. The remaining 8 cards are unknown during bidding — this is intentional and adds strategic risk to higher bids.
 
 ---
 
 ## Bidding Phase
 
 - Bidding starts at **7** and goes up to a maximum of **10**.
-- Players bid in turns; each bid must be higher than the previous.
+- Players bid in turns (clockwise from the player left of the dealer); each bid must be higher than the previous.
 - A player may **pass** if they don't want to bid higher.
 - The player who bids the highest **wins the bid**.
 - The **winning bidder** selects the **trump suit** for the round.
@@ -67,7 +97,7 @@ The round is dealt in **two phases**:
 - The trump card is **not visible** to any player at the start of the round.
 
 ### Peeking at the Trump
-- If the **user (human player)** wins the bid and creates the trump, they may **peek** at the hidden trump card at any time during the round.
+- If the **human player** wins the bid, they may **peek** at the hidden trump card at any time during the round. This is a private action — it does not reveal the trump to other players.
 - **Bots** that win the bid know the trump suit internally (they selected it), but the card remains hidden on the table.
 - Opponents **cannot** peek at the trump card.
 
@@ -99,7 +129,7 @@ If a player cannot follow the led suit and the trump suit has **not yet been rev
 
 Once any player has previously declared intent to trump (Option A), the trump suit is known to everyone for the rest of the round. From this point on:
 
-**No dialog is shown.** Players who cannot follow the led suit simply play any card they like from their hand. They may play a trump card to try to win the trick, or discard from another suit — it is entirely their free choice. The game does not ask them to confirm anything, because the "Reveal or Skip" decision no longer exists.
+**No dialog is shown.** Players who cannot follow the led suit simply play any card they like from their hand. They may play a trump card to try to win the trick, or discard from another suit — it is entirely their free choice.
 
 > **Example:** Trump (diamonds) was revealed two tricks ago. A club trick is led. The human has no clubs but holds diamonds. The game shows no dialog — the human simply picks whichever card they want to play. If they play a diamond, it counts as a trump and wins unless a higher trump is played.
 
@@ -153,8 +183,8 @@ Once the player commits to "Reveal & Trump":
 
 | Who | Can See Trump? |
 |-----|----------------|
-| User (if they created the trump) | ✅ Can peek anytime — privately |
-| Bots (if they created the trump) | ✅ Know internally; card stays hidden |
+| Human (if they created the trump) | ✅ Can peek anytime — privately |
+| Bots (if they created the trump) | ✅ Know internally; card stays hidden on table |
 | All players (after first "Reveal & Trump" is declared) | ✅ Revealed to everyone |
 | Opponents before any reveal | ❌ Cannot see the trump card |
 
@@ -163,7 +193,7 @@ Once the player commits to "Reveal & Trump":
 ## Scoring System
 
 ### Total Points Per Round
-There are **10 points** available each round (one per trick or as defined by card values).
+There are **10 points** available each round (one per trick).
 
 ### Targets
 
@@ -172,6 +202,8 @@ There are **10 points** available each round (one per trick or as defined by car
 | Bidding Team | Must score ≥ their bid amount |
 | Opposing Team | Must score ≥ 4 points |
 
+> ⚠️ **Note on Bid 10:** If the bidding team wins all 10 tricks, the opposing team is left with only 3 tricks — making it **mathematically impossible** for them to reach their target of 4. A successful bid of 10 therefore **always** results in −4 for the opponents.
+
 ---
 
 ### Bidding Team Scoring
@@ -179,7 +211,7 @@ There are **10 points** available each round (one per trick or as defined by car
 | Outcome | Score Change |
 |---------|-------------|
 | Score ≥ bid amount (bid 7–9) | **+ bid amount** |
-| Bid 10 and scores all 10 points | **+13** (10 + 3 bonus) |
+| Bid 10 and scores all 10 points | **+13** (10 + 3 bonus) ⭐ |
 | Score < bid amount | **− bid amount** |
 
 > ⭐ **Bid 10 Bonus:** If a team bids 10 and successfully scores all 10 points, they receive a **+3 bonus**, making the total reward **+13** instead of +10.
@@ -211,11 +243,9 @@ There are **10 points** available each round (one per trick or as defined by car
 |--------------------|-----------------|--------------------|----------------|
 | ✅ Met bid (7–9) | ✅ Scored 4+ | +bid | +4 |
 | ✅ Met bid (7–9) | ❌ Scored < 4 | +bid | −4 |
-| ✅ Bid 10, scored 10 | ❌ Opponents can only score 3 (impossible to reach 4) | **+13** ⭐ | **−4** |
+| ✅ Bid 10, scored 10 | ❌ Forced to 3 (impossible to reach 4) | **+13** ⭐ | **−4** |
 | ❌ Failed bid | ✅ Scored 4+ | −bid | +4 |
 | ❌ Failed bid | ❌ Scored < 4 | −bid | −4 |
-
-> ⚠️ **13-Trick Rule:** The game has 13 tricks total. If the bidding team wins all 10 points, the opponents are left with only 3 — making it **impossible** for them to reach their target of 4. So a successful bid of 10 **always** results in −4 for the opponents.
 
 > **Note:** Both teams' scores are evaluated independently each round.
 
@@ -228,33 +258,39 @@ The game ends immediately when **any** of the following conditions are met:
 | Condition | Result |
 |-----------|--------|
 | A team's cumulative score reaches **+30** | That team **wins** |
-| A team's cumulative score drops to **−30** | That team **loses** |
+| A team's cumulative score drops to **−30** | That team **loses** (opposing team wins) |
 
-- The first team to reach **+30** wins the game.
-- If a team's score falls to **−30**, they are **eliminated** and the opposing team wins immediately.
 - Scores can go negative; a team must recover before hitting −30.
+- If both teams simultaneously reach +30 in the same round, the team with the **higher score** wins. If scores are exactly equal, an additional tiebreaker round is played.
+- If both teams simultaneously drop to −30 in the same round, the team with the **higher score** wins. If scores are exactly equal, an additional tiebreaker round is played.
 
 ---
 
 ## Logic Flow (Per Round)
 
 ```
-1. Deal Phase 1
+1. Rotate Dealer
+   └── First round: Player 1 (Human) is dealer
+   └── Each subsequent round: dealer moves clockwise (P1 → P2 → P3 → P4 → P1 → …)
+
+2. Deal Phase 1
    └── Each player receives 5 cards (hand is partially visible)
 
-2. Bidding Phase
+3. Bidding Phase
+   └── Bidding starts from the player to the dealer's LEFT (clockwise)
    └── Players bid from 7 to 10, or pass (seeing 5 cards only)
    └── Highest bidder wins → selects trump suit
 
-3. Trump Card Setup
+4. Trump Card Setup
    └── Trump card placed face-down (hidden)
-   └── If user won the bid → user may peek at trump anytime (privately, no reveal)
+   └── If human won the bid → human may peek at trump anytime (privately, no reveal)
    └── If bot won the bid  → bot knows trump internally
 
-4. Deal Phase 2
+5. Deal Phase 2
    └── Each player receives remaining 8 cards (full 13-card hand)
 
-5. Play tricks
+6. Play Tricks
+   └── First trick is led by the player to the dealer's LEFT (clockwise)
    ├── On each trick, if a player cannot follow the led suit:
    │   ├── Trump is HIDDEN?
    │   │   ├── YES → Show "Reveal & Trump" or "Skip" dialog (human)
@@ -267,18 +303,18 @@ The game ends immediately when **any** of the following conditions are met:
    │   │   └── NO (already revealed) → No dialog; player freely plays any card
    └── Count points won by each team
 
-6. Evaluate Scores
+7. Evaluate Scores
    ├── Bidding Team:
    │   ├── bid == 10 and score == 10? → +13 (bonus round)
    │   └── score >= bid?             → +bid : -bid
    └── Opposing Team: score >= 4?    → +4   : -4
 
-7. Update cumulative totals
+8. Update cumulative totals
 
-8. Check end conditions
+9. Check end conditions
    ├── Any team total >= +30 → That team WINS
    ├── Any team total <= -30 → That team LOSES (opponent wins)
-   └── Otherwise → Next Round
+   └── Otherwise → Next Round (go to step 1)
 ```
 
 ---
@@ -295,7 +331,8 @@ The game ends immediately when **any** of the following conditions are met:
 | Both teams score exactly their target | Both teams score positively |
 | Bidding team scores all 10 points | Opponents are left with only 3 tricks — they always get −4 |
 | Bid 10 but only score 9 | No bonus; team gets −10 (failed bid) |
-| Score is tied at round end | Handle based on trick-taking tiebreaker rules |
 | A team's score goes below 0 | Allowed; they must recover before hitting −30 |
 | A team reaches −30 | They lose immediately; no further rounds played |
-| Both teams reach ±30 in the same round | +30 team wins; if both hit −30, higher score wins |
+| Both teams reach +30 in the same round | Higher score wins; if tied, play a tiebreaker round |
+| Both teams reach −30 in the same round | Higher score wins; if tied, play a tiebreaker round |
+| Dealer is skipped or disconnects mid-game | Dealer rotation always continues clockwise regardless; skip to next eligible player |

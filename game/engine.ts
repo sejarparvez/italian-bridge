@@ -1,4 +1,5 @@
 import type { Card } from '../constants/cards';
+import { logger } from '../utils/logger';
 import {
   BID_MAX,
   BID_MIN,
@@ -45,9 +46,21 @@ const PLAYER_NAMES: Record<SeatPosition, string> = {
 
 const HUMAN_SEAT: SeatPosition = 'bottom';
 
+function getNextSeat(seat: SeatPosition): SeatPosition {
+  const idx = SEAT_ORDER.indexOf(seat);
+  return SEAT_ORDER[(idx + 1) % SEAT_ORDER.length];
+}
+
+function getBiddingOrderFrom(startSeat: SeatPosition): SeatPosition[] {
+  const startIdx = SEAT_ORDER.indexOf(startSeat);
+  const nextIdx = (startIdx + 1) % SEAT_ORDER.length;
+  return [...SEAT_ORDER.slice(nextIdx), ...SEAT_ORDER.slice(0, nextIdx)];
+}
+
 // ─── Game Initialisation ──────────────────────────────────────────────────────
 
 export function createInitialState(): GameState {
+  logger.info('Engine', 'Creating initial game state');
   const deck = shuffleDeck(createDeck());
   const initialDeal = dealCards(deck, INITIAL_DEAL_COUNT);
 
@@ -56,11 +69,20 @@ export function createInitialState(): GameState {
     players[seat].hand = initialDeal[seat];
   });
 
+  const dealer: SeatPosition = 'bottom';
+  const currentSeat = getNextSeat(dealer);
+  const biddingOrder = getBiddingOrderFrom(dealer);
+
+  logger.info(
+    'Engine',
+    `Initial state: dealer=${dealer}, currentSeat=${currentSeat}, biddingOrder=${biddingOrder}`,
+  );
+
   return {
     phase: 'bidding',
     players,
-    currentSeat: 'bottom',
-    biddingOrder: [...SEAT_ORDER],
+    currentSeat: getNextSeat(dealer),
+    biddingOrder: getBiddingOrderFrom(dealer),
     currentBidderIndex: 0,
     highestBid: 0,
     highestBidder: null,
@@ -71,10 +93,9 @@ export function createInitialState(): GameState {
     completedTricks: [],
     round: 1,
     teamScores: { BT: 0, LR: 0 },
-    // roundScores starts empty and is appended at the end of every round
-    // by advanceToNextRound. The UI can read this for score history display.
     roundScores: [],
     deck,
+    dealer,
   };
 }
 
@@ -165,13 +186,20 @@ export function playCard(
   card: Card,
   wantsToTrump = false,
 ): GameState {
+  logger.debug(
+    'Engine',
+    `playCard: seat=${seat}, card=${card.id}, wantsToTrump=${wantsToTrump}, trickCards=${state.currentTrick.cards.length}`,
+  );
+
   // Guard: card must belong to this player's hand
   if (!state.players[seat].hand.some((c) => c.id === card.id)) {
+    logger.warn('Engine', `Card not in hand: ${card.id} for ${seat}`);
     return state;
   }
 
   // Guard: player must not have already played in this trick
   if (state.currentTrick.cards.some((tc) => tc.player === seat)) {
+    logger.warn('Engine', `Player already played: ${seat}`);
     return state;
   }
 
@@ -185,6 +213,7 @@ export function playCard(
       wantsToTrump,
     )
   ) {
+    logger.warn('Engine', `Invalid card: ${card.id} for ${seat}`);
     return state;
   }
 
@@ -280,17 +309,21 @@ export function revealTrump(state: GameState): GameState {
 // ─── Round Advancement ────────────────────────────────────────────────────────
 
 export function advanceToNextRound(state: GameState): GameState {
+  logger.info(
+    'Engine',
+    `advanceToNextRound: round=${state.round}, dealer=${state.dealer}`,
+  );
+
   if (isGameOver(state.teamScores)) {
+    logger.info('Engine', 'Game over - ending');
     return { ...state, phase: 'gameEnd' };
   }
 
   const newDeck = shuffleDeck(createDeck());
   const newDeal = dealCards(newDeck, INITIAL_DEAL_COUNT);
 
-  const rotatedOrder: SeatPosition[] = [
-    ...state.biddingOrder.slice(1),
-    state.biddingOrder[0],
-  ];
+  const newDealer = getNextSeat(state.dealer);
+  logger.info('Engine', `Rotating dealer: ${state.dealer} -> ${newDealer}`);
 
   const names = {} as Record<SeatPosition, string>;
   SEAT_ORDER.forEach((seat) => {
@@ -309,24 +342,29 @@ export function advanceToNextRound(state: GameState): GameState {
     { round: state.round, scores: { ...state.teamScores } },
   ];
 
+  logger.info(
+    'Engine',
+    `New round state: round=${state.round + 1}, dealer=${newDealer}, currentSeat=${getNextSeat(newDealer)}`,
+  );
+
   return {
     ...state,
     phase: 'bidding',
     players: resetPlayers,
-    currentSeat: rotatedOrder[0],
-    biddingOrder: rotatedOrder,
+    currentSeat: getNextSeat(newDealer),
+    biddingOrder: getBiddingOrderFrom(newDealer),
     currentBidderIndex: 0,
     highestBid: 0,
     highestBidder: null,
     trumpSuit: null,
-    trumpRevealed: false, // reset for the new round — new trump is hidden
+    trumpRevealed: false,
     trumpCreator: null,
     currentTrick: createEmptyTrick(),
     completedTricks: [],
     round: state.round + 1,
     deck: newDeck,
     roundScores: updatedRoundScores,
-    // teamScores intentionally NOT reset — accumulate until win/lose condition
+    dealer: newDealer,
   };
 }
 

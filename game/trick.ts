@@ -1,4 +1,5 @@
 import type { Card, Suit } from '../constants/cards';
+import { logger } from '../utils/logger';
 import type { SeatPosition } from './types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -29,18 +30,29 @@ export function addCardToTrick(
   player: SeatPosition,
   card: Card,
 ): Trick {
+  logger.debug(
+    'Trick',
+    `addCardToTrick: player=${player}, card=${card.id}, trickCards=${trick.cards.length}`,
+  );
+
   // Guard: prevent duplicate players in the same trick
   if (trick.cards.some((tc) => tc.player === player)) {
+    logger.error(
+      'Trick',
+      `Player '${player}' has already played in this trick`,
+    );
     throw new Error(`Player '${player}' has already played in this trick.`);
   }
 
   // Guard: prevent more than 4 cards in a trick
   if (trick.cards.length >= 4) {
+    logger.error('Trick', 'Trick is already complete');
     throw new Error('Trick is already complete — cannot add more cards.');
   }
 
   // Lead suit is set by the first card played and never changes
   const leadSuit = trick.leadSuit ?? card.suit;
+  logger.debug('Trick', `Lead suit set: ${leadSuit}`);
 
   return {
     ...trick,
@@ -63,7 +75,13 @@ export function addCardToTrick(
  * @throws if no lead suit cards are found (data integrity error).
  */
 export function getTrickWinner(trick: Trick, trump: Suit | null): SeatPosition {
+  logger.debug(
+    'Trick',
+    `getTrickWinner: cards=${trick.cards.length}, trump=${trump}`,
+  );
+
   if (trick.cards.length === 0) {
+    logger.error('Trick', 'Cannot determine winner of an empty trick');
     throw new Error('Cannot determine winner of an empty trick.');
   }
 
@@ -71,12 +89,15 @@ export function getTrickWinner(trick: Trick, trump: Suit | null): SeatPosition {
   if (trump !== null) {
     const trumpCards = trick.cards.filter((tc) => tc.card.suit === trump);
     if (trumpCards.length > 0) {
-      return highestCard(trumpCards).player;
+      const winner = highestCard(trumpCards).player;
+      logger.debug('Trick', `Trick winner (trump): ${winner}`);
+      return winner;
     }
   }
 
   // No trump played — highest card of lead suit wins
   if (trick.leadSuit === null) {
+    logger.error('Trick', 'Trick has cards but no lead suit');
     throw new Error('Trick has cards but no lead suit — data integrity error.');
   }
 

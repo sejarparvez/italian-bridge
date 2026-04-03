@@ -11,12 +11,12 @@ export default function TrumpMiniCard({
   revealed,
   canPeek,
 }: {
-  suit: string;
+  suit: string | null;
   revealed: boolean;
   canPeek: boolean;
 }) {
   const isRed = suit === 'hearts' || suit === 'diamonds';
-  const symbol = SUIT_SYMBOLS[suit as keyof typeof SUIT_SYMBOLS];
+  const symbol = suit ? SUIT_SYMBOLS[suit as keyof typeof SUIT_SYMBOLS] : '';
   const faceColor = isRed ? '#FFF5F5' : '#F5F7FF';
   const suitColor = isRed ? '#D42B2B' : '#1A1A2E';
   const borderColor = isRed ? 'rgba(212,43,43,0.3)' : 'rgba(26,26,46,0.25)';

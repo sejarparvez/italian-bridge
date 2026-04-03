@@ -14,6 +14,7 @@ import {
   playCard,
 } from '../game/engine';
 import type { BotPlayResult, Difficulty, GameState } from '../game/types';
+import { logger } from '../utils/logger';
 
 // ─── Store Interface ──────────────────────────────────────────────────────────
 
@@ -49,18 +50,31 @@ export const useGameStore = create<GameStore>((set, get) => ({
   setDifficulty: (difficulty) => set({ difficulty }),
   setAnimSpeed: (animSpeed) => set({ animSpeed }),
 
-  startNewGame: () => set({ state: createInitialState() }),
+  startNewGame: () => {
+    logger.info('GameStore', 'Starting new game');
+    set({ state: createInitialState() });
+  },
 
   // ── Player Bidding ──────────────────────────────────────────────────────────
 
   placePlayerBid: (bid) => {
+    logger.info('GameStore', `Player placing bid: ${bid}`);
     const newState = placeBid(get().state, 'bottom', bid);
+    logger.debug(
+      'GameStore',
+      `After placeBid: phase=${newState.phase}, currentSeat=${newState.currentSeat}, highestBid=${newState.highestBid}, highestBidder=${newState.highestBidder}`,
+    );
     set({ state: newState });
     afterBidState(newState, get);
   },
 
   passPlayerBid: () => {
+    logger.info('GameStore', 'Player passing bid');
     const newState = enginePassBid(get().state, 'bottom');
+    logger.debug(
+      'GameStore',
+      `After passBid: phase=${newState.phase}, currentSeat=${newState.currentSeat}`,
+    );
     set({ state: newState });
     afterBidState(newState, get);
   },
@@ -68,21 +82,35 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ── Trump Selection ─────────────────────────────────────────────────────────
 
   selectPlayerTrump: (suit) => {
+    logger.info('GameStore', `Player selecting trump: ${suit}`);
     const newState = selectTrump(get().state, suit, 'bottom');
-    const dealtState = dealSecondPhase({ ...newState, phase: 'dealing2' });
-    set({ state: { ...dealtState, phase: 'dealing2' } });
-    setTimeout(() => {
-      set((s) => ({ state: { ...s.state, phase: 'playing' } }));
-    }, 800 / get().animSpeed);
+    const dealtState = dealSecondPhase(newState);
+    logger.debug(
+      'GameStore',
+      `After dealSecondPhase: phase=${dealtState.phase}, currentSeat=${dealtState.currentSeat}, handSize=${dealtState.players.bottom.hand.length}`,
+    );
+    set({ state: dealtState });
+    afterPlayState(dealtState, get);
   },
 
   // ── Player Card Play ────────────────────────────────────────────────────────
 
   playPlayerCard: (cardId, wantsToTrump = false) => {
+    logger.info(
+      'GameStore',
+      `Player playing card: ${cardId}, wantsToTrump=${wantsToTrump}`,
+    );
     const card = get().state.players.bottom.hand.find((c) => c.id === cardId);
-    if (!card) return;
+    if (!card) {
+      logger.error('GameStore', `Card not found in hand: ${cardId}`);
+      return;
+    }
 
     const newState = playCard(get().state, 'bottom', card, wantsToTrump);
+    logger.debug(
+      'GameStore',
+      `After playCard: phase=${newState.phase}, currentSeat=${newState.currentSeat}, trickCards=${newState.currentTrick.cards.length}`,
+    );
     set({ state: newState });
     afterPlayState(newState, get);
   },
@@ -90,72 +118,140 @@ export const useGameStore = create<GameStore>((set, get) => ({
   revealTrump: () => {
     const { state } = get();
     if (state.trumpRevealed) return;
+    logger.info('GameStore', 'Player revealing trump');
     set({ state: { ...state, trumpRevealed: true } });
   },
 
   // ── Bot Bidding ─────────────────────────────────────────────────────────────
 
   runBotBids: () => {
-    const { difficulty } = get();
-    let currentState = get().state;
-    if (currentState.phase !== 'bidding') return;
-
-    const processBots = () => {
+    try {
+      const { difficulty } = get();
+      let currentState = get().state;
       if (currentState.phase !== 'bidding') {
-        if (currentState.phase === 'dealing2') {
-          // Only auto-deal if a BOT won the bid
-          if (currentState.highestBidder !== 'bottom') {
-            setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
-          } else {
-            console.log(
-              '[RUN_BOTS] Human won bid - waiting for human to select trump',
-            );
-          }
-        }
+        logger.debug(
+          'GameStore',
+          `runBotBids skipped: phase=${currentState.phase}`,
+        );
         return;
       }
 
-      const { biddingOrder, currentBidderIndex } = currentState;
-      const seat = biddingOrder[currentBidderIndex];
+      logger.info(
+        'GameStore',
+        `Starting bot bidding: currentSeat=${currentState.currentSeat}, biddingOrder=${currentState.biddingOrder}`,
+      );
 
-      // Skip human — they act via placePlayerBid / passPlayerBid
-      if (seat === 'bottom') return;
-
-      const hand = currentState.players[seat].hand;
-
-      const botBid = getBotBid(hand, difficulty, currentState.highestBid);
-
-      currentState =
-        botBid === 0
-          ? enginePassBid(currentState, seat)
-          : placeBid(currentState, seat, botBid);
-
-      set({ state: currentState });
-
-      if (currentState.phase === 'dealing2') {
-        // Only auto-deal if a BOT won the bid
-        if (currentState.highestBidder !== 'bottom') {
-          setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
-        } else {
-          console.log(
-            '[RUN_BOTS] Human won bid after bot bid - waiting for human to select trump',
+      const processBots = () => {
+        try {
+          currentState = get().state;
+          logger.debug(
+            'GameStore',
+            `processBots loop: phase=${currentState.phase}, currentBidderIndex=${currentState.currentBidderIndex}`,
           );
+
+          if (currentState.phase !== 'bidding') {
+            if (currentState.phase === 'dealing2') {
+              logger.info(
+                'GameStore',
+                `Bidding ended: dealing2, highestBidder=${currentState.highestBidder}`,
+              );
+              if (currentState.highestBidder !== 'bottom') {
+                logger.info(
+                  'GameStore',
+                  `Bot won bid, triggering dealRemainingCards`,
+                );
+                setTimeout(
+                  () => get().dealRemainingCards(),
+                  800 / get().animSpeed,
+                );
+              } else {
+                logger.info(
+                  'GameStore',
+                  'Human won bid - waiting for human to select trump',
+                );
+              }
+            }
+            return;
+          }
+
+          const { biddingOrder, currentBidderIndex } = currentState;
+          const seat = biddingOrder[currentBidderIndex];
+          logger.debug(
+            'GameStore',
+            `Processing bot bid: seat=${seat}, currentBidderIndex=${currentBidderIndex}`,
+          );
+
+          if (seat === 'bottom') {
+            logger.debug(
+              'GameStore',
+              `Human's turn to bid - skipping bot processing`,
+            );
+            return;
+          }
+
+          const hand = currentState.players[seat].hand;
+          logger.debug('GameStore', `Bot ${seat} hand size: ${hand.length}`);
+
+          const botBid = getBotBid(hand, difficulty, currentState.highestBid);
+          logger.debug('GameStore', `Bot ${seat} bid decision: ${botBid}`);
+
+          currentState =
+            botBid === 0
+              ? enginePassBid(currentState, seat)
+              : placeBid(currentState, seat, botBid);
+
+          set({ state: currentState });
+          logger.debug(
+            'GameStore',
+            `After bot bid: phase=${currentState.phase}, highestBid=${currentState.highestBid}`,
+          );
+
+          if (currentState.phase === 'dealing2') {
+            logger.info(
+              'GameStore',
+              `Bidding ended: dealing2, highestBidder=${currentState.highestBidder}`,
+            );
+            if (currentState.highestBidder !== 'bottom') {
+              logger.info(
+                'GameStore',
+                'Bot won bid - triggering dealRemainingCards',
+              );
+              setTimeout(
+                () => get().dealRemainingCards(),
+                800 / get().animSpeed,
+              );
+            } else {
+              logger.info(
+                'GameStore',
+                'Human won bid - waiting for human to select trump',
+              );
+            }
+            return;
+          }
+
+          setTimeout(processBots, 500 / get().animSpeed);
+        } catch (err) {
+          logger.error('GameStore', `Error in processBots: ${err}`);
         }
-        return;
-      }
+      };
 
-      setTimeout(processBots, 500 / get().animSpeed);
-    };
-
-    setTimeout(processBots, 300 / get().animSpeed);
+      setTimeout(processBots, 300 / get().animSpeed);
+    } catch (err) {
+      logger.error('GameStore', `Error in runBotBids: ${err}`);
+    }
   },
 
   // ── Second Deal ─────────────────────────────────────────────────────────────
 
   dealRemainingCards: () => {
+    logger.info('GameStore', 'Starting dealRemainingCards');
     const currentState = get().state;
     const { difficulty } = get();
     const bidder = currentState.highestBidder;
+    logger.debug(
+      'GameStore',
+      `dealRemainingCards: bidder=${bidder}, highestBid=${currentState.highestBid}`,
+    );
 
     if (bidder && !currentState.players[bidder].isHuman) {
       const trump = selectBotTrump(
@@ -163,54 +259,103 @@ export const useGameStore = create<GameStore>((set, get) => ({
         currentState.highestBid,
         difficulty,
       );
+      logger.info('GameStore', `Bot selecting trump: ${trump}`);
       const trumpState = selectTrump(currentState, trump, bidder);
-      const nextState = dealSecondPhase({ ...trumpState, phase: 'dealing2' });
+      const nextState = dealSecondPhase(trumpState);
+      logger.debug(
+        'GameStore',
+        `After dealSecondPhase: phase=${nextState.phase}, currentSeat=${nextState.currentSeat}, handSize=${nextState.players.bottom.hand.length}`,
+      );
       set({ state: nextState });
       afterPlayState(nextState, get);
+    } else {
+      logger.warn(
+        'GameStore',
+        `dealRemainingCards skipped: bidder=${bidder}, isHuman=${bidder ? currentState.players[bidder].isHuman : 'N/A'}`,
+      );
     }
   },
 
   // ── AI Play ─────────────────────────────────────────────────────────────────
 
   advanceAI: () => {
-    const { state, difficulty } = get();
-    if (state.phase !== 'playing') return;
+    try {
+      const { state, difficulty } = get();
+      logger.debug(
+        'GameStore',
+        `advanceAI: phase=${state.phase}, currentSeat=${state.currentSeat}`,
+      );
+      if (state.phase !== 'playing') {
+        logger.debug('GameStore', `advanceAI skipped: not in playing phase`);
+        return;
+      }
 
-    const currentSeat = state.currentSeat;
-    if (currentSeat === 'bottom') return;
+      const currentSeat = state.currentSeat;
+      if (currentSeat === 'bottom') {
+        logger.debug('GameStore', `advanceAI skipped: human's turn`);
+        return;
+      }
 
-    const hand = state.players[currentSeat].hand;
+      const hand = state.players[currentSeat].hand;
+      logger.debug(
+        'GameStore',
+        `Bot ${currentSeat} playing, hand size: ${hand.length}`,
+      );
 
-    const botPlay = getBotPlay(
-      hand,
-      state.currentTrick,
-      state.trumpSuit,
-      state.trumpRevealed,
-      state,
-      difficulty,
-      currentSeat,
-    );
+      const botPlay = getBotPlay(
+        hand,
+        state.currentTrick,
+        state.trumpSuit,
+        state.trumpRevealed,
+        state,
+        difficulty,
+        currentSeat,
+      );
 
-    if (!botPlay) return;
+      if (!botPlay) {
+        logger.warn('GameStore', `Bot play returned null for ${currentSeat}`);
+        return;
+      }
 
-    const isBotPlayResult = (v: unknown): v is BotPlayResult =>
-      typeof v === 'object' && v !== null && 'card' in v && 'wantsToTrump' in v;
+      const isBotPlayResult = (v: unknown): v is BotPlayResult =>
+        typeof v === 'object' &&
+        v !== null &&
+        'card' in v &&
+        'wantsToTrump' in v;
 
-    const botCard = isBotPlayResult(botPlay) ? botPlay.card : (botPlay as Card);
-    const wantsToTrump = isBotPlayResult(botPlay)
-      ? botPlay.wantsToTrump
-      : false;
+      const botCard = isBotPlayResult(botPlay)
+        ? botPlay.card
+        : (botPlay as Card);
+      const wantsToTrump = isBotPlayResult(botPlay)
+        ? botPlay.wantsToTrump
+        : false;
 
-    const newState = playCard(state, currentSeat, botCard, wantsToTrump);
-    set({ state: newState });
-    afterPlayState(newState, get);
+      logger.info(
+        'GameStore',
+        `Bot ${currentSeat} playing: ${botCard.id}, wantsToTrump=${wantsToTrump}`,
+      );
+      const newState = playCard(state, currentSeat, botCard, wantsToTrump);
+      logger.debug(
+        'GameStore',
+        `After bot play: phase=${newState.phase}, currentSeat=${newState.currentSeat}, trickCards=${newState.currentTrick.cards.length}`,
+      );
+      set({ state: newState });
+      afterPlayState(newState, get);
+    } catch (err) {
+      logger.error('GameStore', `Error in advanceAI: ${err}`);
+    }
   },
 
   // ── Trick Cleanup ───────────────────────────────────────────────────────────
 
   clearTrick: () => {
+    logger.info('GameStore', 'Clearing trick');
     const { state } = get();
     const trickWinner = state.currentTrick.winningSeat ?? state.currentSeat;
+    logger.debug(
+      'GameStore',
+      `Trick winner: ${trickWinner}, completedTricks: ${state.completedTricks.length}`,
+    );
 
     const newState: GameState = {
       ...state,
@@ -229,7 +374,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
   // ── Round Advancement ───────────────────────────────────────────────────────
 
   nextRound: () => {
+    logger.info('GameStore', 'Advancing to next round');
     const newState = advanceToNextRound(get().state);
+    logger.debug(
+      'GameStore',
+      `After nextRound: phase=${newState.phase}, round=${newState.round}, dealer=${newState.dealer}, currentSeat=${newState.currentSeat}`,
+    );
     set({ state: newState });
 
     if (newState.phase === 'gameEnd') return;
@@ -253,12 +403,34 @@ function afterBidState(newState: GameState, get: () => GameStore): void {
 }
 
 function afterPlayState(newState: GameState, get: () => GameStore): void {
+  logger.debug(
+    'GameStore',
+    `afterPlayState: phase=${newState.phase}, currentSeat=${newState.currentSeat}, trickCards=${newState.currentTrick.cards.length}`,
+  );
+
   if (newState.phase === 'trickEnd') {
-    setTimeout(() => get().clearTrick(), 1200 / get().animSpeed);
+    logger.info('GameStore', 'Scheduling clearTrick');
+    setTimeout(() => {
+      try {
+        get().clearTrick();
+      } catch (err) {
+        logger.error('GameStore', `Error in clearTrick: ${err}`);
+      }
+    }, 1200 / get().animSpeed);
   } else if (
     newState.phase === 'playing' &&
     newState.currentSeat !== 'bottom'
   ) {
-    setTimeout(() => get().advanceAI(), 500 / get().animSpeed);
+    logger.info(
+      'GameStore',
+      `Scheduling advanceAI for ${newState.currentSeat}`,
+    );
+    setTimeout(() => {
+      try {
+        get().advanceAI();
+      } catch (err) {
+        logger.error('GameStore', `Error in advanceAI: ${err}`);
+      }
+    }, 500 / get().animSpeed);
   }
 }
