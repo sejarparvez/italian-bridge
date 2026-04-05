@@ -1,8 +1,7 @@
-
 import { useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { BottomHand } from '../components/game/BottomHand';
+import { BottomHand, HAND_HEIGHT } from '../components/game/BottomHand';
 import { SideFan, TopFan } from '../components/game/CardFan';
 import { DealingAnimation } from '../components/game/DealingAnimation';
 import { Deck } from '../components/game/Deck';
@@ -29,6 +28,7 @@ export default function GameScreen() {
   const isDealing = state.isDealing;
   const showDeck = state.deckCount > 0;
   const showAnimation = state.isDealing && state.currentCardIndex > 0;
+  const bottomHand = state.playerHands.bottom;
 
   const handleMenuAction = (action: string) => {
     setMenuVisible(false);
@@ -93,8 +93,7 @@ export default function GameScreen() {
       <View style={styles.bottomArea}>
         <UserPanel />
         <View style={styles.bottomHandWrapper}>
-          {!isDealing &&
-            (showHands ? <BottomHand count={13} /> : <BottomHand count={10} />)}
+          {!isDealing && <BottomHand hand={bottomHand} />}
         </View>
       </View>
 
@@ -150,8 +149,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   bottomHandWrapper: {
-    flex: 1,
+    position: 'absolute',
+    left: 27,
+    right: 0,
+    bottom: 16, // sits above paddingBottom
+    height: HAND_HEIGHT, // defined in game.tsx wrapper
     alignItems: 'center',
     justifyContent: 'flex-end',
+    overflow: 'visible', // cards arc outside bounds — must not clip
   },
 });
