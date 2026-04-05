@@ -1,11 +1,11 @@
-import type { Card, Suit } from '../../constants/cards';
-import { getPlayableCards, getTrickWinner, type Trick } from '../trick';
 import type {
   BotPlayResult,
   Difficulty,
   GameState,
   SeatPosition,
-} from '../types';
+} from '@/types/game-type';
+import type { Card, Suit } from '../../constants/cards';
+import { getPlayableCards, getTrickWinner, type Trick } from '../trick';
 import { HIGH_CARD_THRESHOLD } from './bot-bidding';
 
 // ─── Entry Point ──────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
+import type { Player, SeatPosition, TeamId } from '@/types/game-type';
 import { BID_MAX } from './bidding';
-import type { Player, SeatPosition, TeamId } from './types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

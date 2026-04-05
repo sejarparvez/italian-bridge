@@ -1,3 +1,4 @@
+import type { GameState, Player, SeatPosition } from '@/types/game-type';
 import type { Card } from '../constants/cards';
 import { logger } from '../utils/logger';
 import {
@@ -16,7 +17,6 @@ import {
   getTrickWinner,
   isValidCard,
 } from './trick';
-import type { GameState, Player, SeatPosition } from './types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

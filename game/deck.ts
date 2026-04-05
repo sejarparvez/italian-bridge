@@ -1,10 +1,10 @@
+import type { SeatPosition } from '@/types/game-type';
 import {
   ALL_RANKS,
   ALL_SUITS,
   type Card,
   RANK_ORDER,
 } from '../constants/cards';
-import type { SeatPosition } from './types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

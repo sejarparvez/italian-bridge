@@ -1,19 +1,19 @@
 import { create } from 'zustand';
-import type { Card, Suit } from '@/constants/cards';
-import { getBotBid, selectBotTrump } from '@/game/bot/bot-bidding';
-import { getBotPlay } from '@/game/bot/bot-play';
+import type { BotPlayResult, Difficulty, GameState } from '@/types/game-type';
+import type { Card, Suit } from '../constants/cards';
 import {
   passBid as enginePassBid,
   placeBid,
   selectTrump,
 } from '../game/bidding';
+import { getBotBid, selectBotTrump } from '../game/bot/bot-bidding';
+import { getBotPlay } from '../game/bot/bot-play';
 import {
   advanceToNextRound,
   createInitialState,
   dealSecondPhase,
   playCard,
 } from '../game/engine';
-import type { BotPlayResult, Difficulty, GameState } from '../game/types';
 import { logger } from '../utils/logger';
 
 // ─── Store Interface ──────────────────────────────────────────────────────────
@@ -35,7 +35,14 @@ interface GameStore {
   advanceAI: () => void;
   clearTrick: () => void;
   nextRound: () => void;
-  getState: () => GameStore;
+}
+
+// ─── Safe speed helper ────────────────────────────────────────────────────────
+// Prevents division by zero if animSpeed is ever set to 0.
+// All setTimeout calls go through this instead of dividing directly.
+
+function delay(ms: number, speed: number): number {
+  return ms / Math.max(0.1, speed);
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -44,8 +51,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
   state: createInitialState(),
   difficulty: 'medium',
   animSpeed: 1,
-
-  getState: () => get(),
 
   setDifficulty: (difficulty) => set({ difficulty }),
   setAnimSpeed: (animSpeed) => set({ animSpeed }),
@@ -162,7 +167,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 );
                 setTimeout(
                   () => get().dealRemainingCards(),
-                  800 / get().animSpeed,
+                  delay(800, get().animSpeed),
                 );
               } else {
                 logger.info(
@@ -218,7 +223,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               );
               setTimeout(
                 () => get().dealRemainingCards(),
-                800 / get().animSpeed,
+                delay(800, get().animSpeed),
               );
             } else {
               logger.info(
@@ -229,13 +234,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
             return;
           }
 
-          setTimeout(processBots, 500 / get().animSpeed);
+          setTimeout(processBots, delay(500, get().animSpeed));
         } catch (err) {
           logger.error('GameStore', `Error in processBots: ${err}`);
         }
       };
 
-      setTimeout(processBots, 300 / get().animSpeed);
+      setTimeout(processBots, delay(300, get().animSpeed));
     } catch (err) {
       logger.error('GameStore', `Error in runBotBids: ${err}`);
     }
@@ -367,7 +372,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     set({ state: newState });
 
     if (newState.phase === 'playing' && newState.currentSeat !== 'bottom') {
-      setTimeout(() => get().advanceAI(), 300 / get().animSpeed);
+      setTimeout(() => get().advanceAI(), delay(300, get().animSpeed));
     }
   },
 
@@ -385,7 +390,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (newState.phase === 'gameEnd') return;
 
     if (newState.phase === 'bidding' && newState.currentSeat !== 'bottom') {
-      setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
+      setTimeout(() => get().runBotBids(), delay(600, get().animSpeed));
     }
   },
 }));
@@ -394,10 +399,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
 function afterBidState(newState: GameState, get: () => GameStore): void {
   if (newState.phase === 'bidding' && newState.currentSeat !== 'bottom') {
-    setTimeout(() => get().runBotBids(), 600 / get().animSpeed);
+    setTimeout(() => get().runBotBids(), delay(600, get().animSpeed));
   } else if (newState.phase === 'dealing2') {
     if (newState.highestBidder !== 'bottom') {
-      setTimeout(() => get().dealRemainingCards(), 800 / get().animSpeed);
+      setTimeout(() => get().dealRemainingCards(), delay(800, get().animSpeed));
     }
   }
 }
@@ -410,13 +415,16 @@ function afterPlayState(newState: GameState, get: () => GameStore): void {
 
   if (newState.phase === 'trickEnd') {
     logger.info('GameStore', 'Scheduling clearTrick');
-    setTimeout(() => {
-      try {
-        get().clearTrick();
-      } catch (err) {
-        logger.error('GameStore', `Error in clearTrick: ${err}`);
-      }
-    }, 1200 / get().animSpeed);
+    setTimeout(
+      () => {
+        try {
+          get().clearTrick();
+        } catch (err) {
+          logger.error('GameStore', `Error in clearTrick: ${err}`);
+        }
+      },
+      delay(1200, get().animSpeed),
+    );
   } else if (
     newState.phase === 'playing' &&
     newState.currentSeat !== 'bottom'
@@ -425,12 +433,15 @@ function afterPlayState(newState: GameState, get: () => GameStore): void {
       'GameStore',
       `Scheduling advanceAI for ${newState.currentSeat}`,
     );
-    setTimeout(() => {
-      try {
-        get().advanceAI();
-      } catch (err) {
-        logger.error('GameStore', `Error in advanceAI: ${err}`);
-      }
-    }, 500 / get().animSpeed);
+    setTimeout(
+      () => {
+        try {
+          get().advanceAI();
+        } catch (err) {
+          logger.error('GameStore', `Error in advanceAI: ${err}`);
+        }
+      },
+      delay(500, get().animSpeed),
+    );
   }
 }

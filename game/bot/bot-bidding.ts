@@ -1,6 +1,6 @@
+import type { Difficulty } from '@/types/game-type';
 import { ALL_SUITS, type Card, type Suit } from '../../constants/cards';
 import { BID_MAX, BID_MIN } from '../bidding';
-import type { Difficulty } from '../types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 

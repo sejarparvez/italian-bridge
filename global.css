@@ -1,10 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 :root {
   --font-display:
-    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
-    Segoe UI Symbol, Noto Color Emoji;
+    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif,
+    Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
   --font-mono:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono,
     Courier New, monospace;
@@ -12,4 +9,53 @@
     "SF Pro Rounded", "Hiragino Maru Gothic ProN", Meiryo, "MS PGothic",
     sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;
+
+  /* ── Felt green — table surface, backgrounds, panels ─────────────── */
+  --felt-900: #0b3323; /* page / table background */
+  --felt-800: #0f4530; /* deep panel, trump-revealed state */
+  --felt-700: #145c40; /* sidebar, secondary panels */
+  --felt-600: #1a7a54; /* borders on felt */
+  --felt-500: #229966; /* interactive hover on felt */
+  --felt-400: #3db87a; /* active state, progress fill */
+  --felt-300: #7dd4a8; /* text on dark felt */
+
+  /* ── Gold — bids, trump badge, score highlights ───────────────────── */
+  --gold-900: #4a2800;
+  --gold-800: #6b3a00;
+  --gold-700: #8f5000; /* bid-10 bonus background */
+  --gold-600: #ba7517; /* borders, secondary gold */
+  --gold-500: #ef9f27; /* trump highlight, bid chip */
+  --gold-400: #fac775; /* text on dark gold bg */
+  --gold-300: #faeeda; /* very light tint */
+
+  /* ── Ivory/parchment — card faces, dialogs ───────────────────────── */
+  --ivory-900: #2c2a24;
+  --ivory-800: #444339;
+  --ivory-700: #5f5e52;
+  --ivory-600: #888778; /* muted text on ivory */
+  --ivory-500: #c8c6b8; /* borders on card face */
+  --ivory-400: #e4e2d8; /* secondary card surface */
+  --ivory-300: #f5f3eb; /* card face */
+
+  /* ── Suit colors ──────────────────────────────────────────────────── */
+  --suit-black: #1a1a1a; /* ♠ spades, ♣ clubs */
+  --suit-red: #c0392b; /* ♥ hearts, ♦ diamonds */
+
+  /* ── Semantic UI states ───────────────────────────────────────────── */
+  --score-positive-bg: #145c40; /* positive score chip bg */
+  --score-positive-text: #7dd4a8; /* positive score chip text */
+  --score-negative-bg: #791f1f; /* negative score chip bg */
+  --score-negative-text: #f7c1c1; /* negative score chip text */
+  --bonus-bg: #8f5000; /* bid-10 bonus ⭐ bg */
+  --bonus-text: #fac775; /* bid-10 bonus text */
+  --trump-reveal-bg: #0f4530; /* trump revealed banner bg */
+  --trump-reveal-text: #9fe1cb; /* trump revealed banner text */
+
+  /* ── Aliases (convenience) ───────────────────────────────────────── */
+  --table-bg: var(--felt-900);
+  --card-face: var(--ivory-300);
+  --card-border: var(--ivory-500);
+  --trump-highlight: var(--gold-500);
+  --text-on-felt: var(--felt-300);
+  --text-on-card: var(--ivory-900);
 }

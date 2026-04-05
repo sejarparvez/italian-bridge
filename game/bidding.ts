@@ -1,7 +1,7 @@
+import type { GameState, Player, SeatPosition } from '@/types/game-type';
 import type { Card, Suit } from '../constants/cards';
 import { logger } from '../utils/logger';
 import { SEAT_ORDER } from './engine';
-import type { GameState, Player, SeatPosition } from './types';
 
 export const BID_MIN = 7;
 export const BID_MAX = 10;

@@ -1,6 +1,6 @@
+import type { SeatPosition } from '@/types/game-type';
 import type { Card, Suit } from '../constants/cards';
 import { logger } from '../utils/logger';
-import type { SeatPosition } from './types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
