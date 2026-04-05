@@ -2,14 +2,15 @@
   "expo": {
     "name": "Italian Bridge",
     "slug": "italian-bridge",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "landscape",
     "icon": "./assets/images/icon.png",
     "scheme": "italianbridge",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "requireFullScreen": true
+      "requireFullScreen": true,
+      "bundleIdentifier": "com.italianbridge.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -36,7 +37,7 @@
       [
         "expo-screen-orientation",
         {
-          "initialOrientation": "LANDSCAPE"
+          "allowedOrientations": ["LANDSCAPE_LEFT", "LANDSCAPE_RIGHT"]
         }
       ]
     ],
