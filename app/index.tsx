@@ -1,65 +1,11 @@
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import {
-  Dimensions,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  type TextStyle,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { Dimensions, Image, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import splashImage from '../assets/images/splash.png';
+import { MenuButton } from '../components/MenuButton';
 
 const { width: SCREEN_W } = Dimensions.get('window');
-
-interface MenuButtonProps {
-  title: string;
-  onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost';
-  delay?: number;
-  disabled?: boolean;
-}
-
-function MenuButton({
-  title,
-  onPress,
-  variant = 'secondary',
-  delay,
-  disabled,
-}: MenuButtonProps) {
-  const variantStyle =
-    styles[
-      `btn${variant.charAt(0).toUpperCase() + variant.slice(1)}` as keyof typeof styles
-    ];
-  const variantText = styles[
-    `btnText${variant.charAt(0).toUpperCase() + variant.slice(1)}` as keyof typeof styles
-  ] as TextStyle;
-
-  const buttonStyle: ViewStyle = {
-    ...(styles.btn as ViewStyle),
-    ...(variantStyle as ViewStyle),
-  };
-
-  return (
-    <MotiView
-      from={{ opacity: 0, translateX: 30 }}
-      animate={{ opacity: disabled ? 0.4 : 1, translateX: 0 }}
-      transition={{ delay, type: 'spring', damping: 20 }}
-    >
-      <Pressable
-        onPress={onPress}
-        disabled={disabled}
-        style={(state) => [buttonStyle, state.pressed && styles.btnPressed]}
-      >
-        <Text style={variantText}>{title}</Text>
-      </Pressable>
-    </MotiView>
-  );
-}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -194,31 +140,4 @@ const styles = StyleSheet.create({
   },
 
   btnStack: { gap: 12 },
-  btn: {
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnPrimary: { backgroundColor: '#EF9F27' },
-  btnSecondary: {
-    backgroundColor: '#145C40',
-    borderWidth: 1,
-    borderColor: '#1A7A54',
-  },
-  btnGhost: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#1A7A54',
-  },
-  btnPressed: { opacity: 0.8 },
-  btnText: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
-  btnTextPrimary: { color: '#2A1A00' },
-  btnTextSecondary: { color: '#7DD4A8' },
-  btnTextGhost: { color: '#3DB87A' },
 });
