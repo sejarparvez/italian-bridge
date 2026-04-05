@@ -5,8 +5,11 @@ import { colors } from '../../constants/colors';
 const CARD_W = 44;
 const CARD_H = 62;
 
-export function BottomHand() {
-  const count = 10;
+interface BottomHandProps {
+  count?: number;
+}
+
+export function BottomHand({ count = 10 }: BottomHandProps) {
   const spread = 11;
   const halfSpread = ((count - 1) * spread) / 2;
   return (

@@ -1,8 +1,11 @@
+
 import { useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomHand } from '../components/game/BottomHand';
 import { SideFan, TopFan } from '../components/game/CardFan';
+import { DealingAnimation } from '../components/game/DealingAnimation';
+import { Deck } from '../components/game/Deck';
 import { MenuOverlay } from '../components/game/MenuOverlay';
 import {
   SidePlayerBadge,
@@ -12,13 +15,27 @@ import {
 import { TopBar } from '../components/game/TopBar';
 import { TrickPile } from '../components/game/TrickPile';
 import { colors } from '../constants/colors';
+import { useDealing } from '../hooks/useDealing';
 
 const { height: H } = Dimensions.get('window');
 
 export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
+  const { state, startNewGame } = useDealing(true);
   const topBarHeight = insets.top + 52;
+
+  const showHands = !state.isDealing && state.deckCount === 0;
+  const isDealing = state.isDealing;
+  const showDeck = state.deckCount > 0;
+  const showAnimation = state.isDealing && state.currentCardIndex > 0;
+
+  const handleMenuAction = (action: string) => {
+    setMenuVisible(false);
+    if (action === 'New Game') {
+      startNewGame();
+    }
+  };
 
   return (
     <View style={[styles.root, { paddingBottom: insets.bottom }]}>
@@ -34,25 +51,41 @@ export default function GameScreen() {
         pointerEvents='none'
       >
         <TopPlayerBadge name='Marco' score={-2} bid={5} isActive />
-        <TopFan count={9} />
+        {!isDealing &&
+          (showHands ? <TopFan count={13} /> : <TopFan count={9} />)}
       </View>
 
       <View style={[styles.middleRow, { marginTop: topBarHeight + 20 }]}>
         <View style={styles.sideColumn}>
           <SidePlayerBadge name='Sofia' score={3} bid={4} team='us' />
-          <SideFan
-            count={8}
-            rotationBase={90}
-            style={{ top: -70, zIndex: -1 }}
-          />
+          {!isDealing &&
+            (showHands ? (
+              <SideFan
+                count={13}
+                rotationBase={90}
+                style={{ top: -70, zIndex: -1 }}
+              />
+            ) : (
+              <SideFan
+                count={8}
+                rotationBase={90}
+                style={{ top: -70, zIndex: -1 }}
+              />
+            ))}
         </View>
 
         <View style={styles.centerTable}>
-          <TrickPile />
+          {showDeck && <Deck cardCount={state.deckCount} />}
+          {!showDeck && <TrickPile />}
         </View>
 
         <View style={styles.sideColumn}>
-          <SideFan count={8} rotationBase={-90} style={{ top: 70 }} />
+          {!isDealing &&
+            (showHands ? (
+              <SideFan count={13} rotationBase={-90} style={{ top: 70 }} />
+            ) : (
+              <SideFan count={8} rotationBase={-90} style={{ top: 70 }} />
+            ))}
           <SidePlayerBadge name='Luca' score={-1} bid={4} team='them' flip />
         </View>
       </View>
@@ -60,13 +93,19 @@ export default function GameScreen() {
       <View style={styles.bottomArea}>
         <UserPanel />
         <View style={styles.bottomHandWrapper}>
-          <BottomHand />
+          {!isDealing &&
+            (showHands ? <BottomHand count={13} /> : <BottomHand count={10} />)}
         </View>
       </View>
+
+      {showAnimation && (
+        <DealingAnimation currentCardIndex={state.currentCardIndex} />
+      )}
 
       <MenuOverlay
         visible={menuVisible}
         onClose={() => setMenuVisible(false)}
+        onAction={handleMenuAction}
         panelTop={topBarHeight + 6}
       />
     </View>

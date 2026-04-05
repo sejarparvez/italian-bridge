@@ -12,10 +12,16 @@ const MENU_ACTIONS = [
 interface MenuOverlayProps {
   visible: boolean;
   onClose: () => void;
+  onAction: (action: string) => void;
   panelTop: number;
 }
 
-export function MenuOverlay({ visible, onClose, panelTop }: MenuOverlayProps) {
+export function MenuOverlay({
+  visible,
+  onClose,
+  onAction,
+  panelTop,
+}: MenuOverlayProps) {
   if (!visible) return null;
   return (
     <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
@@ -59,7 +65,7 @@ export function MenuOverlay({ visible, onClose, panelTop }: MenuOverlayProps) {
                     styles.menuItem,
                     pressed && styles.menuItemPressed,
                   ]}
-                  onPress={onClose}
+                  onPress={() => onAction(action.label)}
                 >
                   <Text style={styles.menuItemIcon}>{action.icon}</Text>
                   <Text style={[styles.menuItemLabel, { color: action.color }]}>
