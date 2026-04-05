@@ -79,7 +79,7 @@ export default function GameScreen() {
           {!showDeck && <TrickPile />}
         </View>
 
-        <View style={styles.sideColumn}>
+        <View style={[styles.sideColumn, { top: -60 }]}>
           {!isDealing &&
             (showHands ? (
               <SideFan count={13} rotationBase={-90} style={{ top: 70 }} />
