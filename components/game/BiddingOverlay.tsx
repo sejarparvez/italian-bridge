@@ -1,6 +1,6 @@
-import { useGameStore } from '@/store/game-store';
 import { MotiView } from 'moti';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useGameStore } from '@/store/game-store';
 import { colors } from '../../constants/colors';
 
 const BID_OPTIONS = [7, 8, 9, 10];

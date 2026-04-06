@@ -71,10 +71,7 @@ export function useDealing(autoStart = false): UseDealingReturn {
     }, 120);
   }, [storeStartNewGame, runBotBids]);
 
-  useEffect(() => {
-    if (gameState.phase !== 'dealing2') return;
-    if (gameState.highestBidder === 'bottom') return;
-
+  const startSecondDeal = useCallback(() => {
     setState({
       isDealing: true,
       currentCardIndex: 0,
@@ -106,54 +103,26 @@ export function useDealing(autoStart = false): UseDealingReturn {
         deckCount: remaining,
       }));
     }, 120);
+  }, []);
 
-    return () => clearInterval(dealInterval);
-  }, [gameState.phase, gameState.highestBidder]);
+  useEffect(() => {
+    if (gameState.phase !== 'dealing2') return;
+    if (gameState.highestBidder === 'bottom') return;
+
+    startSecondDeal();
+  }, [gameState.phase, gameState.highestBidder, startSecondDeal]);
 
   useEffect(() => {
     if (gameState.phase !== 'dealing2') return;
     if (gameState.highestBidder !== 'bottom') return;
     if (!gameState.trumpSuit) return;
-    if (state.isDealing) return;
 
-    setState({
-      isDealing: true,
-      currentCardIndex: 0,
-      deckCount: TOTAL_CARDS - FIRST_DEAL_TOTAL,
-      dealPhase: 'second',
-    });
-
-    let cardIndex = 0;
-    const dealInterval = setInterval(() => {
-      cardIndex++;
-      const remaining =
-        TOTAL_CARDS - FIRST_DEAL_TOTAL - Math.ceil(cardIndex / 4);
-
-      if (cardIndex >= SECOND_DEAL_TOTAL) {
-        clearInterval(dealInterval);
-        setState({
-          isDealing: false,
-          currentCardIndex: cardIndex,
-          deckCount: 0,
-          dealPhase: 'idle',
-        });
-        useGameStore.getState().dealRemainingCards();
-        return;
-      }
-
-      setState((prev) => ({
-        ...prev,
-        currentCardIndex: cardIndex,
-        deckCount: remaining,
-      }));
-    }, 120);
-
-    return () => clearInterval(dealInterval);
+    startSecondDeal();
   }, [
     gameState.phase,
     gameState.highestBidder,
     gameState.trumpSuit,
-    state.isDealing,
+    startSecondDeal,
   ]);
 
   useEffect(() => {

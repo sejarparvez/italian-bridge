@@ -37,16 +37,16 @@ export default function GameScreen() {
     gameState.phase === 'trickEnd' ||
     gameState.phase === 'roundEnd';
 
-  const showPartialHands =
-    (gameState.phase === 'bidding' || gameState.phase === 'dealing2') &&
-    !isDealing;
-
   const showBidding = gameState.phase === 'bidding';
 
   const showTrumpSelect =
     gameState.phase === 'dealing2' &&
     gameState.highestBidder === 'bottom' &&
     !isDealing;
+
+  const showPartialHands =
+    (gameState.phase === 'bidding' && !isDealing) ||
+    (gameState.phase === 'dealing2' && gameState.highestBidder === 'bottom');
 
   const showAnimation = isDealing && dealState.currentCardIndex > 0;
 
