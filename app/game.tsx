@@ -1,3 +1,6 @@
+import { BiddingPanel } from '@/components/game/BiddingOverlay';
+import { TrumpSelectPanel } from '@/components/game/TrumpSelectOverlay';
+import { useGameStore } from '@/store/game-store';
 import { useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,14 +24,33 @@ const { height: H } = Dimensions.get('window');
 export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
-  const { state, startNewGame } = useDealing(true);
+  const { state: dealState, startNewGame } = useDealing(true);
+  const { state: gameState } = useGameStore();
   const topBarHeight = insets.top + 52;
 
-  const showHands = !state.isDealing && state.deckCount === 0;
-  const isDealing = state.isDealing;
-  const showDeck = state.deckCount > 0;
-  const showAnimation = state.isDealing && state.currentCardIndex > 0;
-  const bottomHand = state.playerHands.bottom;
+  // ── Derived display flags ────────────────────────────────────────────────
+  const isDealing = dealState.isDealing;
+  const showDeck = dealState.deckCount > 0;
+
+  const showHands =
+    gameState.phase === 'playing' ||
+    gameState.phase === 'trickEnd' ||
+    gameState.phase === 'roundEnd';
+
+  const showPartialHands = gameState.phase === 'bidding' && !isDealing;
+
+  const showBidding = gameState.phase === 'bidding';
+
+  const showTrumpSelect =
+    gameState.phase === 'dealing2' &&
+    gameState.highestBidder === 'bottom' &&
+    !isDealing;
+
+  const showAnimation = isDealing && dealState.currentCardIndex > 0;
+
+  // ── Score helpers (BT = bottom+top, LR = left+right) ────────────────────
+  const btScore = gameState.teamScores?.BT ?? 0;
+  const lrScore = gameState.teamScores?.LR ?? 0;
 
   const handleMenuAction = (action: string) => {
     setMenuVisible(false);
@@ -46,61 +68,126 @@ export default function GameScreen() {
 
       <TopBar onMenuPress={() => setMenuVisible(true)} topInset={insets.top} />
 
+      {/* ── Top Player (Marco) — team BT ── */}
       <View
         style={[styles.topPlayerAbsolute, { top: topBarHeight - 40 }]}
         pointerEvents='none'
       >
-        <TopPlayerBadge name='Marco' score={-2} bid={5} isActive />
-        {!isDealing &&
-          (showHands ? <TopFan count={13} /> : <TopFan count={9} />)}
+        <TopPlayerBadge
+          name='Marco'
+          score={btScore}
+          bid={gameState.players.top.bid}
+          isActive={gameState.currentSeat === 'top'}
+        />
+        {showHands && <TopFan count={13} />}
+        {showPartialHands && <TopFan count={5} />}
       </View>
 
+      {/* ── Middle Row ── */}
       <View style={[styles.middleRow, { marginTop: topBarHeight + 20 }]}>
+        {/* Left player (Sofia) — team LR */}
         <View style={styles.sideColumn}>
-          <SidePlayerBadge name='Sofia' score={3} bid={4} team='us' />
-          {!isDealing &&
-            (showHands ? (
-              <SideFan
-                count={13}
-                rotationBase={90}
-                style={{ top: -70, zIndex: -1 }}
-              />
-            ) : (
-              <SideFan
-                count={8}
-                rotationBase={90}
-                style={{ top: -70, zIndex: -1 }}
-              />
-            ))}
+          <SidePlayerBadge
+            name='Sofia'
+            score={lrScore}
+            bid={gameState.players.left.bid}
+            team='us'
+            isActive={gameState.currentSeat === 'left'}
+          />
+          {showHands && (
+            <SideFan
+              count={13}
+              rotationBase={90}
+              style={{ top: -70, zIndex: -1 }}
+            />
+          )}
+          {showPartialHands && (
+            <SideFan
+              count={5}
+              rotationBase={90}
+              style={{ top: -70, zIndex: -1 }}
+            />
+          )}
         </View>
 
+        {/* Center table */}
         <View style={styles.centerTable}>
-          {showDeck && <Deck cardCount={state.deckCount} />}
-          {!showDeck && <TrickPile />}
+          {showDeck && <Deck cardCount={dealState.deckCount} />}
+
+          {!showDeck && !showBidding && !showTrumpSelect && <TrickPile />}
+
+          {/* Bidding UI — replace with your real BiddingPanel */}
+          {showBidding && (
+            <BiddingPanel
+              highestBid={gameState.highestBid}
+              isHumanTurn={gameState.currentSeat === 'bottom'}
+            />
+          )}
+
+          {/* Trump selection — shown when human won the bid */}
+          {showTrumpSelect && <TrumpSelectPanel />}
         </View>
 
+        {/* Right player (Luca) — team LR */}
         <View style={[styles.sideColumn, { top: -60 }]}>
-          {!isDealing &&
-            (showHands ? (
-              <SideFan count={13} rotationBase={-90} style={{ top: 70 }} />
-            ) : (
-              <SideFan count={8} rotationBase={-90} style={{ top: 70 }} />
-            ))}
-          <SidePlayerBadge name='Luca' score={-1} bid={4} team='them' flip />
+          {showHands && (
+            <SideFan count={13} rotationBase={-90} style={{ top: 70 }} />
+          )}
+          {showPartialHands && (
+            <SideFan count={5} rotationBase={-90} style={{ top: 70 }} />
+          )}
+          <SidePlayerBadge
+            name='Luca'
+            score={lrScore}
+            bid={gameState.players.right.bid}
+            team='them'
+            isActive={gameState.currentSeat === 'right'}
+            flip
+          />
         </View>
       </View>
 
+      {/* ── Bottom Area (Human Player) — team BT ── */}
       <View style={styles.bottomArea}>
-        <UserPanel />
+        <UserPanel
+          score={btScore}
+          bid={gameState.players.bottom.bid}
+          isActive={gameState.currentSeat === 'bottom'}
+        />
         <View style={styles.bottomHandWrapper}>
-          {!isDealing && <BottomHand hand={bottomHand} />}
+          {/* Full playable hand during playing phases */}
+          {showHands && (
+            <BottomHand
+              hand={gameState.players.bottom.hand}
+              onCardPress={(cardId) =>
+                useGameStore.getState().playPlayerCard(cardId)
+              }
+              currentTrick={gameState.currentTrick}
+              trumpSuit={gameState.trumpSuit}
+              trumpRevealed={gameState.trumpRevealed}
+              isMyTurn={gameState.currentSeat === 'bottom'}
+            />
+          )}
+          {/* Partial hand visible during bidding (not playable) */}
+          {showPartialHands && (
+            <BottomHand
+              hand={gameState.players.bottom.hand}
+              onCardPress={undefined}
+              currentTrick={gameState.currentTrick}
+              trumpSuit={gameState.trumpSuit}
+              trumpRevealed={gameState.trumpRevealed}
+              isMyTurn={false}
+            />
+          )}
         </View>
       </View>
 
+      {/* ── Dealing Animation ── */}
       {showAnimation && (
-        <DealingAnimation currentCardIndex={state.currentCardIndex} />
+        <DealingAnimation currentCardIndex={dealState.currentCardIndex} />
       )}
 
+      {/* ── Menu Overlay ── */}
       <MenuOverlay
         visible={menuVisible}
         onClose={() => setMenuVisible(false)}
@@ -152,10 +239,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 27,
     right: 0,
-    bottom: 16, // sits above paddingBottom
-    height: HAND_HEIGHT, // defined in game.tsx wrapper
+    bottom: 16,
+    height: HAND_HEIGHT,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    overflow: 'visible', // cards arc outside bounds — must not clip
+    overflow: 'visible',
   },
 });

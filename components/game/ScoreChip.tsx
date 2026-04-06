@@ -1,9 +1,10 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../constants/colors';
+import type { BidValue } from '../../types/game-type';
 
 interface ScoreChipProps {
   score: number;
-  bid: number;
+  bid: BidValue; // ← was `number`
 }
 
 export function ScoreChip({ score, bid }: ScoreChipProps) {
@@ -19,7 +20,8 @@ export function ScoreChip({ score, bid }: ScoreChipProps) {
         {pos ? '+' : ''}
         {score}
       </Text>
-      <Text style={styles.bidText}>BID {bid}</Text>
+      {/* null = hasn't bid yet, 0 = passed — show nothing in both cases */}
+      {bid !== null && bid > 0 && <Text style={styles.bidText}>BID {bid}</Text>}
     </View>
   );
 }

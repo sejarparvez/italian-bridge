@@ -1,12 +1,13 @@
 import { MotiView } from 'moti';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../constants/colors';
+import type { BidValue } from '../../types/game-type';
 import { ScoreChip } from './ScoreChip';
 
 interface PlayerBadgeProps {
   name: string;
   score: number;
-  bid: number;
+  bid: BidValue; // ← was `number`, now allows null
   isActive?: boolean;
 }
 
@@ -81,7 +82,13 @@ export function SidePlayerBadge({
   );
 }
 
-export function UserPanel() {
+interface UserPanelProps {
+  score: number;
+  bid: BidValue;
+  isActive?: boolean;
+}
+
+export function UserPanel({ score, bid, isActive }: UserPanelProps) {
   return (
     <MotiView
       from={{ opacity: 0, translateX: -20 }}
@@ -89,14 +96,24 @@ export function UserPanel() {
       transition={{ delay: 300, type: 'spring', damping: 18 }}
       style={styles.userPanel}
     >
-      <View style={[styles.userAvatarRing, { borderColor: colors.gold500 }]}>
+      <View
+        style={[
+          styles.userAvatarRing,
+          { borderColor: isActive ? colors.gold400 : colors.gold500 },
+        ]}
+      >
         <View style={[styles.userAvatar, { backgroundColor: '#4A2800' }]}>
           <Text style={styles.userAvatarInitial}>Y</Text>
         </View>
+        {isActive && (
+          <View
+            style={[styles.activeDot, { backgroundColor: colors.gold400 }]}
+          />
+        )}
       </View>
       <View style={styles.userInfo}>
         <Text style={styles.userName}>You</Text>
-        <ScoreChip score={5} bid={6} />
+        <ScoreChip score={score} bid={bid} />
       </View>
     </MotiView>
   );
