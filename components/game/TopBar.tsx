@@ -1,13 +1,17 @@
 import { MotiView } from 'moti';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../constants/colors';
 import type { TeamId } from '../../types/game-type';
+import { Card } from './Card';
 
 interface TopBarProps {
   onMenuPress: () => void;
   topInset: number;
   teamScores: Record<TeamId, number>;
   trumpSuit: string | null;
+  trumpRevealed: boolean;
+  isHumanTrumpCreator: boolean;
 }
 
 const SUIT_SYMBOLS: Record<string, string> = {
@@ -22,9 +26,31 @@ export function TopBar({
   topInset,
   teamScores,
   trumpSuit,
+  trumpRevealed,
+  isHumanTrumpCreator,
 }: TopBarProps) {
   const btScore = teamScores.BT ?? 0;
   const lrScore = teamScores.LR ?? 0;
+
+  const [peekRevealed, setPeekRevealed] = useState(false);
+
+  useEffect(() => {
+    if (peekRevealed) {
+      const timer = setTimeout(() => setPeekRevealed(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [peekRevealed]);
+
+  const showTrump = trumpSuit !== null;
+  const showFaceUp = trumpRevealed || peekRevealed;
+  // biome-ignore lint/style/noNonNullAssertion: this is fine
+  const trumpSuitSymbol = showFaceUp ? SUIT_SYMBOLS[trumpSuit!] : null;
+
+  const handlePeekPress = () => {
+    if (!trumpRevealed && isHumanTrumpCreator) {
+      setPeekRevealed(true);
+    }
+  };
 
   return (
     <MotiView
@@ -52,11 +78,28 @@ export function TopBar({
       </View>
 
       <View style={styles.topBarRight}>
-        {trumpSuit && (
-          <View style={styles.trumpBadge}>
-            <Text style={styles.trumpLabel}>TRUMP</Text>
-            <Text style={styles.trumpSuit}>{SUIT_SYMBOLS[trumpSuit]}</Text>
-          </View>
+        {showTrump && (
+          <Pressable
+            onPress={handlePeekPress}
+            style={({ pressed }) => [
+              styles.trumpCardWrapper,
+              pressed &&
+                isHumanTrumpCreator &&
+                !trumpRevealed &&
+                styles.trumpCardPressed,
+            ]}
+          >
+            <Card
+              faceDown={!showFaceUp}
+              suit={trumpSuitSymbol as '♠' | '♥' | '♦' | '♣' | undefined}
+              rank={showFaceUp ? 'A' : undefined}
+            />
+            {isHumanTrumpCreator && !trumpRevealed && !peekRevealed && (
+              <View style={styles.tapHint}>
+                <Text style={styles.tapHintText}>tap</Text>
+              </View>
+            )}
+          </Pressable>
         )}
         <Pressable
           onPress={onMenuPress}
@@ -96,25 +139,26 @@ const styles = StyleSheet.create({
   teamPoints: { fontSize: 17, fontWeight: '900', letterSpacing: 0.5 },
   teamBarDivider: { width: 1, height: 20, backgroundColor: colors.felt600 },
   topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  trumpBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: colors.felt800,
-    borderWidth: 1,
-    borderColor: colors.gold500,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  trumpCardWrapper: {
+    position: 'relative',
   },
-  trumpLabel: {
-    fontSize: 9,
-    fontWeight: '800',
+  trumpCardPressed: {
+    opacity: 0.8,
+  },
+  tapHint: {
+    position: 'absolute',
+    bottom: -14,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  tapHintText: {
+    fontSize: 8,
     color: colors.gold400,
-    letterSpacing: 1.5,
+    fontWeight: '700',
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  trumpSuit: { fontSize: 15, color: colors.suitBlack },
   menuBtn: {
     width: 36,
     height: 36,

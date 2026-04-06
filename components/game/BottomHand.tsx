@@ -76,8 +76,6 @@ function sortHand(hand: Card[]): Card[] {
 function getPlayableIds(
   hand: Card[],
   trick: Trick,
-  trumpSuit: Suit | null,
-  trumpRevealed: boolean,
   isMyTurn: boolean,
 ): Set<string> {
   // Not your turn — nothing is playable
@@ -88,28 +86,15 @@ function getPlayableIds(
 
   const leadSuit = trick.leadSuit;
 
-  // If lead suit is trump but trump isn't revealed yet, treat as normal suit
-  const effectiveLeadSuit =
-    leadSuit === trumpSuit && !trumpRevealed ? null : leadSuit;
+  if (!leadSuit) return new Set(hand.map((c) => c.id));
 
-  if (!effectiveLeadSuit) return new Set(hand.map((c) => c.id));
-
-  // Must follow lead suit if possible
-  const canFollow = hand.filter((c) => {
-    // Trump cards can't be used to follow non-trump lead until revealed
-    if (c.suit === trumpSuit && !trumpRevealed) return false;
-    return c.suit === effectiveLeadSuit;
-  });
+  // Must follow lead suit if possible (trump or not doesn't matter for validity)
+  const canFollow = hand.filter((c) => c.suit === leadSuit);
 
   if (canFollow.length > 0) return new Set(canFollow.map((c) => c.id));
 
-  // Can't follow — all non-trump cards playable, plus trump if revealed
-  const available = hand.filter((c) => c.suit !== trumpSuit || trumpRevealed);
-
-  // If all remaining are trump and trump isn't revealed, allow all
-  return new Set(
-    available.length > 0 ? available.map((c) => c.id) : hand.map((c) => c.id),
-  );
+  // Can't follow — all cards are playable (game logic will show trump dialog if needed)
+  return new Set(hand.map((c) => c.id));
 }
 
 // ─── Card face ────────────────────────────────────────────────────────────────
@@ -181,13 +166,7 @@ export function BottomHand({
   const sorted = sortHand(hand);
   const layouts = getHandLayout(sorted.length);
 
-  const playableIds = getPlayableIds(
-    sorted,
-    currentTrick,
-    trumpSuit,
-    trumpRevealed,
-    isMyTurn,
-  );
+  const playableIds = getPlayableIds(sorted, currentTrick, isMyTurn);
 
   if (!sorted.length) return null;
 

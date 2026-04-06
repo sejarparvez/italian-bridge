@@ -283,6 +283,10 @@ export function playCard(
     newState = {
       ...newState,
       teamScores: newTeamScores,
+      roundScores: [
+        ...newState.roundScores,
+        { round: newState.round, scores: newTeamScores },
+      ],
       phase: isGameOver(newTeamScores) ? 'gameEnd' : 'roundEnd',
     };
   }

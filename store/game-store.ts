@@ -121,6 +121,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   revealTrump: () => {
     const { state } = get();
     if (state.trumpRevealed) return;
+    if (state.phase !== 'playing' && state.phase !== 'trickEnd') {
+      logger.warn(
+        'GameStore',
+        `revealTrump called in invalid phase: ${state.phase}`,
+      );
+      return;
+    }
     logger.info('GameStore', 'Player revealing trump');
     set({ state: { ...state, trumpRevealed: true } });
   },
@@ -251,12 +258,20 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const currentState = get().state;
     const { difficulty } = get();
     const bidder = currentState.highestBidder;
+
     logger.debug(
       'GameStore',
-      `dealRemainingCards: bidder=${bidder}, highestBid=${currentState.highestBid}`,
+      `dealRemainingCards: bidder=${bidder}, phase=${currentState.phase}, highestBid=${currentState.highestBid}`,
     );
 
     if (!bidder) return;
+    if (currentState.phase !== 'dealing2') {
+      logger.warn(
+        'GameStore',
+        `dealRemainingCards skipped: wrong phase ${currentState.phase}`,
+      );
+      return;
+    }
 
     if (currentState.players[bidder].isHuman) {
       logger.info(
@@ -277,7 +292,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
         difficulty,
       );
       logger.info('GameStore', `Bot selecting trump: ${trump}`);
-      const trumpState = selectTrump(currentState, trump, bidder);
+      const trumpState = {
+        ...currentState,
+        trumpSuit: trump,
+        trumpCreator: bidder,
+      };
       const nextState = dealSecondPhase(trumpState);
       logger.debug(
         'GameStore',

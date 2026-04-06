@@ -3,6 +3,7 @@ import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BiddingPanel } from '@/components/game/BiddingOverlay';
 import { RoundEndOverlay } from '@/components/game/RoundEndOverlay';
+import { TrumpDialogOverlay } from '@/components/game/TrumpDialogOverlay';
 import { TrumpSelectPanel } from '@/components/game/TrumpSelectOverlay';
 import { useGameStore } from '@/store/game-store';
 import type { SeatPosition } from '@/types/game-type';
@@ -26,6 +27,8 @@ const { height: H } = Dimensions.get('window');
 export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [trumpDialogVisible, setTrumpDialogVisible] = useState(false);
+  const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const { state: dealState, startNewGame } = useDealing(true);
   const { state: gameState } = useGameStore();
   const topBarHeight = insets.top + 52;
@@ -50,8 +53,47 @@ export default function GameScreen() {
     (gameState.phase === 'bidding' && !isDealing) ||
     (gameState.phase === 'dealing2' && gameState.highestBidder === 'bottom');
 
-  const showChipForBadge = (seat: string | null) => {
-    return gameState.highestBidder === seat;
+  const isHumanTurn = gameState.currentSeat === 'bottom';
+  const leadSuit = gameState.currentTrick.leadSuit;
+  const humanHand = gameState.players.bottom.hand;
+  const trumpSuit = gameState.trumpSuit;
+  const trumpRevealed = gameState.trumpRevealed;
+
+  const canFollowLead = leadSuit
+    ? humanHand.some((c) => c.suit === leadSuit)
+    : true;
+
+  const showTrumpDialog =
+    isHumanTurn &&
+    leadSuit &&
+    !canFollowLead &&
+    !trumpRevealed &&
+    trumpSuit !== null;
+
+  const handleCardPress = (cardId: string) => {
+    if (showTrumpDialog) {
+      setPendingCardId(cardId);
+      setTrumpDialogVisible(true);
+    } else {
+      useGameStore.getState().playPlayerCard(cardId);
+    }
+  };
+
+  const handleRevealAndTrump = () => {
+    setTrumpDialogVisible(false);
+    useGameStore.getState().revealTrump();
+    if (pendingCardId) {
+      useGameStore.getState().playPlayerCard(pendingCardId, true);
+      setPendingCardId(null);
+    }
+  };
+
+  const handleSkip = () => {
+    setTrumpDialogVisible(false);
+    if (pendingCardId) {
+      useGameStore.getState().playPlayerCard(pendingCardId, false);
+      setPendingCardId(null);
+    }
   };
 
   const getChipProps = (seat: SeatPosition) => {
@@ -86,10 +128,6 @@ export default function GameScreen() {
 
   const showRoundEnd = gameState.phase === 'roundEnd';
 
-  // ── Score helpers (BT = bottom+top, LR = left+right) ────────────────────
-  const btScore = gameState.teamScores?.BT ?? 0;
-  const lrScore = gameState.teamScores?.LR ?? 0;
-
   const handleMenuAction = (action: string) => {
     setMenuVisible(false);
     if (action === 'New Game') {
@@ -109,6 +147,8 @@ export default function GameScreen() {
         topInset={insets.top}
         teamScores={gameState.teamScores}
         trumpSuit={gameState.trumpSuit}
+        trumpRevealed={gameState.trumpRevealed}
+        isHumanTrumpCreator={gameState.trumpCreator === 'bottom'}
       />
 
       {/* ── Top Player (Marco) — team BT ── */}
@@ -201,9 +241,7 @@ export default function GameScreen() {
           {showHands && (
             <BottomHand
               hand={gameState.players.bottom.hand}
-              onCardPress={(cardId) =>
-                useGameStore.getState().playPlayerCard(cardId)
-              }
+              onCardPress={handleCardPress}
               currentTrick={gameState.currentTrick}
               trumpSuit={gameState.trumpSuit}
               trumpRevealed={gameState.trumpRevealed}
@@ -241,7 +279,18 @@ export default function GameScreen() {
       {showRoundEnd && (
         <RoundEndOverlay
           roundScores={gameState.roundScores[gameState.roundScores.length - 1]}
+          teamScores={gameState.teamScores}
+          highestBid={gameState.highestBid}
+          highestBidder={gameState.highestBidder}
           onContinue={() => useGameStore.getState().nextRound()}
+        />
+      )}
+
+      {/* ── Trump Dialog Overlay ── */}
+      {trumpDialogVisible && (
+        <TrumpDialogOverlay
+          onReveal={handleRevealAndTrump}
+          onSkip={handleSkip}
         />
       )}
     </View>
