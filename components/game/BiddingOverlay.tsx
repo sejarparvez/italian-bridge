@@ -8,9 +8,21 @@ const BID_OPTIONS = [7, 8, 9, 10];
 interface BiddingPanelProps {
   isHumanTurn: boolean;
   highestBid: number;
+  highestBidder: string | null;
 }
 
-export function BiddingPanel({ isHumanTurn, highestBid }: BiddingPanelProps) {
+const SEAT_NAMES: Record<string, string> = {
+  bottom: 'You',
+  top: 'Marco',
+  left: 'Sofia',
+  right: 'Luca',
+};
+
+export function BiddingPanel({
+  isHumanTurn,
+  highestBid,
+  highestBidder,
+}: BiddingPanelProps) {
   const { placePlayerBid, passPlayerBid } = useGameStore();
 
   // Bots thinking — just a quiet spinner
@@ -26,8 +38,10 @@ export function BiddingPanel({ isHumanTurn, highestBid }: BiddingPanelProps) {
       style={styles.container}
     >
       {/* Single context line */}
-      {highestBid > 0 && (
-        <Text style={styles.context}>Highest: {highestBid}</Text>
+      {highestBid > 0 && highestBidder && (
+        <Text style={styles.context}>
+          Highest: {SEAT_NAMES[highestBidder] || highestBidder} {highestBid}
+        </Text>
       )}
 
       {/* Bid buttons */}
