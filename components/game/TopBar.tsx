@@ -1,13 +1,31 @@
 import { MotiView } from 'moti';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../../constants/colors';
+import type { TeamId } from '../../types/game-type';
 
 interface TopBarProps {
   onMenuPress: () => void;
   topInset: number;
+  teamScores: Record<TeamId, number>;
+  trumpSuit: string | null;
 }
 
-export function TopBar({ onMenuPress, topInset }: TopBarProps) {
+const SUIT_SYMBOLS: Record<string, string> = {
+  spades: '♠',
+  hearts: '♥',
+  diamonds: '♦',
+  clubs: '♣',
+};
+
+export function TopBar({
+  onMenuPress,
+  topInset,
+  teamScores,
+  trumpSuit,
+}: TopBarProps) {
+  const btScore = teamScores.BT ?? 0;
+  const lrScore = teamScores.LR ?? 0;
+
   return (
     <MotiView
       from={{ opacity: 0, translateY: -20 }}
@@ -19,21 +37,27 @@ export function TopBar({ onMenuPress, topInset }: TopBarProps) {
         <View style={styles.teamScore}>
           <View style={[styles.teamDot, { backgroundColor: colors.gold500 }]} />
           <Text style={styles.teamLabel}>Us</Text>
-          <Text style={[styles.teamPoints, { color: colors.gold500 }]}>47</Text>
+          <Text style={[styles.teamPoints, { color: colors.gold500 }]}>
+            {btScore}
+          </Text>
         </View>
         <View style={styles.teamBarDivider} />
         <View style={styles.teamScore}>
           <View style={[styles.teamDot, { backgroundColor: colors.felt400 }]} />
           <Text style={styles.teamLabel}>Them</Text>
-          <Text style={[styles.teamPoints, { color: colors.felt400 }]}>31</Text>
+          <Text style={[styles.teamPoints, { color: colors.felt400 }]}>
+            {lrScore}
+          </Text>
         </View>
       </View>
 
       <View style={styles.topBarRight}>
-        <View style={styles.trumpBadge}>
-          <Text style={styles.trumpLabel}>TRUMP</Text>
-          <Text style={styles.trumpSuit}>♠</Text>
-        </View>
+        {trumpSuit && (
+          <View style={styles.trumpBadge}>
+            <Text style={styles.trumpLabel}>TRUMP</Text>
+            <Text style={styles.trumpSuit}>{SUIT_SYMBOLS[trumpSuit]}</Text>
+          </View>
+        )}
         <Pressable
           onPress={onMenuPress}
           style={({ pressed }) => [

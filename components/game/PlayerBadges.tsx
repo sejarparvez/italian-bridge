@@ -6,16 +6,20 @@ import { ScoreChip } from './ScoreChip';
 
 interface PlayerBadgeProps {
   name: string;
-  score: number;
-  bid: BidValue; // ← was `number`, now allows null
+  tricks?: number;
+  bid?: BidValue;
   isActive?: boolean;
+  showChip?: boolean;
+  target?: number;
 }
 
 export function TopPlayerBadge({
   name,
-  score,
+  tricks,
   bid,
   isActive,
+  showChip,
+  target,
 }: PlayerBadgeProps) {
   return (
     <MotiView
@@ -35,7 +39,9 @@ export function TopPlayerBadge({
         )}
       </View>
       <Text style={styles.topPlayerName}>{name}</Text>
-      <ScoreChip score={score} bid={bid} />
+      {showChip && bid !== undefined && (
+        <ScoreChip tricks={tricks ?? 0} bid={bid} target={target} />
+      )}
     </MotiView>
   );
 }
@@ -47,11 +53,13 @@ interface SidePlayerBadgeProps extends PlayerBadgeProps {
 
 export function SidePlayerBadge({
   name,
-  score,
+  tricks,
   bid,
   isActive,
   team,
   flip,
+  showChip,
+  target,
 }: SidePlayerBadgeProps) {
   const teamColor = team === 'us' ? colors.gold500 : colors.felt400;
   return (
@@ -76,19 +84,29 @@ export function SidePlayerBadge({
       </View>
       <View style={styles.sidePlayerInfo}>
         <Text style={styles.sidePlayerName}>{name}</Text>
-        <ScoreChip score={score} bid={bid} />
+        {showChip && bid !== undefined && (
+          <ScoreChip tricks={tricks ?? 0} bid={bid} target={target} />
+        )}
       </View>
     </MotiView>
   );
 }
 
 interface UserPanelProps {
-  score: number;
-  bid: BidValue;
+  tricks?: number;
+  bid?: BidValue;
   isActive?: boolean;
+  showChip?: boolean;
+  target?: number;
 }
 
-export function UserPanel({ score, bid, isActive }: UserPanelProps) {
+export function UserPanel({
+  tricks,
+  bid,
+  isActive,
+  showChip,
+  target,
+}: UserPanelProps) {
   return (
     <MotiView
       from={{ opacity: 0, translateX: -20 }}
@@ -113,7 +131,9 @@ export function UserPanel({ score, bid, isActive }: UserPanelProps) {
       </View>
       <View style={styles.userInfo}>
         <Text style={styles.userName}>You</Text>
-        <ScoreChip score={score} bid={bid} />
+        {showChip && bid !== undefined && (
+          <ScoreChip tricks={tricks ?? 0} bid={bid} target={target} />
+        )}
       </View>
     </MotiView>
   );

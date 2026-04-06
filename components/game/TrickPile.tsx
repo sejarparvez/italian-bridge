@@ -1,35 +1,59 @@
 import { StyleSheet, View } from 'react-native';
+import type { Trick } from '../../types/game-type';
 import { Card } from './Card';
 
-export function TrickPile() {
-  const trickCards = [
-    { suit: '♠' as const, rank: 'A', rot: -8 },
-    { suit: '♥' as const, rank: 'K', rot: 5 },
-    { suit: '♦' as const, rank: '7', rot: -3 },
-    { suit: '♣' as const, rank: 'J', rot: 12 },
-  ];
+interface TrickPileProps {
+  trick: Trick;
+}
+
+const SEAT_ORDER = ['bottom', 'left', 'top', 'right'] as const;
+
+const SUIT_SYMBOLS: Record<string, '♠' | '♥' | '♦' | '♣'> = {
+  spades: '♠',
+  hearts: '♥',
+  diamonds: '♦',
+  clubs: '♣',
+};
+
+const POSITIONS: Record<string, { top: number; left: number }> = {
+  bottom: { top: 50, left: 20 },
+  left: { top: 0, left: -35 },
+  top: { top: -45, left: 20 },
+  right: { top: 0, left: 55 },
+};
+
+export function TrickPile({ trick }: TrickPileProps) {
+  const cards = trick.cards;
+
   return (
-    <View style={styles.trickPile}>
-      {trickCards.map((c, i) => (
-        <Card
-          // biome-ignore lint/suspicious/noArrayIndexKey: static UI
-          key={i}
-          index={i}
-          rotate={c.rot}
-          faceDown={false}
-          suit={c.suit}
-          rank={c.rank}
-        />
-      ))}
+    <View style={styles.container}>
+      {SEAT_ORDER.map((seat) => {
+        const trickCard = cards.find((tc) => tc.player === seat);
+        if (!trickCard) return null;
+
+        return (
+          <View key={seat} style={[styles.cardWrapper, POSITIONS[seat]]}>
+            <Card
+              rotate={0}
+              faceDown={false}
+              suit={SUIT_SYMBOLS[trickCard.card.suit]}
+              rank={trickCard.card.rank}
+            />
+          </View>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  trickPile: {
+  container: {
     width: 110,
     height: 95,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardWrapper: {
+    position: 'absolute',
   },
 });

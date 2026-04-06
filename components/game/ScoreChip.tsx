@@ -3,25 +3,27 @@ import { colors } from '../../constants/colors';
 import type { BidValue } from '../../types/game-type';
 
 interface ScoreChipProps {
-  score: number;
-  bid: BidValue; // ← was `number`
+  tricks: number;
+  bid: BidValue;
+  target?: number;
 }
 
-export function ScoreChip({ score, bid }: ScoreChipProps) {
-  const pos = score >= 0;
+export function ScoreChip({ tricks, bid, target }: ScoreChipProps) {
+  const bidValue = bid ?? 0;
+
+  const displayText = () => {
+    if (target !== undefined) {
+      return `${tricks}/${target}`;
+    }
+    if (bidValue > 0) {
+      return `${tricks}/${bidValue}`;
+    }
+    return tricks;
+  };
+
   return (
-    <View style={[styles.scoreChip, pos ? styles.scorePos : styles.scoreNeg]}>
-      <Text
-        style={[
-          styles.scoreText,
-          pos ? styles.scoreTextPos : styles.scoreTextNeg,
-        ]}
-      >
-        {pos ? '+' : ''}
-        {score}
-      </Text>
-      {/* null = hasn't bid yet, 0 = passed — show nothing in both cases */}
-      {bid !== null && bid > 0 && <Text style={styles.bidText}>BID {bid}</Text>}
+    <View style={styles.scoreChip}>
+      <Text style={styles.tricksText}>{displayText()}</Text>
     </View>
   );
 }
@@ -32,18 +34,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     flexDirection: 'row',
-    gap: 4,
     alignItems: 'center',
+    backgroundColor: colors.felt700,
   },
-  scorePos: { backgroundColor: colors.scorePosBg },
-  scoreNeg: { backgroundColor: colors.scoreNegBg },
-  scoreText: { fontSize: 11, fontWeight: '900' },
-  scoreTextPos: { color: colors.scorePosText },
-  scoreTextNeg: { color: colors.scoreNegText },
-  bidText: {
-    fontSize: 8,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.45)',
-    letterSpacing: 0.8,
+  tricksText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: colors.ivory300,
   },
 });

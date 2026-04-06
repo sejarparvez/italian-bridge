@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BiddingPanel } from '@/components/game/BiddingOverlay';
+import { RoundEndOverlay } from '@/components/game/RoundEndOverlay';
 import { TrumpSelectPanel } from '@/components/game/TrumpSelectOverlay';
 import { useGameStore } from '@/store/game-store';
+import type { SeatPosition } from '@/types/game-type';
 import { BottomHand, HAND_HEIGHT } from '../components/game/BottomHand';
 import { SideFan, TopFan } from '../components/game/CardFan';
 import { DealingAnimation } from '../components/game/DealingAnimation';
@@ -48,7 +50,41 @@ export default function GameScreen() {
     (gameState.phase === 'bidding' && !isDealing) ||
     (gameState.phase === 'dealing2' && gameState.highestBidder === 'bottom');
 
+  const showChipForBadge = (seat: string | null) => {
+    return gameState.highestBidder === seat;
+  };
+
+  const getChipProps = (seat: SeatPosition) => {
+    const player = gameState.players[seat];
+    const isBidder = gameState.highestBidder === seat;
+    const isHuman = seat === 'bottom';
+
+    let showChip = false;
+    let target: number | undefined;
+
+    if (gameState.highestBidder === null) {
+      return { tricks: player.tricksTaken, bid: player.bid, target, showChip };
+    }
+
+    if (isBidder) {
+      showChip = true;
+      target = gameState.highestBid;
+    } else if (isHuman) {
+      showChip = true;
+      target = 4;
+    }
+
+    return {
+      tricks: player.tricksTaken,
+      bid: player.bid,
+      target,
+      showChip,
+    };
+  };
+
   const showAnimation = isDealing && dealState.currentCardIndex > 0;
+
+  const showRoundEnd = gameState.phase === 'roundEnd';
 
   // ── Score helpers (BT = bottom+top, LR = left+right) ────────────────────
   const btScore = gameState.teamScores?.BT ?? 0;
@@ -68,7 +104,12 @@ export default function GameScreen() {
         <View key={i} style={[styles.feltLine, { top: i * (H / 14) }]} />
       ))}
 
-      <TopBar onMenuPress={() => setMenuVisible(true)} topInset={insets.top} />
+      <TopBar
+        onMenuPress={() => setMenuVisible(true)}
+        topInset={insets.top}
+        teamScores={gameState.teamScores}
+        trumpSuit={gameState.trumpSuit}
+      />
 
       {/* ── Top Player (Marco) — team BT ── */}
       <View
@@ -77,9 +118,8 @@ export default function GameScreen() {
       >
         <TopPlayerBadge
           name='Marco'
-          score={btScore}
-          bid={gameState.players.top.bid}
           isActive={gameState.currentSeat === 'top'}
+          {...getChipProps('top')}
         />
         {showHands && <TopFan count={13} />}
         {showPartialHands && <TopFan count={5} />}
@@ -91,10 +131,9 @@ export default function GameScreen() {
         <View style={styles.sideColumn}>
           <SidePlayerBadge
             name='Sofia'
-            score={lrScore}
-            bid={gameState.players.left.bid}
             team='us'
             isActive={gameState.currentSeat === 'left'}
+            {...getChipProps('left')}
           />
           {showHands && (
             <SideFan
@@ -116,7 +155,9 @@ export default function GameScreen() {
         <View style={styles.centerTable}>
           {showDeck && <Deck cardCount={dealState.deckCount} />}
 
-          {!showDeck && !showBidding && !showTrumpSelect && <TrickPile />}
+          {!showDeck && !showBidding && !showTrumpSelect && (
+            <TrickPile trick={gameState.currentTrick} />
+          )}
 
           {/* Bidding UI — replace with your real BiddingPanel */}
           {showBidding && (
@@ -140,11 +181,10 @@ export default function GameScreen() {
           )}
           <SidePlayerBadge
             name='Luca'
-            score={lrScore}
-            bid={gameState.players.right.bid}
             team='them'
             isActive={gameState.currentSeat === 'right'}
             flip
+            {...getChipProps('right')}
           />
         </View>
       </View>
@@ -152,9 +192,8 @@ export default function GameScreen() {
       {/* ── Bottom Area (Human Player) — team BT ── */}
       <View style={styles.bottomArea}>
         <UserPanel
-          score={btScore}
-          bid={gameState.players.bottom.bid}
           isActive={gameState.currentSeat === 'bottom'}
+          {...getChipProps('bottom')}
         />
         <View style={styles.bottomHandWrapper}>
           {/* Full playable hand during playing phases */}
@@ -196,6 +235,14 @@ export default function GameScreen() {
         onAction={handleMenuAction}
         panelTop={topBarHeight + 6}
       />
+
+      {/* ── Round End Overlay ── */}
+      {showRoundEnd && (
+        <RoundEndOverlay
+          roundScores={gameState.roundScores[gameState.roundScores.length - 1]}
+          onContinue={() => useGameStore.getState().nextRound()}
+        />
+      )}
     </View>
   );
 }
