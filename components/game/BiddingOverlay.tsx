@@ -1,12 +1,6 @@
 import { useGameStore } from '@/store/game-store';
 import { MotiView } from 'moti';
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../constants/colors';
 
 const BID_OPTIONS = [7, 8, 9, 10];
@@ -21,17 +15,7 @@ export function BiddingPanel({ isHumanTurn, highestBid }: BiddingPanelProps) {
 
   // Bots thinking — just a quiet spinner
   if (!isHumanTurn) {
-    return (
-      <MotiView
-        from={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ type: 'timing', duration: 300 }}
-        style={styles.waiting}
-      >
-        <ActivityIndicator size='small' color={colors.felt400} />
-        <Text style={styles.waitingText}>Bidding…</Text>
-      </MotiView>
-    );
+    return null;
   }
 
   return (
