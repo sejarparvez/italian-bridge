@@ -89,13 +89,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   selectPlayerTrump: (suit) => {
     logger.info('GameStore', `Player selecting trump: ${suit}`);
     const newState = selectTrump(get().state, suit, 'bottom');
-    const dealtState = dealSecondPhase(newState);
     logger.debug(
       'GameStore',
-      `After dealSecondPhase: phase=${dealtState.phase}, currentSeat=${dealtState.currentSeat}, handSize=${dealtState.players.bottom.hand.length}`,
+      `After selectTrump: phase=${newState.phase}, currentSeat=${newState.currentSeat}, trumpSuit=${newState.trumpSuit}`,
     );
-    set({ state: dealtState });
-    afterPlayState(dealtState, get);
+    set({ state: newState });
   },
 
   // ── Player Card Play ────────────────────────────────────────────────────────
@@ -258,7 +256,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
       `dealRemainingCards: bidder=${bidder}, highestBid=${currentState.highestBid}`,
     );
 
-    if (bidder && !currentState.players[bidder].isHuman) {
+    if (!bidder) return;
+
+    if (currentState.players[bidder].isHuman) {
+      logger.info(
+        'GameStore',
+        'Human already selected trump, dealing remaining cards',
+      );
+      const nextState = dealSecondPhase(currentState);
+      logger.debug(
+        'GameStore',
+        `After dealSecondPhase: phase=${nextState.phase}, currentSeat=${nextState.currentSeat}, handSize=${nextState.players.bottom.hand.length}`,
+      );
+      set({ state: nextState });
+      afterPlayState(nextState, get);
+    } else {
       const trump = selectBotTrump(
         currentState.players[bidder].hand,
         currentState.highestBid,
@@ -273,11 +285,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
       );
       set({ state: nextState });
       afterPlayState(nextState, get);
-    } else {
-      logger.warn(
-        'GameStore',
-        `dealRemainingCards skipped: bidder=${bidder}, isHuman=${bidder ? currentState.players[bidder].isHuman : 'N/A'}`,
-      );
     }
   },
 

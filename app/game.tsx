@@ -1,9 +1,9 @@
-import { BiddingPanel } from '@/components/game/BiddingOverlay';
-import { TrumpSelectPanel } from '@/components/game/TrumpSelectOverlay';
-import { useGameStore } from '@/store/game-store';
 import { useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BiddingPanel } from '@/components/game/BiddingOverlay';
+import { TrumpSelectPanel } from '@/components/game/TrumpSelectOverlay';
+import { useGameStore } from '@/store/game-store';
 import { BottomHand, HAND_HEIGHT } from '../components/game/BottomHand';
 import { SideFan, TopFan } from '../components/game/CardFan';
 import { DealingAnimation } from '../components/game/DealingAnimation';
@@ -37,7 +37,9 @@ export default function GameScreen() {
     gameState.phase === 'trickEnd' ||
     gameState.phase === 'roundEnd';
 
-  const showPartialHands = gameState.phase === 'bidding' && !isDealing;
+  const showPartialHands =
+    (gameState.phase === 'bidding' || gameState.phase === 'dealing2') &&
+    !isDealing;
 
   const showBidding = gameState.phase === 'bidding';
 
