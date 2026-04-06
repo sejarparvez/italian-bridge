@@ -1,56 +1,90 @@
-# Welcome to your Expo app 👋
+# Italian Bridge 🃏
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Italian Bridge is a strategic 4-player partnership card game developed with React Native and Expo. Experience a classic trick-taking game featuring custom bots, a unique bidding phase, and a hidden trump mechanic.
 
-## Get started
+## 🃏 Game Overview
 
-1. Install dependencies
+Italian Bridge is played between two teams of two players sitting in alternating positions.
 
+- **Teams:** 
+  - **Team A:** Human (Player 1) + Bot 2 (Player 3)
+  - **Team B:** Bot 1 (Player 2) + Bot 3 (Player 4)
+
+### Key Features
+
+- **Strategic Bidding:** Players receive only 5 cards before bidding. Bids range from 7 to 10. The winner selects the trump suit.
+- **Two-Phase Dealing:** 5 cards are dealt before bidding, and the remaining 8 after trump selection.
+- **Hidden Trump Mechanic:** The trump suit remains hidden until a player chooses to "Reveal & Trump" when they cannot follow the led suit.
+- **Advanced Bots:** 3 AI-driven bots with unique bidding and playing strategies.
+- **Scoring System:** Dynamic scoring with a special **+13 point bonus** for successful 10-trick bids.
+- **Cross-Platform:** Built for Android, iOS, and Web (optimized for mobile landscape view).
+
+For a detailed look at the rules, see [docs/rules.md](docs/rules.md).
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (LTS recommended)
+- [Bun](https://bun.sh/) (Optional, but recommended for faster dependency installation)
+- [Expo Go](https://expo.dev/go) app on your mobile device (for development)
+
+### Installation
+
+1. Clone the repository:
    ```bash
+   git clone https://github.com/your-username/italian-bridge.git
+   cd italian-bridge
+   ```
+
+2. Install dependencies:
+   ```bash
+   bun install
+   # or
    npm install
    ```
 
-2. Start the app
-
+3. Start the project:
    ```bash
-   npx expo start
+   bun start
+   # or
+   npm start
    ```
 
-In the output, you'll find options to open the app in a
+### Scripts
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+- `bun run start` - Start the Expo development server.
+- `bun run android` - Run on an Android emulator or device.
+- `bun run ios` - Run on an iOS simulator or device.
+- `bun run web` - Open in the browser.
+- `bun run lint` - Run Biome linting.
+- `bun run format` - Format code with Biome.
+- `bun run fix` - Fix linting issues.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 🛠️ Technical Stack
 
-## Get a fresh project
+- **Framework:** [Expo](https://expo.dev/) (React Native)
+- **Navigation:** [Expo Router](https://docs.expo.dev/router/introduction/) (v3)
+- **State Management:** [Zustand](https://github.com/pmndrs/zustand)
+- **Animations:** [Reanimated](https://docs.swmansion.com/react-native-reanimated/) & [Moti](https://moti.fyi/)
+- **Styling:** [NativeWind](https://www.nativewind.dev/) / Vanilla CSS with [global.css](global.css)
+- **Tooling:** [Biome](https://biomejs.dev/) for linting & formatting.
 
-When you're ready, run:
+## 📁 Project Structure
 
-```bash
-npm run reset-project
+```text
+├── app/              # File-based routing (Expo Router)
+├── assets/           # Images, icons, and fonts
+├── components/       # UI components (shared and game-specific)
+├── constants/        # Card definitions and theme colors
+├── game/             # Core game engine, logic, and bot AI
+├── hooks/            # Custom React hooks (e.g., useDealing)
+├── store/            # Zustand game state
+├── types/            # TypeScript interfaces and types
+└── utils/            # Helper functions (sorting, logging)
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-### Other setup steps
+---
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Developed with ❤️ by Sejar Parvez
