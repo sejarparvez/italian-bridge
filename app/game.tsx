@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BiddingPanel } from '@/components/game/BiddingOverlay';
 import { RoundEndOverlay } from '@/components/game/RoundEndOverlay';
 import { TrumpDialogOverlay } from '@/components/game/TrumpDialogOverlay';
 import { TrumpSelectPanel } from '@/components/game/TrumpSelectOverlay';
 import { useGameStore } from '@/store/game-store';
 import type { SeatPosition } from '@/types/game-type';
+import { useState } from 'react';
+import { Dimensions, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomHand, HAND_HEIGHT } from '../components/game/BottomHand';
 import { SideFan, TopFan } from '../components/game/CardFan';
 import { DealingAnimation } from '../components/game/DealingAnimation';
@@ -201,11 +201,13 @@ export default function GameScreen() {
 
           {/* Bidding UI — replace with your real BiddingPanel */}
           {showBidding && (
-            <BiddingPanel
-              highestBid={gameState.highestBid}
-              highestBidder={gameState.highestBidder}
-              isHumanTurn={gameState.currentSeat === 'bottom'}
-            />
+            <View style={styles.biddingOverlay}>
+              <BiddingPanel
+                highestBid={gameState.highestBid}
+                highestBidder={gameState.highestBidder}
+                isHumanTurn={gameState.currentSeat === 'bottom'}
+              />
+            </View>
           )}
 
           {/* Trump selection — shown when human won the bid */}
@@ -343,5 +345,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     overflow: 'visible',
+  },
+  biddingOverlay: {
+    position: 'absolute',
+    top: '20%',
+    left: '50%',
+    zIndex: 100,
+    transform: [{ translateX: '-50%' }, { translateY: '-50%' }],
   },
 });

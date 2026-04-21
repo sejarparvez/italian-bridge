@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    borderRadius: 9,
+    borderRadius: 6,
     overflow: 'hidden',
     backgroundColor: '#FDFAF4',
   },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -(CARD_H * 0.38) }, { scale: 1.08 }],
   },
   pressFlash: {
-    borderRadius: 9,
+    borderRadius: 6,
     backgroundColor: 'rgba(255,255,255,0.28)',
     zIndex: 10,
   },

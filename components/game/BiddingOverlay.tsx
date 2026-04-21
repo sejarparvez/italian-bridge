@@ -48,15 +48,10 @@ export function BiddingPanel({
       <View style={styles.bidButtons}>
         {BID_OPTIONS.map((bid) => {
           const disabled = bid <= highestBid;
-          const isMax = bid === 10;
           return (
             <TouchableOpacity
               key={bid}
-              style={[
-                styles.bidButton,
-                isMax && !disabled && styles.bidButtonMax,
-                disabled && styles.bidButtonDisabled,
-              ]}
+              style={[styles.bidButton, disabled && styles.bidButtonDisabled]}
               onPress={() => placePlayerBid(bid)}
               disabled={disabled}
               activeOpacity={0.75}
@@ -64,7 +59,6 @@ export function BiddingPanel({
               <Text
                 style={[
                   styles.bidButtonText,
-                  isMax && !disabled && styles.bidButtonTextMax,
                   disabled && styles.bidButtonTextDisabled,
                 ]}
               >
@@ -140,10 +134,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.felt500,
   },
-  bidButtonMax: {
-    backgroundColor: colors.gold600,
-    borderColor: colors.gold500,
-  },
   bidButtonDisabled: {
     backgroundColor: colors.felt900,
     borderColor: colors.felt700,
@@ -153,9 +143,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '900',
     color: colors.felt300,
-  },
-  bidButtonTextMax: {
-    color: colors.gold400,
   },
   bidButtonTextDisabled: {
     color: colors.felt600,
