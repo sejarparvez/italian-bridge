@@ -59,6 +59,7 @@ export function TopBar({
       transition={{ delay: 100 }}
       style={[styles.topBar, { paddingTop: topInset + 8 }]}
     >
+      {/* Left Section */}
       <View style={styles.teamBar}>
         <View style={styles.teamScore}>
           <View style={[styles.teamDot, { backgroundColor: colors.gold500 }]} />
@@ -77,6 +78,7 @@ export function TopBar({
         </View>
       </View>
 
+      {/* Right Section */}
       <View style={styles.topBarRight}>
         {showTrump && (
           <Pressable
@@ -86,14 +88,18 @@ export function TopBar({
               pressed &&
                 isHumanTrumpCreator &&
                 !trumpRevealed &&
-                styles.trumpCardPressed,
+                styles.pressedState,
             ]}
           >
-            <Card
-              faceDown={!showFaceUp}
-              suit={trumpSuitSymbol as '♠' | '♥' | '♦' | '♣' | undefined}
-              rank={showFaceUp ? 'A' : undefined}
-            />
+            {/* Wrapper view to enforce card dimensions within the flex row */}
+            <View style={styles.cardSizer}>
+              <Card
+                faceDown={!showFaceUp}
+                suit={trumpSuitSymbol as '♠' | '♥' | '♦' | '♣' | undefined}
+                rank={showFaceUp ? 'A' : undefined}
+              />
+            </View>
+
             {isHumanTrumpCreator && !trumpRevealed && !peekRevealed && (
               <View style={styles.tapHint}>
                 <Text style={styles.tapHintText}>tap</Text>
@@ -101,11 +107,12 @@ export function TopBar({
             )}
           </Pressable>
         )}
+
         <Pressable
           onPress={onMenuPress}
           style={({ pressed }) => [
             styles.menuBtn,
-            pressed && styles.menuBtnPressed,
+            pressed && styles.pressedState,
           ]}
         >
           <View style={styles.menuBtnLine} />
@@ -122,12 +129,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingBottom: 8,
+    paddingHorizontal: 28,
+    paddingBottom: 12,
     backgroundColor: 'rgba(11,51,35,0.95)',
   },
-  teamBar: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  teamScore: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  teamBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  teamScore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   teamDot: { width: 7, height: 7, borderRadius: 4 },
   teamLabel: {
     fontSize: 11,
@@ -136,14 +151,27 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  teamPoints: { fontSize: 17, fontWeight: '900', letterSpacing: 0.5 },
-  teamBarDivider: { width: 1, height: 20, backgroundColor: colors.felt600 },
-  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  trumpCardWrapper: {
-    position: 'relative',
+  teamPoints: { fontSize: 17, fontWeight: '900' },
+  teamBarDivider: { width: 1, height: 16, backgroundColor: colors.felt600 },
+
+  // FIXED SECTION
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end', // Pushes everything to the right
+    gap: 20, // This creates the physical gap between the Trump card and Menu button
   },
-  trumpCardPressed: {
-    opacity: 0.8,
+  trumpCardWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    top: 6,
+  },
+  cardSizer: {
+    // Ensures the card has a defined footprint in the flex layout
+    width: 32,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tapHint: {
     position: 'absolute',
@@ -156,12 +184,11 @@ const styles = StyleSheet.create({
     fontSize: 8,
     color: colors.gold400,
     fontWeight: '700',
-    letterSpacing: 1,
     textTransform: 'uppercase',
   },
   menuBtn: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: 10,
     backgroundColor: colors.felt700,
     borderWidth: 1,
@@ -169,13 +196,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 8,
   },
-  menuBtnPressed: { backgroundColor: colors.felt600 },
   menuBtnLine: {
-    width: 16,
+    width: 18,
     height: 2,
     borderRadius: 1,
     backgroundColor: colors.felt300,
+  },
+  pressedState: {
+    opacity: 0.7,
+    transform: [{ scale: 0.96 }],
   },
 });
