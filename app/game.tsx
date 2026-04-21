@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 27,
     right: 0,
-    bottom: 16,
+    bottom: -4,
     height: HAND_HEIGHT,
     alignItems: 'center',
     justifyContent: 'flex-end',

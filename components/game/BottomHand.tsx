@@ -1,18 +1,128 @@
+import { Image } from 'expo-image';
 import { MotiView } from 'moti';
-import { Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
-import {
-  type Card,
-  RANK_ORDER,
-  SUIT_COLORS,
-  SUIT_SYMBOLS,
-  type Suit,
-} from '../../constants/cards';
+import { Dimensions, Pressable, StyleSheet, View } from 'react-native';
+import { type Card, RANK_ORDER, type Suit } from '../../constants/cards';
 import type { Trick } from '../../types/game-type';
+
+const SUIT_INITIAL: Record<Suit, string> = {
+  spades: 'S',
+  hearts: 'H',
+  diamonds: 'D',
+  clubs: 'C',
+};
+
+const AS = require('../../assets/cards/AS.svg') as number;
+const KS = require('../../assets/cards/KS.svg');
+const QS = require('../../assets/cards/QS.svg');
+const JS = require('../../assets/cards/JS.svg');
+const TS = require('../../assets/cards/10S.svg');
+const NS9 = require('../../assets/cards/9S.svg');
+const NS8 = require('../../assets/cards/8S.svg');
+const NS7 = require('../../assets/cards/7S.svg');
+const NS6 = require('../../assets/cards/6S.svg');
+const NS5 = require('../../assets/cards/5S.svg');
+const NS4 = require('../../assets/cards/4S.svg');
+const NS3 = require('../../assets/cards/3S.svg');
+const NS2 = require('../../assets/cards/2S.svg');
+const AH = require('../../assets/cards/AH.svg');
+const KH = require('../../assets/cards/KH.svg');
+const QH = require('../../assets/cards/QH.svg');
+const JH = require('../../assets/cards/JH.svg');
+const TH = require('../../assets/cards/10H.svg');
+const NH9h = require('../../assets/cards/9H.svg');
+const NH8h = require('../../assets/cards/8H.svg');
+const NH7h = require('../../assets/cards/7H.svg');
+const NH6h = require('../../assets/cards/6H.svg');
+const NH5h = require('../../assets/cards/5H.svg');
+const NH4h = require('../../assets/cards/4H.svg');
+const NH3h = require('../../assets/cards/3H.svg');
+const NH2h = require('../../assets/cards/2H.svg');
+const AD = require('../../assets/cards/AD.svg');
+const KD = require('../../assets/cards/KD.svg');
+const QD = require('../../assets/cards/QD.svg');
+const JD = require('../../assets/cards/JD.svg');
+const TD = require('../../assets/cards/10D.svg');
+const ND9d = require('../../assets/cards/9D.svg');
+const ND8d = require('../../assets/cards/8D.svg');
+const ND7d = require('../../assets/cards/7D.svg');
+const ND6d = require('../../assets/cards/6D.svg');
+const ND5d = require('../../assets/cards/5D.svg');
+const ND4d = require('../../assets/cards/4D.svg');
+const ND3d = require('../../assets/cards/3D.svg');
+const ND2d = require('../../assets/cards/2D.svg');
+const AC = require('../../assets/cards/AC.svg');
+const KC = require('../../assets/cards/KC.svg');
+const QC = require('../../assets/cards/QC.svg');
+const JC = require('../../assets/cards/JC.svg');
+const TC = require('../../assets/cards/10C.svg');
+const NC9c = require('../../assets/cards/9C.svg');
+const NC8c = require('../../assets/cards/8C.svg');
+const NC7c = require('../../assets/cards/7C.svg');
+const NC6c = require('../../assets/cards/6C.svg');
+const NC5c = require('../../assets/cards/5C.svg');
+const NC4c = require('../../assets/cards/4C.svg');
+const NC3c = require('../../assets/cards/3C.svg');
+const NC2c = require('../../assets/cards/2C.svg');
+
+const cardImages: Record<string, number> = {
+  AS,
+  KS,
+  QS,
+  JS,
+  '10S': TS,
+  '9S': NS9,
+  '8S': NS8,
+  '7S': NS7,
+  '6S': NS6,
+  '5S': NS5,
+  '4S': NS4,
+  '3S': NS3,
+  '2S': NS2,
+  AH,
+  KH,
+  QH,
+  JH,
+  '10H': TH,
+  '9H': NH9h,
+  '8H': NH8h,
+  '7H': NH7h,
+  '6H': NH6h,
+  '5H': NH5h,
+  '4H': NH4h,
+  '3H': NH3h,
+  '2H': NH2h,
+  AD,
+  KD,
+  QD,
+  JD,
+  '10D': TD,
+  '9D': ND9d,
+  '8D': ND8d,
+  '7D': ND7d,
+  '6D': ND6d,
+  '5D': ND5d,
+  '4D': ND4d,
+  '3D': ND3d,
+  '2D': ND2d,
+  AC,
+  KC,
+  QC,
+  JC,
+  '10C': TC,
+  '9C': NC9c,
+  '8C': NC8c,
+  '7C': NC7c,
+  '6C': NC6c,
+  '5C': NC5c,
+  '4C': NC4c,
+  '3C': NC3c,
+  '2C': NC2c,
+};
 
 // ─── Screen-relative card sizing ─────────────────────────────────────────────
 const { width, height } = Dimensions.get('window');
 const SCREEN_H = Math.min(width, height);
-const CARD_W = SCREEN_H * 0.13;
+const CARD_W = SCREEN_H * 0.18;
 const CARD_H = CARD_W * 1.45;
 export const HAND_HEIGHT = CARD_H * 0.72 + 26;
 
@@ -107,9 +217,8 @@ function CardFace({
   isTrump: boolean;
   trumpRevealed: boolean;
 }) {
-  const color = SUIT_COLORS[card.suit];
-  const symbol = SUIT_SYMBOLS[card.suit];
   const showTrumpGlow = isTrump && trumpRevealed;
+  const cardKey = `${card.rank}${SUIT_INITIAL[card.suit]}`;
 
   return (
     <View
@@ -119,27 +228,12 @@ function CardFace({
         showTrumpGlow && styles.cardTrump,
       ]}
     >
-      {/* Trump indicator stripe */}
       {showTrumpGlow && <View style={styles.trumpStripe} />}
-
-      {/* Top-left pip */}
-      <View style={styles.pip}>
-        <Text style={[styles.pipRank, { color }]}>{card.rank}</Text>
-        <Text style={[styles.pipSuit, { color }]}>{symbol}</Text>
-      </View>
-
-      {/* Ghost watermark suit */}
-      <Text
-        style={[styles.watermark, { color, opacity: showTrumpGlow ? 0.18 : 1 }]}
-      >
-        {symbol}
-      </Text>
-
-      {/* Bottom-right pip (flipped) */}
-      <View style={[styles.pip, styles.pipBR]}>
-        <Text style={[styles.pipRank, { color }]}>{card.rank}</Text>
-        <Text style={[styles.pipSuit, { color }]}>{symbol}</Text>
-      </View>
+      <Image
+        source={cardImages[cardKey]}
+        style={styles.cardImage}
+        contentFit='fill'
+      />
     </View>
   );
 }
@@ -248,17 +342,12 @@ const styles = StyleSheet.create({
 
   card: {
     borderRadius: 9,
-    backgroundColor: '#FDFAF4',
-    borderWidth: 1,
-    borderColor: '#E2D8C0',
     overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: '#FDFAF4',
   },
   cardTrump: {
     borderColor: '#EF9F27',
-    borderWidth: 1.5,
-    backgroundColor: '#FFFDF5',
+    borderWidth: 2,
   },
   trumpStripe: {
     position: 'absolute',
@@ -267,37 +356,11 @@ const styles = StyleSheet.create({
     right: 0,
     height: 3,
     backgroundColor: '#EF9F27',
+    zIndex: 10,
   },
-
-  pip: {
-    position: 'absolute',
-    top: 5,
-    left: 6,
-    alignItems: 'center',
-  },
-  pipBR: {
-    top: undefined,
-    left: undefined,
-    bottom: 5,
-    right: 6,
-    transform: [{ rotate: '180deg' }],
-  },
-  pipRank: {
-    fontSize: CARD_W * 0.25,
-    fontWeight: '800',
-    lineHeight: CARD_W * 0.24,
-    letterSpacing: -0.4,
-  },
-  pipSuit: {
-    fontSize: CARD_W * 0.16,
-    lineHeight: CARD_W * 0.18,
-    fontWeight: '600',
-  },
-
-  watermark: {
-    position: 'absolute',
-    fontSize: CARD_W * 0.55,
-    fontWeight: '900',
+  cardImage: {
+    width: '100%',
+    height: '100%',
   },
 
   pressedCard: {
