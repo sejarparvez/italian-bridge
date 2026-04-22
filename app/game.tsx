@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BiddingPanel } from '@/components/game/BiddingOverlay';
@@ -69,6 +69,12 @@ export default function GameScreen() {
     !canFollowLead &&
     !trumpRevealed &&
     trumpSuit !== null;
+
+  useEffect(() => {
+    if (showTrumpDialog && !trumpDialogVisible) {
+      setTrumpDialogVisible(true);
+    }
+  }, [showTrumpDialog, trumpDialogVisible]);
 
   const handleCardPress = (cardId: string) => {
     if (showTrumpDialog) {
