@@ -1,4 +1,5 @@
 import { StyleSheet, View } from 'react-native';
+import type { Suit } from '../../constants/cards';
 import type { Trick } from '../../types/game-type';
 import { Card } from './Card';
 
@@ -8,11 +9,11 @@ interface TrickPileProps {
 
 const SEAT_ORDER = ['bottom', 'left', 'top', 'right'] as const;
 
-const SUIT_SYMBOLS: Record<string, '♠' | '♥' | '♦' | '♣'> = {
-  spades: '♠',
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
+const SUIT_MAP: Record<Suit, string> = {
+  spades: 'S',
+  hearts: 'H',
+  diamonds: 'D',
+  clubs: 'C',
 };
 
 const POSITIONS: Record<string, { top: number; left: number }> = {
@@ -31,14 +32,11 @@ export function TrickPile({ trick }: TrickPileProps) {
         const trickCard = cards.find((tc) => tc.player === seat);
         if (!trickCard) return null;
 
+        const cardKey = `${trickCard.card.rank}${SUIT_MAP[trickCard.card.suit]}`;
+
         return (
           <View key={seat} style={[styles.cardWrapper, POSITIONS[seat]]}>
-            <Card
-              rotate={0}
-              faceDown={false}
-              suit={SUIT_SYMBOLS[trickCard.card.suit]}
-              rank={trickCard.card.rank}
-            />
+            <Card rotate={0} faceDown={false} cardKey={cardKey} />
           </View>
         );
       })}

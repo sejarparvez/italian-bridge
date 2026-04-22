@@ -1,12 +1,12 @@
+import { useState } from 'react';
+import { Dimensions, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BiddingPanel } from '@/components/game/BiddingOverlay';
 import { RoundEndOverlay } from '@/components/game/RoundEndOverlay';
 import { TrumpDialogOverlay } from '@/components/game/TrumpDialogOverlay';
 import { TrumpSelectPanel } from '@/components/game/TrumpSelectOverlay';
 import { useGameStore } from '@/store/game-store';
 import type { SeatPosition } from '@/types/game-type';
-import { useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomHand, HAND_HEIGHT } from '../components/game/BottomHand';
 import { SideFan, TopFan } from '../components/game/CardFan';
 import { DealingAnimation } from '../components/game/DealingAnimation';

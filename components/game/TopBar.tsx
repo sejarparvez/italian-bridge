@@ -14,11 +14,11 @@ interface TopBarProps {
   isHumanTrumpCreator: boolean;
 }
 
-const SUIT_SYMBOLS: Record<string, string> = {
-  spades: '♠',
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
+const SUIT_MAP: Record<string, string> = {
+  spades: 'S',
+  hearts: 'H',
+  diamonds: 'D',
+  clubs: 'C',
 };
 
 export function TopBar({
@@ -44,7 +44,7 @@ export function TopBar({
   const showTrump = trumpSuit !== null;
   const showFaceUp = trumpRevealed || peekRevealed;
   // biome-ignore lint/style/noNonNullAssertion: this is fine
-  const trumpSuitSymbol = showFaceUp ? SUIT_SYMBOLS[trumpSuit!] : null;
+  const trumpCardKey = showFaceUp ? `A${SUIT_MAP[trumpSuit!]}` : '';
 
   const handlePeekPress = () => {
     if (!trumpRevealed && isHumanTrumpCreator) {
@@ -95,8 +95,7 @@ export function TopBar({
             <View style={styles.cardSizer}>
               <Card
                 faceDown={!showFaceUp}
-                suit={trumpSuitSymbol as '♠' | '♥' | '♦' | '♣' | undefined}
-                rank={showFaceUp ? 'A' : undefined}
+                cardKey={showFaceUp ? trumpCardKey : undefined}
               />
             </View>
 
