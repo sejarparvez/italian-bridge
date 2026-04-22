@@ -259,6 +259,7 @@ export default function GameScreen() {
               trumpSuit={gameState.trumpSuit}
               trumpRevealed={gameState.trumpRevealed}
               isMyTurn={gameState.currentSeat === 'bottom'}
+              wantsToTrump={trumpChoice ?? false}
             />
           )}
           {/* Partial hand visible during bidding (not playable) */}
@@ -270,6 +271,7 @@ export default function GameScreen() {
               trumpSuit={gameState.trumpSuit}
               trumpRevealed={gameState.trumpRevealed}
               isMyTurn={false}
+              wantsToTrump={false}
             />
           )}
         </View>

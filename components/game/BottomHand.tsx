@@ -187,6 +187,8 @@ function getPlayableIds(
   hand: Card[],
   trick: Trick,
   isMyTurn: boolean,
+  trumpSuit: Suit | null,
+  wantsToTrump = false,
 ): Set<string> {
   // Not your turn — nothing is playable
   if (!isMyTurn) return new Set();
@@ -202,6 +204,17 @@ function getPlayableIds(
   const canFollow = hand.filter((c) => c.suit === leadSuit);
 
   if (canFollow.length > 0) return new Set(canFollow.map((c) => c.id));
+
+  // Can't follow lead suit — player declared intent to trump
+  if (wantsToTrump && trumpSuit !== null) {
+    const trumpCards = hand.filter((c) => c.suit === trumpSuit);
+    if (trumpCards.length > 0) {
+      // Has trump — only trump cards are playable
+      return new Set(trumpCards.map((c) => c.id));
+    }
+    // Wanted to trump but holds no trump — any card is playable
+    return new Set(hand.map((c) => c.id));
+  }
 
   // Can't follow — all cards are playable (game logic will show trump dialog if needed)
   return new Set(hand.map((c) => c.id));
@@ -245,6 +258,7 @@ interface BottomHandProps {
   trumpSuit: Suit | null;
   trumpRevealed: boolean;
   isMyTurn: boolean;
+  wantsToTrump?: boolean;
   onCardPress?: (cardId: string) => void;
 }
 
@@ -255,12 +269,19 @@ export function BottomHand({
   trumpSuit,
   trumpRevealed,
   isMyTurn,
+  wantsToTrump = false,
   onCardPress,
 }: BottomHandProps) {
   const sorted = sortHand(hand);
   const layouts = getHandLayout(sorted.length);
 
-  const playableIds = getPlayableIds(sorted, currentTrick, isMyTurn);
+  const playableIds = getPlayableIds(
+    sorted,
+    currentTrick,
+    isMyTurn,
+    trumpSuit,
+    wantsToTrump,
+  );
 
   if (!sorted.length) return null;
 
