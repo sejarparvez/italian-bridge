@@ -110,7 +110,6 @@ export default function GameScreen() {
   const getChipProps = (seat: SeatPosition) => {
     const player = gameState.players[seat];
     const isBidder = gameState.highestBidder === seat;
-    const isHuman = seat === 'bottom';
 
     let showChip = false;
     let target: number | undefined;
@@ -119,16 +118,21 @@ export default function GameScreen() {
       return { tricks: player.tricksTaken, bid: player.bid, target, showChip };
     }
 
+    const teamTricks =
+      seat === 'bottom' || seat === 'top'
+        ? gameState.players.bottom.tricksTaken + gameState.players.top.tricksTaken
+        : gameState.players.left.tricksTaken + gameState.players.right.tricksTaken;
+
     if (isBidder) {
       showChip = true;
       target = gameState.highestBid;
-    } else if (isHuman) {
+    } else if (seat === 'bottom' && gameState.highestBidder !== null) {
       showChip = true;
       target = 4;
     }
 
     return {
-      tricks: player.tricksTaken,
+      tricks: teamTricks,
       bid: player.bid,
       target,
       showChip,
