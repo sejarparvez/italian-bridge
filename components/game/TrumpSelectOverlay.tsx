@@ -1,7 +1,7 @@
-import { useGameStore } from '@/store/game-store';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useGameStore } from '@/store/game-store';
 import type { Suit } from '../../constants/cards';
 import { colors } from '../../constants/colors';
 

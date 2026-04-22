@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.5] - 2026-04-22
+
+### Fixed
+- Trump dialog now shows automatically at start of turn when user cannot follow lead suit.
+- Dialog no longer shows when user is leading a new trick.
+- Skip/Reveal buttons now properly close dialog allowing user to pick their card.
+
 ## [1.1.4] - 2026-04-22
 
 ### Fixed

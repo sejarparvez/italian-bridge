@@ -28,7 +28,7 @@ export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
   const [trumpDialogVisible, setTrumpDialogVisible] = useState(false);
-  const [pendingCardId, setPendingCardId] = useState<string | null>(null);
+  const [trumpChoice, setTrumpChoice] = useState<boolean | null>(null);
   const { state: dealState, startNewGame } = useDealing(true);
   const { state: gameState } = useGameStore();
   const topBarHeight = insets.top + 52;
@@ -60,6 +60,9 @@ export default function GameScreen() {
   const trumpSuit = gameState.trumpSuit;
   const trumpRevealed = gameState.trumpRevealed;
 
+  const trickCards = gameState.currentTrick.cards;
+  const trickCardCount = trickCards.length;
+
   const canFollowLead = leadSuit
     ? humanHand.some((c) => c.suit === leadSuit)
     : true;
@@ -67,6 +70,8 @@ export default function GameScreen() {
   const showTrumpDialog =
     isHumanTurn &&
     leadSuit &&
+    trickCardCount > 0 &&
+    trumpChoice === null &&
     !canFollowLead &&
     !trumpRevealed &&
     trumpSuit !== null;
@@ -78,8 +83,10 @@ export default function GameScreen() {
   }, [showTrumpDialog, trumpDialogVisible]);
 
   const handleCardPress = (cardId: string) => {
-    if (showTrumpDialog) {
-      setPendingCardId(cardId);
+    if (trumpChoice !== null) {
+      useGameStore.getState().playPlayerCard(cardId, trumpChoice);
+      setTrumpChoice(null);
+    } else if (showTrumpDialog) {
       setTrumpDialogVisible(true);
     } else {
       useGameStore.getState().playPlayerCard(cardId);
@@ -88,19 +95,13 @@ export default function GameScreen() {
 
   const handleRevealAndTrump = () => {
     setTrumpDialogVisible(false);
+    setTrumpChoice(true);
     useGameStore.getState().revealTrump();
-    if (pendingCardId) {
-      useGameStore.getState().playPlayerCard(pendingCardId, true);
-      setPendingCardId(null);
-    }
   };
 
   const handleSkip = () => {
     setTrumpDialogVisible(false);
-    if (pendingCardId) {
-      useGameStore.getState().playPlayerCard(pendingCardId, false);
-      setPendingCardId(null);
-    }
+    setTrumpChoice(false);
   };
 
   const getChipProps = (seat: SeatPosition) => {
