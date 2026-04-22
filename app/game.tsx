@@ -51,7 +51,7 @@ export default function GameScreen() {
 
   const showPartialHands =
     (gameState.phase === 'bidding' && !isDealing) ||
-    (gameState.phase === 'dealing2' && gameState.highestBidder === 'bottom');
+    (gameState.phase === 'dealing2' && isDealing);
 
   const isHumanTurn = gameState.currentSeat === 'bottom';
   const leadSuit = gameState.currentTrick.leadSuit;

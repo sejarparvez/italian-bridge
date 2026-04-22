@@ -165,16 +165,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
                 'GameStore',
                 `Bidding ended: dealing2, highestBidder=${currentState.highestBidder}`,
               );
-              if (currentState.highestBidder !== 'bottom') {
-                logger.info(
-                  'GameStore',
-                  `Bot won bid, triggering dealRemainingCards`,
-                );
-                setTimeout(
-                  () => get().dealRemainingCards(),
-                  delay(800, get().animSpeed),
-                );
-              } else {
+              if (currentState.highestBidder === 'bottom') {
                 logger.info(
                   'GameStore',
                   'Human won bid - waiting for human to select trump',
@@ -426,10 +417,6 @@ export const useGameStore = create<GameStore>((set, get) => ({
 function afterBidState(newState: GameState, get: () => GameStore): void {
   if (newState.phase === 'bidding' && newState.currentSeat !== 'bottom') {
     setTimeout(() => get().runBotBids(), delay(600, get().animSpeed));
-  } else if (newState.phase === 'dealing2') {
-    if (newState.highestBidder !== 'bottom') {
-      setTimeout(() => get().dealRemainingCards(), delay(800, get().animSpeed));
-    }
   }
 }
 

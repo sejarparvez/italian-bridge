@@ -1,7 +1,6 @@
 # Italian Bridge Card Game Issues
 
-1. **Dealing Animation Completion:** Currently, all 13 cards are shown after bidding without the dealing animation finishing [1].
-2. **Trump Card Hand Visuals:** After the trump suit is revealed, the Trump card in the user's hand has a low opacity and a subtle gold color that should be removed [1].
+1. **Trump Card Hand Visuals:** After the trump suit is revealed, the Trump card in the user's hand has a low opacity and a subtle gold color that should be removed [1].
 3. **Select Trump Screen Text:** The text on the "Select Trump" screen is too muted and needs improvement [1].
 4. **Gameplay Animation:** Gameplay on the board is currently too static; it needs to look like cards are being played from the hand [1].
 5. **Scoring Logic Fix:** Scoring is currently only showing on one teammate's avatar; when the other partner wins a trick, the score is added to the main scoreboard but not to that partner's avatar [2].
