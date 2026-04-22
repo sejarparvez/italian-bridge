@@ -1,14 +1,15 @@
+import { useGameStore } from '@/store/game-store';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MotiView } from 'moti';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { useGameStore } from '@/store/game-store';
 import type { Suit } from '../../constants/cards';
 import { colors } from '../../constants/colors';
 
 const SUITS: { suit: Suit; symbol: string; name: string; isRed: boolean }[] = [
   { suit: 'spades', symbol: '♠', name: 'Spades', isRed: false },
   { suit: 'hearts', symbol: '♥', name: 'Hearts', isRed: true },
-  { suit: 'diamonds', symbol: '♦', name: 'Diamonds', isRed: true },
   { suit: 'clubs', symbol: '♣', name: 'Clubs', isRed: false },
+  { suit: 'diamonds', symbol: '♦', name: 'Diamonds', isRed: true },
 ];
 
 export function TrumpSelectPanel() {
@@ -17,166 +18,261 @@ export function TrumpSelectPanel() {
 
   return (
     <MotiView
-      from={{ opacity: 0, scale: 0.95 }}
+      from={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ type: 'spring', damping: 20, stiffness: 180 }}
+      transition={{ type: 'spring', damping: 18, stiffness: 150 }}
       style={styles.container}
     >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Select Trump</Text>
-        <View style={styles.bidBadge}>
-          <Text style={styles.bidBadgeText}>Bid {highestBid}</Text>
+      <LinearGradient
+        colors={[colors.felt800, colors.felt900]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradient}
+      >
+        {/* Decorative accent lines */}
+        <View style={styles.accentTop} />
+        <View style={styles.accentBottom} />
+
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.crown}>👑</Text>
+          <Text style={styles.title}>Select Trump</Text>
+          <View style={styles.bidBadge}>
+            <Text style={styles.bidBadgeText}>Bid {highestBid}</Text>
+          </View>
         </View>
-      </View>
 
-      <Text style={styles.subtitle}>
-        You won the bid — choose your trump suit
-      </Text>
-
-      <View style={styles.divider} />
-
-      {/* Suit buttons */}
-      <View style={styles.suits}>
-        {SUITS.map(({ suit, symbol, name, isRed }) => (
-          <TouchableOpacity
-            key={suit}
-            style={[
-              styles.suitButton,
-              isRed ? styles.suitButtonRed : styles.suitButtonBlack,
-            ]}
-            onPress={() => selectPlayerTrump(suit)}
-            activeOpacity={0.75}
-          >
-            <Text
-              style={[
-                styles.suitSymbol,
-                { color: isRed ? colors.suitRed : colors.suitBlack },
-              ]}
-            >
-              {symbol}
-            </Text>
-            <Text
-              style={[
-                styles.suitName,
-                { color: isRed ? '#f7a090' : colors.felt300 },
-              ]}
-            >
-              {name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Reminder note */}
-      <View style={styles.noteRow}>
-        <Text style={styles.noteText}>
-          Trump suit stays hidden until revealed in play
+        <Text style={styles.subtitle}>
+          Choose your trump suit to win the trick
         </Text>
-      </View>
+
+        {/* Divider */}
+        <View style={styles.dividerContainer}>
+          <View style={styles.dividerLine} />
+          <View style={styles.dividerDot} />
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Suit buttons - card style */}
+        <View style={styles.suits}>
+          {SUITS.map(({ suit, symbol, name, isRed }, index) => (
+            <MotiView
+              key={suit}
+              from={{ opacity: 0, translateY: 20 }}
+              animate={{ opacity: 1, translateY: 0 }}
+              transition={{ delay: index * 80, type: 'spring', damping: 20 }}
+            >
+              <TouchableOpacity
+                style={styles.suitButton}
+                onPress={() => selectPlayerTrump(suit)}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={
+                    isRed ? ['#FEFEFE', '#F0EBE3'] : ['#FEFEFE', '#E8E6DE']
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.suitButtonGradient}
+                >
+                  <View
+                    style={[
+                      styles.suitInner,
+                      isRed ? styles.suitInnerRed : styles.suitInnerBlack,
+                    ]}
+                  >
+                    <Text
+                      style={[styles.suitSymbol, isRed && styles.suitSymbolRed]}
+                    >
+                      {symbol}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.suitName,
+                      { color: isRed ? colors.suitRed : colors.suitBlack },
+                    ]}
+                  >
+                    {name}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </MotiView>
+          ))}
+        </View>
+      </LinearGradient>
     </MotiView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.felt800,
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    bottom: '25%',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: colors.gold500,
+    shadowColor: colors.gold500,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+    zIndex: 300,
+  },
+  gradient: {
+    paddingHorizontal: 28,
+    paddingVertical: 22,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.gold600,
-    minWidth: 280,
-    maxWidth: 340,
-    gap: 12,
   },
 
-  // ── Header ──────────────────────────────────────────────────────────────
+  // Decorative accents
+  accentTop: {
+    position: 'absolute',
+    top: 0,
+    left: '15%',
+    right: '15%',
+    height: 2,
+    backgroundColor: colors.gold400,
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
+  },
+  accentBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: '15%',
+    right: '15%',
+    height: 2,
+    backgroundColor: colors.gold400,
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+  },
+
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+  },
+  crown: {
+    fontSize: 22,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '700',
     color: colors.gold400,
-    letterSpacing: 1,
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
   },
   bidBadge: {
     backgroundColor: colors.gold600,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.gold500,
   },
   bidBadgeText: {
-    fontSize: 12,
-    fontWeight: '900',
-    color: colors.gold400,
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.felt900,
   },
 
   subtitle: {
-    fontSize: 12,
+    fontSize: 14,
     color: colors.felt300,
     fontWeight: '500',
     textAlign: 'center',
-    letterSpacing: 0.3,
+    marginTop: 8,
+    letterSpacing: 0.4,
   },
 
-  divider: {
+  // Divider
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     width: '100%',
+    marginVertical: 14,
+  },
+  dividerLine: {
+    flex: 1,
     height: 1,
     backgroundColor: colors.felt600,
-    marginVertical: 2,
+  },
+  dividerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.gold500,
+    marginHorizontal: 12,
   },
 
-  // ── Suit grid ────────────────────────────────────────────────────────────
+  // Suit buttons - card style
   suits: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 14,
   },
   suitButton: {
-    width: 62,
-    height: 78,
     borderRadius: 14,
-    backgroundColor: colors.ivory300,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  suitButtonGradient: {
+    width: 66,
+    height: 90,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1.5,
-    gap: 4,
-  },
-  suitButtonRed: {
-    borderColor: '#e8a09a',
-  },
-  suitButtonBlack: {
+    borderWidth: 1,
     borderColor: colors.ivory500,
   },
+  suitInner: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  suitInnerRed: {
+    backgroundColor: '#FDEAEA',
+  },
+  suitInnerBlack: {
+    backgroundColor: '#E8E8E8',
+  },
   suitSymbol: {
-    fontSize: 30,
+    fontSize: 32,
+  },
+  suitSymbolRed: {
+    color: colors.suitRed,
   },
   suitName: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1,
     textTransform: 'uppercase',
   },
 
-  // ── Note ─────────────────────────────────────────────────────────────────
-  noteRow: {
-    backgroundColor: colors.felt700,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: colors.felt600,
+  // Note
+  noteContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 16,
+    gap: 8,
+  },
+  noteIcon: {
+    fontSize: 14,
   },
   noteText: {
-    fontSize: 10,
-    color: colors.felt400,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontSize: 11,
+    color: colors.felt300,
+    fontWeight: '500',
     letterSpacing: 0.3,
   },
 });
