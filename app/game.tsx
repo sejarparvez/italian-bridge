@@ -61,16 +61,19 @@ export default function GameScreen() {
   const trumpRevealed = gameState.trumpRevealed;
 
   const trickCards = gameState.currentTrick.cards;
-  const trickCardCount = trickCards.length;
 
   const canFollowLead = leadSuit
     ? humanHand.some((c) => c.suit === leadSuit)
     : true;
 
+  const trickCardCount = trickCards.length;
+  const otherPlayersPlayed = trickCards.some((c) => c.player !== 'bottom');
+
   const showTrumpDialog =
     isHumanTurn &&
     leadSuit &&
     trickCardCount > 0 &&
+    otherPlayersPlayed &&
     trumpChoice === null &&
     !canFollowLead &&
     !trumpRevealed &&
