@@ -1,5 +1,13 @@
+import { useRouter } from 'expo-router';
+import { MotiView } from 'moti';
 import { useEffect, useState } from 'react';
-import { Dimensions, StyleSheet, View } from 'react-native';
+import {
+  Dimensions,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BiddingPanel } from '@/components/game/BiddingOverlay';
 import { GameOverOverlay } from '@/components/game/GameOverOverlay';
@@ -28,10 +36,13 @@ const { height: H } = Dimensions.get('window');
 export default function GameScreen() {
   const insets = useSafeAreaInsets();
   const [menuVisible, setMenuVisible] = useState(false);
+  const [scoresVisible, setScoresVisible] = useState(false);
+  const [exitVisible, setExitVisible] = useState(false);
   const [trumpDialogVisible, setTrumpDialogVisible] = useState(false);
   const [trumpChoice, setTrumpChoice] = useState<boolean | null>(null);
   const { state: dealState, startNewGame } = useDealing(true);
   const { state: gameState } = useGameStore();
+  const router = useRouter();
   const winThreshold = useGameStore((s) => s.winThreshold);
   const topBarHeight = insets.top + 52;
 
@@ -159,6 +170,12 @@ export default function GameScreen() {
     setMenuVisible(false);
     if (action === 'New Game') {
       startNewGame();
+    } else if (action === 'Settings') {
+      router.push('/settings');
+    } else if (action === 'Show Scores') {
+      setScoresVisible(true);
+    } else if (action === 'Exit Game') {
+      setExitVisible(true);
     }
   };
 
@@ -302,6 +319,116 @@ export default function GameScreen() {
         panelTop={topBarHeight + 6}
       />
 
+      {/* ── Exit Confirmation Modal ── */}
+      {exitVisible && (
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 200 }}
+          style={styles.exitOverlay}
+        >
+          <View style={styles.exitBackdrop} />
+          <MotiView
+            from={{ opacity: 0, scale: 0.9, translateY: 10 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            transition={{ type: 'spring', damping: 18 }}
+            style={styles.exitContainer}
+          >
+            <View style={styles.exitIconWrap}>
+              <Text style={styles.exitIcon}>🚪</Text>
+            </View>
+            <Text style={styles.exitTitle}>Exit Game</Text>
+            <Text style={styles.exitMessage}>
+              Are you sure you want to exit?{'\n'}Your progress will be lost.
+            </Text>
+            <View style={styles.exitButtons}>
+              <TouchableOpacity
+                style={styles.exitCancelBtn}
+                onPress={() => setExitVisible(false)}
+              >
+                <Text style={styles.exitCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.exitConfirmBtn}
+                onPress={() => router.push('/')}
+              >
+                <Text style={styles.exitConfirmText}>Exit</Text>
+              </TouchableOpacity>
+            </View>
+          </MotiView>
+        </MotiView>
+      )}
+
+      {/* ── Scores Overlay ── */}
+      {scoresVisible && (
+        <MotiView
+          from={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 200 }}
+          style={styles.scoresOverlay}
+        >
+          <View style={styles.scoresBackdrop} />
+          <MotiView
+            from={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', damping: 18 }}
+            style={styles.scoresContainer}
+          >
+            <View style={styles.scoresHeader}>
+              <Text style={styles.scoresTitle}>CURRENT SCORES</Text>
+              <TouchableOpacity
+                style={styles.scoresCloseBtn}
+                onPress={() => setScoresVisible(false)}
+              >
+                <Text style={styles.scoresCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.scoresDivider} />
+            <View style={styles.scoresRow}>
+              <View style={styles.scoreTeamBox}>
+                <View style={styles.scoreTeamHeader}>
+                  <View
+                    style={[
+                      styles.scoreDot,
+                      { backgroundColor: colors.gold500 },
+                    ]}
+                  />
+                  <Text style={styles.scoreTeamLabel}>You & Marco</Text>
+                </View>
+                <Text style={styles.scoreValue}>{gameState.teamScores.BT}</Text>
+                <Text style={styles.scoreTarget}>
+                  {gameState.teamScores.BT >= 0 ? '+' : ''}
+                  {gameState.teamScores.BT} / ±{winThreshold}
+                </Text>
+              </View>
+              <Text style={styles.scoreVs}>VS</Text>
+              <View style={styles.scoreTeamBox}>
+                <View style={styles.scoreTeamHeader}>
+                  <View
+                    style={[
+                      styles.scoreDot,
+                      { backgroundColor: colors.felt400 },
+                    ]}
+                  />
+                  <Text style={styles.scoreTeamLabel}>Sofia & Luca</Text>
+                </View>
+                <Text style={styles.scoreValue}>{gameState.teamScores.LR}</Text>
+                <Text style={styles.scoreTarget}>
+                  {gameState.teamScores.LR >= 0 ? '+' : ''}
+                  {gameState.teamScores.LR} / ±{winThreshold}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.scoresDivider} />
+            <View style={styles.scoresInfo}>
+              <Text style={styles.scoresInfoText}>
+                First to ±{winThreshold} wins · Game continues until match ends
+              </Text>
+            </View>
+          </MotiView>
+        </MotiView>
+      )}
+
       {/* ── Round End Overlay ── */}
       {showRoundEnd && (
         <RoundEndOverlay
@@ -386,5 +513,181 @@ const styles = StyleSheet.create({
     left: '50%',
     zIndex: 100,
     transform: [{ translateX: '-50%' }, { translateY: '-50%' }],
+  },
+  scoresOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 150,
+  },
+  scoresBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+  },
+  scoresContainer: {
+    backgroundColor: colors.felt800,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.felt600,
+    width: 340,
+    padding: 20,
+    alignItems: 'center',
+  },
+  scoresHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 14,
+  },
+  scoresTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.felt300,
+    letterSpacing: 2,
+  },
+  scoresCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.felt700,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scoresCloseText: {
+    fontSize: 12,
+    color: colors.felt300,
+    fontWeight: '700',
+  },
+  scoresDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: 'rgba(26,122,84,0.15)',
+    marginVertical: 14,
+  },
+  scoresRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    width: '100%',
+  },
+  scoreTeamBox: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: colors.felt900,
+    borderRadius: 12,
+    padding: 14,
+  },
+  scoreTeamHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  scoreDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  scoreTeamLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.felt300,
+  },
+  scoreValue: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: colors.gold400,
+  },
+  scoreTarget: {
+    fontSize: 10,
+    color: colors.felt400,
+    marginTop: 4,
+  },
+  scoreVs: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.felt500,
+  },
+  scoresInfo: {
+    marginTop: 12,
+  },
+  scoresInfoText: {
+    fontSize: 10,
+    color: 'rgba(125,212,168,0.45)',
+    textAlign: 'center',
+  },
+  exitOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 160,
+  },
+  exitBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+  },
+  exitContainer: {
+    backgroundColor: colors.felt800,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(229,115,115,0.3)',
+    padding: 28,
+    alignItems: 'center',
+    width: 300,
+  },
+  exitIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(229,115,115,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(229,115,115,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  exitIcon: { fontSize: 26 },
+  exitTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.ivory300,
+    marginBottom: 8,
+  },
+  exitMessage: {
+    fontSize: 13,
+    color: colors.felt300,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  exitButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  exitCancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: colors.felt700,
+    alignItems: 'center',
+  },
+  exitCancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.ivory300,
+  },
+  exitConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#E57373',
+    alignItems: 'center',
+  },
+  exitConfirmText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#fff',
   },
 });
