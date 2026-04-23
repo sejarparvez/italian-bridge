@@ -124,17 +124,23 @@ export default function GameScreen() {
       return { tricks: player.tricksTaken, bid: player.bid, target, showChip };
     }
 
-    const teamTricks =
-      seat === 'bottom' || seat === 'top'
-        ? gameState.players.bottom.tricksTaken +
-          gameState.players.top.tricksTaken
-        : gameState.players.left.tricksTaken +
-          gameState.players.right.tricksTaken;
+    const isBiddingTeamBT =
+      gameState.highestBidder === 'bottom' || gameState.highestBidder === 'top';
+
+    const isPlayerOnBiddingTeam = seat === 'bottom' || seat === 'top';
+
+    const teamTricks = isPlayerOnBiddingTeam
+      ? gameState.players.bottom.tricksTaken + gameState.players.top.tricksTaken
+      : gameState.players.left.tricksTaken +
+        gameState.players.right.tricksTaken;
 
     if (isBidder) {
       showChip = true;
       target = gameState.highestBid;
-    } else if (seat === 'bottom' && gameState.highestBidder !== null) {
+    } else if (isBiddingTeamBT && seat === 'left') {
+      showChip = true;
+      target = 4;
+    } else if (!isBiddingTeamBT && seat === 'bottom') {
       showChip = true;
       target = 4;
     }
