@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BiddingPanel } from '@/components/game/BiddingOverlay';
+import { GameOverOverlay } from '@/components/game/GameOverOverlay';
 import { RoundEndOverlay } from '@/components/game/RoundEndOverlay';
 import { TrumpDialogOverlay } from '@/components/game/TrumpDialogOverlay';
 import { TrumpSelectPanel } from '@/components/game/TrumpSelectOverlay';
@@ -31,6 +32,7 @@ export default function GameScreen() {
   const [trumpChoice, setTrumpChoice] = useState<boolean | null>(null);
   const { state: dealState, startNewGame } = useDealing(true);
   const { state: gameState } = useGameStore();
+  const winThreshold = useGameStore((s) => s.winThreshold);
   const topBarHeight = insets.top + 52;
 
   // ── Derived display flags ────────────────────────────────────────────────
@@ -79,6 +81,10 @@ export default function GameScreen() {
     !trumpRevealed &&
     trumpSuit !== null;
 
+  // ── Overlay phase flags ──────────────────────────────────────────────────
+  const showRoundEnd = gameState.phase === 'roundEnd';
+  const showGameOver = gameState.phase === 'gameEnd';
+
   useEffect(() => {
     if (showTrumpDialog && !trumpDialogVisible) {
       setTrumpDialogVisible(true);
@@ -120,8 +126,10 @@ export default function GameScreen() {
 
     const teamTricks =
       seat === 'bottom' || seat === 'top'
-        ? gameState.players.bottom.tricksTaken + gameState.players.top.tricksTaken
-        : gameState.players.left.tricksTaken + gameState.players.right.tricksTaken;
+        ? gameState.players.bottom.tricksTaken +
+          gameState.players.top.tricksTaken
+        : gameState.players.left.tricksTaken +
+          gameState.players.right.tricksTaken;
 
     if (isBidder) {
       showChip = true;
@@ -140,8 +148,6 @@ export default function GameScreen() {
   };
 
   const showAnimation = isDealing && dealState.currentCardIndex > 0;
-
-  const showRoundEnd = gameState.phase === 'roundEnd';
 
   const handleMenuAction = (action: string) => {
     setMenuVisible(false);
@@ -214,7 +220,6 @@ export default function GameScreen() {
             <TrickPile trick={gameState.currentTrick} />
           )}
 
-          {/* Bidding UI — replace with your real BiddingPanel */}
           {showBidding && (
             <View style={styles.biddingOverlay}>
               <BiddingPanel
@@ -225,7 +230,6 @@ export default function GameScreen() {
             </View>
           )}
 
-          {/* Trump selection — shown when human won the bid */}
           {showTrumpSelect && <TrumpSelectPanel />}
         </View>
 
@@ -254,7 +258,6 @@ export default function GameScreen() {
           {...getChipProps('bottom')}
         />
         <View style={styles.bottomHandWrapper}>
-          {/* Full playable hand during playing phases */}
           {showHands && (
             <BottomHand
               hand={gameState.players.bottom.hand}
@@ -266,7 +269,6 @@ export default function GameScreen() {
               wantsToTrump={trumpChoice ?? false}
             />
           )}
-          {/* Partial hand visible during bidding (not playable) */}
           {showPartialHands && (
             <BottomHand
               hand={gameState.players.bottom.hand}
@@ -301,7 +303,16 @@ export default function GameScreen() {
           teamScores={gameState.teamScores}
           highestBid={gameState.highestBid}
           highestBidder={gameState.highestBidder}
+          winThreshold={winThreshold}
           onContinue={() => useGameStore.getState().nextRound()}
+        />
+      )}
+
+      {/* ── Game Over Overlay ── */}
+      {showGameOver && (
+        <GameOverOverlay
+          teamScores={gameState.teamScores}
+          onNewGame={() => startNewGame()}
         />
       )}
 

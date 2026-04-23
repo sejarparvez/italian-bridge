@@ -28,13 +28,6 @@ const INITIAL_DEAL_COUNT = 5;
 /** Total tricks per round (52 cards ÷ 4 players) */
 const TRICKS_PER_ROUND = 13;
 
-/**
- * Score thresholds that end the game.
- * Win: reach +30. Lose: drop to -30.
- */
-const WIN_SCORE = 30;
-const LOSE_SCORE = -30;
-
 // ─── Player Names ─────────────────────────────────────────────────────────────
 
 const PLAYER_NAMES: Record<SeatPosition, string> = {
@@ -125,10 +118,6 @@ export function startNewGame(): GameState {
 
 // ─── Second Deal ──────────────────────────────────────────────────────────────
 
-/**
- * Called after trump is selected (end of 'dealing2' phase).
- * Deals the remaining 8 cards to each player to complete their 13-card hands.
- */
 export function dealSecondPhase(state: GameState): GameState {
   if (state.phase !== 'dealing2') {
     throw new Error(
@@ -163,41 +152,23 @@ export function dealSecondPhase(state: GameState): GameState {
 
 // ─── Play Card ────────────────────────────────────────────────────────────────
 
-/**
- * Plays a card for the given seat.
- *
- * `wantsToTrump` — pass true when the player has explicitly declared intent to
- * trump this trick (even if they hold no trump cards). This is the sole trigger
- * for revealing the trump suit, per game rules:
- *
- *   "Trump is revealed the first time any player declares their intent to trump,
- *    regardless of whether they actually hold a trump card."
- *
- * For the human player the UI sets this flag when the player taps "Reveal & Trump".
- * For bots, botWantsToTrump() from bot-play determines the value and the store
- * passes it here via playCard.
- *
- * Passing false (the default) means the player is either following suit or
- * choosing to discard without trumping — trump is NOT revealed.
- */
 export function playCard(
   state: GameState,
   seat: SeatPosition,
   card: Card,
   wantsToTrump = false,
+  winThreshold = 30,
 ): GameState {
   logger.debug(
     'Engine',
     `playCard: seat=${seat}, card=${card.id}, wantsToTrump=${wantsToTrump}, trickCards=${state.currentTrick.cards.length}`,
   );
 
-  // Guard: card must belong to this player's hand
   if (!state.players[seat].hand.some((c) => c.id === card.id)) {
     logger.warn('Engine', `Card not in hand: ${card.id} for ${seat}`);
     return state;
   }
 
-  // Guard: player must not have already played in this trick
   if (state.currentTrick.cards.some((tc) => tc.player === seat)) {
     logger.warn('Engine', `Player already played: ${seat}`);
     return state;
@@ -217,25 +188,15 @@ export function playCard(
     return state;
   }
 
-  // ── Trump reveal ──────────────────────────────────────────────────────────
-  //
-  // Reveal is driven by INTENT (`wantsToTrump`), not by which card was played.
-  // This correctly handles:
-  //   • Player declares intent + plays trump card           → reveal ✅
-  //   • Player declares intent + holds no trump + plays any → reveal ✅
-  //   • Player is void in led suit but discards non-trump   → no reveal ✅
-  //   • Player follows suit normally                        → no reveal ✅
   const trumpJustRevealed =
     !state.trumpRevealed && state.trumpSuit !== null && wantsToTrump;
 
-  // Remove card from hand
   const newPlayers = { ...state.players };
   newPlayers[seat] = {
     ...newPlayers[seat],
     hand: newPlayers[seat].hand.filter((c) => c.id !== card.id),
   };
 
-  // Add card to trick
   const newTrick = addCardToTrick(state.currentTrick, seat, card);
   const trickComplete = newTrick.cards.length === SEAT_ORDER.length;
 
@@ -271,7 +232,7 @@ export function playCard(
     phase: 'trickEnd',
   };
 
-  // ── Round complete (all 13 tricks played) ─────────────────────────────────
+  // ── Round complete ────────────────────────────────────────────────────────
   if (newState.completedTricks.length === TRICKS_PER_ROUND) {
     const roundScores = calculateRoundScores(
       newState.players,
@@ -287,7 +248,7 @@ export function playCard(
         ...newState.roundScores,
         { round: newState.round, scores: newTeamScores },
       ],
-      phase: isGameOver(newTeamScores) ? 'gameEnd' : 'roundEnd',
+      phase: isGameOver(newTeamScores, winThreshold) ? 'gameEnd' : 'roundEnd',
     };
   }
 
@@ -296,15 +257,6 @@ export function playCard(
 
 // ─── Trump ────────────────────────────────────────────────────────────────────
 
-/**
- * Explicitly reveal the trump card.
- *
- * Canonical reveal function — both the engine's `playCard` (via the
- * `wantsToTrump` flag) and any external caller should go through this path
- * to guarantee a single consistent reveal mechanism.
- *
- * Idempotent: calling it on an already-revealed state is a no-op.
- */
 export function revealTrump(state: GameState): GameState {
   if (state.trumpRevealed) return state;
   return { ...state, trumpRevealed: true };
@@ -312,13 +264,16 @@ export function revealTrump(state: GameState): GameState {
 
 // ─── Round Advancement ────────────────────────────────────────────────────────
 
-export function advanceToNextRound(state: GameState): GameState {
+export function advanceToNextRound(
+  state: GameState,
+  winThreshold = 30,
+): GameState {
   logger.info(
     'Engine',
     `advanceToNextRound: round=${state.round}, dealer=${state.dealer}`,
   );
 
-  if (isGameOver(state.teamScores)) {
+  if (isGameOver(state.teamScores, winThreshold)) {
     logger.info('Engine', 'Game over - ending');
     return { ...state, phase: 'gameEnd' };
   }
@@ -339,8 +294,6 @@ export function advanceToNextRound(state: GameState): GameState {
     resetPlayers[seat].hand = newDeal[seat];
   });
 
-  // Append this round's scores to the history before resetting per-round state.
-  // The UI reads roundScores for the end-of-round summary and score log.
   const updatedRoundScores = [
     ...state.roundScores,
     { round: state.round, scores: { ...state.teamScores } },
@@ -374,30 +327,26 @@ export function advanceToNextRound(state: GameState): GameState {
 
 // ─── Game Over Check ──────────────────────────────────────────────────────────
 
-export function isGameOver(teamScores: GameState['teamScores']): boolean {
+export function isGameOver(
+  teamScores: GameState['teamScores'],
+  winThreshold = 30,
+): boolean {
   return Object.values(teamScores).some(
-    (score) => score >= WIN_SCORE || score <= LOSE_SCORE,
+    (score) => score >= winThreshold || score <= -winThreshold,
   );
 }
 
-/**
- * Returns the winning team, or null if the game isn't over.
- *
- * Priority:
- *   1. A team that reached +30 wins outright.
- *   2. A team that dropped to -30 loses — the other team wins.
- *   3. If BOTH teams hit -30 in the same round, the higher score wins.
- */
 export function getWinner(
   teamScores: GameState['teamScores'],
+  winThreshold = 30,
 ): 'BT' | 'LR' | null {
   const teams = Object.keys(teamScores) as ('BT' | 'LR')[];
 
   for (const team of teams) {
-    if (teamScores[team] >= WIN_SCORE) return team;
+    if (teamScores[team] >= winThreshold) return team;
   }
 
-  const eliminated = teams.filter((t) => teamScores[t] <= LOSE_SCORE);
+  const eliminated = teams.filter((t) => teamScores[t] <= -winThreshold);
 
   if (eliminated.length === 0) return null;
 

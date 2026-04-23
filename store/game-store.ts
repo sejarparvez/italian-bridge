@@ -22,8 +22,10 @@ interface GameStore {
   state: GameState;
   difficulty: Difficulty;
   animSpeed: number;
+  winThreshold: number;
   setDifficulty: (difficulty: Difficulty) => void;
   setAnimSpeed: (speed: number) => void;
+  setWinThreshold: (threshold: number) => void;
   startNewGame: () => void;
   placePlayerBid: (bid: number) => void;
   passPlayerBid: () => void;
@@ -38,8 +40,6 @@ interface GameStore {
 }
 
 // ─── Safe speed helper ────────────────────────────────────────────────────────
-// Prevents division by zero if animSpeed is ever set to 0.
-// All setTimeout calls go through this instead of dividing directly.
 
 function delay(ms: number, speed: number): number {
   return ms / Math.max(0.1, speed);
@@ -51,9 +51,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   state: createInitialState(),
   difficulty: 'medium',
   animSpeed: 1,
+  winThreshold: 20,
 
   setDifficulty: (difficulty) => set({ difficulty }),
   setAnimSpeed: (animSpeed) => set({ animSpeed }),
+  setWinThreshold: (winThreshold) => set({ winThreshold }),
 
   startNewGame: () => {
     logger.info('GameStore', 'Starting new game');
@@ -109,7 +111,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
-    const newState = playCard(get().state, 'bottom', card, wantsToTrump);
+    const { winThreshold } = get();
+    const newState = playCard(
+      get().state,
+      'bottom',
+      card,
+      wantsToTrump,
+      winThreshold,
+    );
     logger.debug(
       'GameStore',
       `After playCard: phase=${newState.phase}, currentSeat=${newState.currentSeat}, trickCards=${newState.currentTrick.cards.length}`,
@@ -302,7 +311,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   advanceAI: () => {
     try {
-      const { state, difficulty } = get();
+      const { state, difficulty, winThreshold } = get();
       logger.debug(
         'GameStore',
         `advanceAI: phase=${state.phase}, currentSeat=${state.currentSeat}`,
@@ -356,7 +365,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
         'GameStore',
         `Bot ${currentSeat} playing: ${botCard.id}, wantsToTrump=${wantsToTrump}`,
       );
-      const newState = playCard(state, currentSeat, botCard, wantsToTrump);
+      const newState = playCard(
+        state,
+        currentSeat,
+        botCard,
+        wantsToTrump,
+        winThreshold,
+      );
       logger.debug(
         'GameStore',
         `After bot play: phase=${newState.phase}, currentSeat=${newState.currentSeat}, trickCards=${newState.currentTrick.cards.length}`,
@@ -397,7 +412,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   nextRound: () => {
     logger.info('GameStore', 'Advancing to next round');
-    const newState = advanceToNextRound(get().state);
+    const { winThreshold } = get();
+    const newState = advanceToNextRound(get().state, winThreshold);
     logger.debug(
       'GameStore',
       `After nextRound: phase=${newState.phase}, round=${newState.round}, dealer=${newState.dealer}, currentSeat=${newState.currentSeat}`,
