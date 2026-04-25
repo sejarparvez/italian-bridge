@@ -401,7 +401,7 @@ function GameplayPanel() {
 
 // ─── Panel: Scoring ───────────────────────────────────────────────────────────
 
-const WIN_LEVELS = [7, 20, 30, 50, 70, 100];
+const WIN_LEVELS = [30, 50, 70, 100];
 
 function ScoringPanel() {
   const winThreshold = useSettingsStore((s) => s.winThreshold);

@@ -1,14 +1,6 @@
 import type { GameState, Player, SeatPosition } from '@/types/game-type';
 import type { Card } from '../constants/cards';
-import { logger } from '../utils/logger';
-import {
-  BID_MAX,
-  BID_MIN,
-  getEstimatedBid,
-  passBid,
-  placeBid,
-  selectTrump,
-} from './bidding';
+import { BID_MAX, BID_MIN, passBid, placeBid, selectTrump } from './bidding';
 import { createDeck, dealCards, dealRemainingCards, shuffleDeck } from './deck';
 import { calculateRoundScores, updateTeamScores } from './scoring';
 import {
@@ -53,7 +45,6 @@ function getBiddingOrderFrom(startSeat: SeatPosition): SeatPosition[] {
 // ─── Game Initialisation ──────────────────────────────────────────────────────
 
 export function createInitialState(): GameState {
-  logger.info('Engine', 'Creating initial game state');
   const deck = shuffleDeck(createDeck());
   const initialDeal = dealCards(deck, INITIAL_DEAL_COUNT);
 
@@ -63,14 +54,6 @@ export function createInitialState(): GameState {
   });
 
   const dealer: SeatPosition = 'bottom';
-  const currentSeat = getNextSeat(dealer);
-  const biddingOrder = getBiddingOrderFrom(dealer);
-
-  logger.info(
-    'Engine',
-    `Initial state: dealer=${dealer}, currentSeat=${currentSeat}, biddingOrder=${biddingOrder}`,
-  );
-
   return {
     phase: 'bidding',
     players,
@@ -159,18 +142,11 @@ export function playCard(
   wantsToTrump = false,
   winThreshold = 30,
 ): GameState {
-  logger.debug(
-    'Engine',
-    `playCard: seat=${seat}, card=${card.id}, wantsToTrump=${wantsToTrump}, trickCards=${state.currentTrick.cards.length}`,
-  );
-
   if (!state.players[seat].hand.some((c) => c.id === card.id)) {
-    logger.warn('Engine', `Card not in hand: ${card.id} for ${seat}`);
     return state;
   }
 
   if (state.currentTrick.cards.some((tc) => tc.player === seat)) {
-    logger.warn('Engine', `Player already played: ${seat}`);
     return state;
   }
 
@@ -184,7 +160,6 @@ export function playCard(
       wantsToTrump,
     )
   ) {
-    logger.warn('Engine', `Invalid card: ${card.id} for ${seat}`);
     return state;
   }
 
@@ -268,13 +243,7 @@ export function advanceToNextRound(
   state: GameState,
   winThreshold = 30,
 ): GameState {
-  logger.info(
-    'Engine',
-    `advanceToNextRound: round=${state.round}, dealer=${state.dealer}`,
-  );
-
   if (isGameOver(state.teamScores, winThreshold)) {
-    logger.info('Engine', 'Game over - ending');
     return { ...state, phase: 'gameEnd' };
   }
 
@@ -282,7 +251,6 @@ export function advanceToNextRound(
   const newDeal = dealCards(newDeck, INITIAL_DEAL_COUNT);
 
   const newDealer = getNextSeat(state.dealer);
-  logger.info('Engine', `Rotating dealer: ${state.dealer} -> ${newDealer}`);
 
   const names = {} as Record<SeatPosition, string>;
   SEAT_ORDER.forEach((seat) => {
@@ -298,11 +266,6 @@ export function advanceToNextRound(
     ...state.roundScores,
     { round: state.round, scores: { ...state.teamScores } },
   ];
-
-  logger.info(
-    'Engine',
-    `New round state: round=${state.round + 1}, dealer=${newDealer}, currentSeat=${getNextSeat(newDealer)}`,
-  );
 
   return {
     ...state,
@@ -370,7 +333,6 @@ export {
   createEmptyTrick,
   dealCards,
   dealRemainingCards,
-  getEstimatedBid,
   getTrickWinner,
   isValidCard,
   passBid,

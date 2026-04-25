@@ -19,9 +19,9 @@ const DEFAULT_SETTINGS: Pick<
   SettingsState,
   'winThreshold' | 'animSpeed' | 'difficulty'
 > = {
-  winThreshold: 20,
+  winThreshold: 30,
   animSpeed: 1,
-  difficulty: 'medium',
+  difficulty: 'hard',
 };
 
 export const useSettingsStore = create<SettingsState>()(

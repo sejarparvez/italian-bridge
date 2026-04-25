@@ -1,5 +1,10 @@
 import { create } from 'zustand';
-import type { BotPlayResult, Difficulty, GameState } from '@/types/game-type';
+import type {
+  BotPlayResult,
+  Difficulty,
+  GameState,
+  SeatPosition,
+} from '@/types/game-type';
 import type { Card, Suit } from '../constants/cards';
 import {
   passBid as enginePassBid,
@@ -14,7 +19,7 @@ import {
   dealSecondPhase,
   playCard,
 } from '../game/engine';
-import { logger } from '../utils/logger';
+
 import { useSettingsStore } from './settings-store';
 
 interface GameStore {
@@ -64,26 +69,22 @@ export const useGameStore = create<GameStore>((set, get) => {
     },
 
     startNewGame: () => {
-      logger.info('GameStore', 'Starting new game');
       set({ state: createInitialState() });
     },
 
     placePlayerBid: (bid) => {
-      logger.info('GameStore', `Player placing bid: ${bid}`);
       const newState = placeBid(get().state, 'bottom', bid);
       set({ state: newState });
       afterBidState(newState, get);
     },
 
     passPlayerBid: () => {
-      logger.info('GameStore', 'Player passing bid');
       const newState = enginePassBid(get().state, 'bottom');
       set({ state: newState });
       afterBidState(newState, get);
     },
 
     selectPlayerTrump: (suit) => {
-      logger.info('GameStore', `Player selecting trump: ${suit}`);
       const newState = selectTrump(get().state, suit, 'bottom');
       set({ state: newState });
     },
@@ -108,13 +109,12 @@ export const useGameStore = create<GameStore>((set, get) => {
       const { state } = get();
       if (state.trumpRevealed) return;
       if (state.phase !== 'playing' && state.phase !== 'trickEnd') return;
-      logger.info('GameStore', 'Player revealing trump');
+
       set({ state: { ...state, trumpRevealed: true } });
     },
 
     runBotBids: () => {
       try {
-        const { difficulty } = get();
         let currentState = get().state;
         if (currentState.phase !== 'bidding') return;
 
@@ -126,8 +126,45 @@ export const useGameStore = create<GameStore>((set, get) => {
           const seat = biddingOrder[currentBidderIndex];
           if (seat === 'bottom') return;
 
-          const hand = currentState.players[seat].hand;
-          const botBid = getBotBid(hand, difficulty, currentState.highestBid);
+          const teammateMap: Record<
+            Exclude<SeatPosition, 'bottom'>,
+            SeatPosition
+          > = {
+            top: 'bottom',
+            left: 'right',
+            right: 'left',
+          };
+          const teammate = teammateMap[seat];
+          const isMyTeamBT = seat === 'top';
+          const myTeamScore = currentState.teamScores[isMyTeamBT ? 'BT' : 'LR'];
+          const opponentScore =
+            currentState.teamScores[isMyTeamBT ? 'LR' : 'BT'];
+          const partnerBid = currentState.players[teammate].bid;
+          const isDealer = seat === currentState.dealer;
+          const allOthersPassed = biddingOrder
+            .slice(0, currentBidderIndex)
+            .every((s) => {
+              const bid = currentState.players[s].bid;
+              return bid === 0 || bid === null;
+            });
+          const dealerIsMyPartner = currentState.dealer === teammate;
+          const isOpponentDealing =
+            currentState.dealer !== seat && currentState.dealer !== teammate;
+
+          const bidContext = {
+            hand: currentState.players[seat].hand,
+            currentHighestBid: currentState.highestBid,
+            myTeamScore,
+            opponentScore,
+            winThreshold: get().winThreshold,
+            partnerBid,
+            isDealer,
+            allOthersPassed,
+            dealerIsMyPartner,
+            isOpponentDealing,
+          };
+
+          const botBid = getBotBid(bidContext);
 
           currentState =
             botBid === 0
@@ -151,13 +188,12 @@ export const useGameStore = create<GameStore>((set, get) => {
 
         setTimeout(processBots, delay(300, get().animSpeed));
       } catch (err) {
-        logger.error('GameStore', `Error in runBotBids: ${err}`);
+        throw new Error(`Error in runBotBids: ${err}`);
       }
     },
 
     dealRemainingCards: () => {
       const currentState = get().state;
-      const { difficulty } = get();
       const bidder = currentState.highestBidder;
       if (!bidder || currentState.phase !== 'dealing2') return;
 
@@ -169,7 +205,6 @@ export const useGameStore = create<GameStore>((set, get) => {
         const trump = selectBotTrump(
           currentState.players[bidder].hand,
           currentState.highestBid,
-          difficulty,
         );
         const trumpState = {
           ...currentState,
@@ -225,7 +260,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         set({ state: newState });
         afterPlayState(newState, get);
       } catch (err) {
-        logger.error('GameStore', `Error in advanceAI: ${err}`);
+        throw new Error(`Error in advanceAI: ${err}`);
       }
     },
 
