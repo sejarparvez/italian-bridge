@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MMKV } from 'react-native-mmkv';
 import type { Difficulty } from '@/types/game-type';
+
+const storage = new MMKV({ id: 'italian-bridge-settings' });
 
 export interface SettingsState {
   winThreshold: number;
@@ -31,7 +33,18 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'italian-bridge-settings',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => ({
+        getItem: (name) => {
+          const value = storage.getString(name);
+          return value ?? null;
+        },
+        setItem: (name, value) => {
+          storage.set(name, value);
+        },
+        removeItem: (name) => {
+          storage.delete(name);
+        },
+      })),
     },
   ),
 );
