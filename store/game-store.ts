@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { BotPlayResult, Difficulty, GameState } from '@/types/game-type';
 import type { Card, Suit } from '../constants/cards';
-import { useSettingsStore } from './settings-store';
 import {
   passBid as enginePassBid,
   placeBid,
@@ -16,6 +15,7 @@ import {
   playCard,
 } from '../game/engine';
 import { logger } from '../utils/logger';
+import { useSettingsStore } from './settings-store';
 
 interface GameStore {
   state: GameState;
@@ -93,7 +93,13 @@ export const useGameStore = create<GameStore>((set, get) => {
       if (!card) return;
 
       const { winThreshold } = get();
-      const newState = playCard(get().state, 'bottom', card, wantsToTrump, winThreshold);
+      const newState = playCard(
+        get().state,
+        'bottom',
+        card,
+        wantsToTrump,
+        winThreshold,
+      );
       set({ state: newState });
       afterPlayState(newState, get);
     },
@@ -123,15 +129,19 @@ export const useGameStore = create<GameStore>((set, get) => {
           const hand = currentState.players[seat].hand;
           const botBid = getBotBid(hand, difficulty, currentState.highestBid);
 
-          currentState = botBid === 0
-            ? enginePassBid(currentState, seat)
-            : placeBid(currentState, seat, botBid);
+          currentState =
+            botBid === 0
+              ? enginePassBid(currentState, seat)
+              : placeBid(currentState, seat, botBid);
 
           set({ state: currentState });
 
           if (currentState.phase === 'dealing2') {
             if (currentState.highestBidder !== 'bottom') {
-              setTimeout(() => get().dealRemainingCards(), delay(800, get().animSpeed));
+              setTimeout(
+                () => get().dealRemainingCards(),
+                delay(800, get().animSpeed),
+              );
             }
             return;
           }
@@ -156,8 +166,16 @@ export const useGameStore = create<GameStore>((set, get) => {
         set({ state: nextState });
         afterPlayState(nextState, get);
       } else {
-        const trump = selectBotTrump(currentState.players[bidder].hand, currentState.highestBid, difficulty);
-        const trumpState = { ...currentState, trumpSuit: trump, trumpCreator: bidder };
+        const trump = selectBotTrump(
+          currentState.players[bidder].hand,
+          currentState.highestBid,
+          difficulty,
+        );
+        const trumpState = {
+          ...currentState,
+          trumpSuit: trump,
+          trumpCreator: bidder,
+        };
         const nextState = dealSecondPhase(trumpState);
         set({ state: nextState });
         afterPlayState(nextState, get);
@@ -173,16 +191,37 @@ export const useGameStore = create<GameStore>((set, get) => {
         if (currentSeat === 'bottom') return;
 
         const hand = state.players[currentSeat].hand;
-        const botPlay = getBotPlay(hand, state.currentTrick, state.trumpSuit, state.trumpRevealed, state, difficulty, currentSeat);
+        const botPlay = getBotPlay(
+          hand,
+          state.currentTrick,
+          state.trumpSuit,
+          state.trumpRevealed,
+          state,
+          difficulty,
+          currentSeat,
+        );
         if (!botPlay) return;
 
         const isBotPlayResult = (v: unknown): v is BotPlayResult =>
-          typeof v === 'object' && v !== null && 'card' in v && 'wantsToTrump' in v;
+          typeof v === 'object' &&
+          v !== null &&
+          'card' in v &&
+          'wantsToTrump' in v;
 
-        const botCard = isBotPlayResult(botPlay) ? botPlay.card : (botPlay as Card);
-        const wantsToTrump = isBotPlayResult(botPlay) ? botPlay.wantsToTrump : false;
+        const botCard = isBotPlayResult(botPlay)
+          ? botPlay.card
+          : (botPlay as Card);
+        const wantsToTrump = isBotPlayResult(botPlay)
+          ? botPlay.wantsToTrump
+          : false;
 
-        const newState = playCard(state, currentSeat, botCard, wantsToTrump, winThreshold);
+        const newState = playCard(
+          state,
+          currentSeat,
+          botCard,
+          wantsToTrump,
+          winThreshold,
+        );
         set({ state: newState });
         afterPlayState(newState, get);
       } catch (err) {
@@ -232,7 +271,10 @@ function afterBidState(newState: GameState, get: () => GameStore): void {
 function afterPlayState(newState: GameState, get: () => GameStore): void {
   if (newState.phase === 'trickEnd') {
     setTimeout(() => get().clearTrick(), delay(1200, get().animSpeed));
-  } else if (newState.phase === 'playing' && newState.currentSeat !== 'bottom') {
+  } else if (
+    newState.phase === 'playing' &&
+    newState.currentSeat !== 'bottom'
+  ) {
     setTimeout(() => get().advanceAI(), delay(500, get().animSpeed));
   }
 }

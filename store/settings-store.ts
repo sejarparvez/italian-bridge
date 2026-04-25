@@ -1,9 +1,9 @@
+import { createMMKV } from 'react-native-mmkv';
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { MMKV } from 'react-native-mmkv';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Difficulty } from '@/types/game-type';
 
-const storage = new MMKV({ id: 'italian-bridge-settings' });
+const mmkvStorage = createMMKV({ id: 'italian-bridge-settings' });
 
 export interface SettingsState {
   winThreshold: number;
@@ -15,7 +15,10 @@ export interface SettingsState {
   reset: () => void;
 }
 
-const DEFAULT_SETTINGS: Pick<SettingsState, 'winThreshold' | 'animSpeed' | 'difficulty'> = {
+const DEFAULT_SETTINGS: Pick<
+  SettingsState,
+  'winThreshold' | 'animSpeed' | 'difficulty'
+> = {
   winThreshold: 20,
   animSpeed: 1,
   difficulty: 'medium',
@@ -35,14 +38,14 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'italian-bridge-settings',
       storage: createJSONStorage(() => ({
         getItem: (name) => {
-          const value = storage.getString(name);
+          const value = mmkvStorage.getString(name);
           return value ?? null;
         },
         setItem: (name, value) => {
-          storage.set(name, value);
+          mmkvStorage.set(name, value);
         },
         removeItem: (name) => {
-          storage.delete(name);
+          mmkvStorage.remove(name);
         },
       })),
     },
