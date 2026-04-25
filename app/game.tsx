@@ -521,10 +521,13 @@ const styles = StyleSheet.create({
   },
   biddingOverlay: {
     position: 'absolute',
-    top: '20%',
-    left: '50%',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
     zIndex: 100,
-    transform: [{ translateX: '-50%' }, { translateY: '-50%' }],
   },
   scoresOverlay: {
     ...StyleSheet.absoluteFillObject,
