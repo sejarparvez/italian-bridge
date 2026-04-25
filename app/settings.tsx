@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useGameStore } from '@/store/game-store';
+import { useSettingsStore } from '@/store/settings-store';
 import { colors } from '../constants/colors';
 
 // ─── Nav sections ─────────────────────────────────────────────────────────────
@@ -404,8 +404,8 @@ function GameplayPanel() {
 const WIN_LEVELS = [7, 20, 30, 50, 70, 100];
 
 function ScoringPanel() {
-  const winThreshold = useGameStore((s) => s.winThreshold);
-  const setWinThreshold = useGameStore((s) => s.setWinThreshold);
+  const winThreshold = useSettingsStore((s) => s.winThreshold);
+  const setWinThreshold = useSettingsStore((s) => s.setWinThreshold);
 
   const winIdx =
     WIN_LEVELS.indexOf(winThreshold) === -1
@@ -627,7 +627,7 @@ function AboutPanel() {
           icon={<Text>ℹ</Text>}
           variant='ivory'
           title='Version'
-          badge='1.0.0'
+          badge='1.2.3'
         />
         <Divider />
         <NavRow icon={<Text>🔗</Text>} variant='ivory' title='Privacy policy' />
@@ -657,7 +657,7 @@ function AboutPanel() {
           titleColor='#E57373'
         />
       </Card>
-      <Text style={s.version}>Italian Bridge · v1.0.0 · © 2025</Text>
+      <Text style={s.version}>Italian Bridge · v1.2.3 · © 2025</Text>
     </>
   );
 }

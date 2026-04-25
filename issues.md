@@ -1,20 +1,22 @@
-# Issue: Incorrect Trump Reveal Popup After Winning a Trick
+# Issue: User Settings Do Not Persist After App Restart
 
 ## Description
-A logic error causes the **trump reveal popup** to appear incorrectly at the start of a new trick. This occurs specifically when a player wins the previous trick and had only one card remaining of the suit that was led.
+User-configured settings, which are successfully changed within the application's settings screen, revert to their default values upon exiting and subsequently reopening the application. This indicates a failure in the mechanism responsible for saving or loading user preferences, leading to a loss of personalized configurations.
 
 ## Steps to Reproduce
-1. **Setup:** A player has only one card of a specific suit (e.g., the Ace of Spades).
-2. **Action:** The current trick is led with that same suit (Spades).
-3. **Action:** The player wins the trick with their single card (the Ace).
-4. **Trigger:** The player prepares to lead the next trick.
+1.  Launch the game application.
+2.  Navigate to the "Settings" screen.
+3.  Modify one or more user settings (e.g., sound volume, notification preferences, control scheme, graphic quality).
+4.  Verify that the changes are applied and function correctly within the current application session.
+5.  Completely exit the application (e.g., force close, close from recent apps, or restart the device).
+6.  Relaunch the application.
 
 ## Expected Behavior
-The game should proceed directly to the player's turn to lead the next trick without any interruptions.
+All user settings modified in Step 3 should retain their last configured values upon relaunching the application.
 
 ## Actual Behavior
-The **trump reveal popup** is displayed at the start of the next trick, even though it is not relevant to the current game state.
+All modified user settings revert to their default values after the application is relaunched.
 
 ## Technical Notes
-* **Context:** The issue seems tied to the transition between winning a trick with a "singleton" (the only card of a suit) and leading the subsequent trick.
-* **Impact:** Disrupts gameplay flow and may confuse players regarding the trump status.
+*   **Impact:** Users are unable to maintain their personalized game experience, requiring them to reconfigure settings every time they launch the app.
+*   **Root Cause (Suspected):** This issue likely stems from a problem with how user preferences are persisted to storage (e.g., local storage, `UserDefaults`, `SharedPreferences`, a local database) or how these preferences are loaded and applied when the application starts.
