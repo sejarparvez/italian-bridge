@@ -32,7 +32,7 @@ export function getBotPlay(
       card = playHard(playable, trick, trump, trumpRevealed, gameState, seat);
       break;
     default:
-      card = playEasy(playable, trump, trick);
+      card = playHard(playable, trick, trump, trumpRevealed, gameState, seat);
       break;
   }
 
