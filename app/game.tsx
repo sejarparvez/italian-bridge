@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   Dimensions,
   StyleSheet,
@@ -42,6 +42,7 @@ export default function GameScreen() {
   const [trumpChoice, setTrumpChoice] = useState<boolean | null>(null);
   const { state: dealState, startNewGame } = useDealing(true);
   const { state: gameState } = useGameStore();
+  const prevCompletedTricksRef = useRef(gameState.completedTricks.length);
   const router = useRouter();
   const winThreshold = useGameStore((s) => s.winThreshold);
   const topBarHeight = insets.top + 52;
@@ -83,6 +84,7 @@ export default function GameScreen() {
   const otherPlayersPlayed = trickCards.some((c) => c.player !== 'bottom');
 
   const showTrumpDialog =
+    gameState.phase === 'playing' &&
     isHumanTurn &&
     leadSuit &&
     trickCardCount > 0 &&
@@ -99,8 +101,18 @@ export default function GameScreen() {
   useEffect(() => {
     if (showTrumpDialog && !trumpDialogVisible) {
       setTrumpDialogVisible(true);
+    } else if (!showTrumpDialog && trumpDialogVisible) {
+      setTrumpDialogVisible(false);
     }
   }, [showTrumpDialog, trumpDialogVisible]);
+
+  useEffect(() => {
+    if (gameState.completedTricks.length > prevCompletedTricksRef.current) {
+      prevCompletedTricksRef.current = gameState.completedTricks.length;
+      setTrumpChoice(null);
+      setTrumpDialogVisible(false);
+    }
+  }, [gameState.completedTricks.length]);
 
   const handleCardPress = (cardId: string) => {
     if (trumpChoice !== null) {

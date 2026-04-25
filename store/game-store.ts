@@ -399,6 +399,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentTrick: { cards: [], leadSuit: null, winningSeat: null },
       currentSeat: trickWinner,
       phase: state.phase === 'roundEnd' ? 'roundEnd' : 'playing',
+      trumpRevealed: state.trumpRevealed,
     };
 
     set({ state: newState });

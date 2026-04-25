@@ -1,9 +1,20 @@
-# Italian Bridge Card Game Issues
+# Issue: Incorrect Trump Reveal Popup After Winning a Trick
 
-1. **Select Trump Screen Text:** The text on the "Select Trump" screen is too muted and needs improvement [1].
-2. **Gameplay Animation:** Gameplay on the board is currently too static; it needs to look like cards are being played from the hand [1].
-3. **Scoring Logic Fix:** Scoring is currently only showing on one teammate's avatar; when the other partner wins a trick, the score is added to the main scoreboard but not to that partner's avatar [2].
-4. **Enforce Trump Play Rules:** After a Trump card is revealed, a user with a Trump card must play it, whereas they currently can play any card [2].
-5. **Round Completion Dialogue UI and Data:** The "Round Completion" dialogue needs more space at the top and bottom, and it should display the score of the latest completed round rather than the total score [3].
-6. **Next Round Transition Animation:** When clicking "Next Round," a dealing animation should play before the bidding screen opens, rather than the screen opening instantly [3].
-7. **Game Completion Freeze:** The game currently freezes upon completion and should instead display a "Game Over" dialogue [3].
+## Description
+A logic error causes the **trump reveal popup** to appear incorrectly at the start of a new trick. This occurs specifically when a player wins the previous trick and had only one card remaining of the suit that was led.
+
+## Steps to Reproduce
+1. **Setup:** A player has only one card of a specific suit (e.g., the Ace of Spades).
+2. **Action:** The current trick is led with that same suit (Spades).
+3. **Action:** The player wins the trick with their single card (the Ace).
+4. **Trigger:** The player prepares to lead the next trick.
+
+## Expected Behavior
+The game should proceed directly to the player's turn to lead the next trick without any interruptions.
+
+## Actual Behavior
+The **trump reveal popup** is displayed at the start of the next trick, even though it is not relevant to the current game state.
+
+## Technical Notes
+* **Context:** The issue seems tied to the transition between winning a trick with a "singleton" (the only card of a suit) and leading the subsequent trick.
+* **Impact:** Disrupts gameplay flow and may confuse players regarding the trump status.
