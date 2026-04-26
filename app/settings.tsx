@@ -1,4 +1,3 @@
-import { useSettingsStore } from '@/store/settings-store';
 import { useRouter } from 'expo-router';
 import { MotiView } from 'moti';
 import { useState } from 'react';
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSettingsStore } from '@/store/settings-store';
 import { colors } from '../constants/colors';
 
 // ─── Nav sections ─────────────────────────────────────────────────────────────
@@ -215,15 +215,6 @@ function NavRow({
   );
 }
 
-// ─── Panel: Player ────────────────────────────────────────────────────────────
-
-const COMPASS: Record<string, string> = {
-  North: 'N',
-  South: 'S',
-  East: 'E',
-  West: 'W',
-};
-
 function PlayerPanel() {
   const userName = useSettingsStore((s) => s.userName);
   const setUserName = useSettingsStore((s) => s.setUserName);
@@ -279,9 +270,7 @@ function PlayerPanel() {
       {/* Profile card */}
       <View style={s.profileCard}>
         <View style={s.avatar}>
-          <Text style={s.avatarText}>
-            {userName.slice(0, 2).toUpperCase()}
-          </Text>
+          <Text style={s.avatarText}>{userName.slice(0, 2).toUpperCase()}</Text>
         </View>
         <View style={{ flex: 1 }}>
           {editing ? (

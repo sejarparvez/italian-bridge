@@ -55,20 +55,27 @@ export function addCardToTrick(
  * Determines the winner of a completed trick.
  *
  * Rules:
- * - If any trump cards were played, the highest trump wins.
+ * - If trump has been revealed and any trump cards were played, the highest trump wins.
+ * - If trump is still hidden, trump-suit cards are treated as ordinary discards.
  * - Otherwise, the highest card of the lead suit wins.
  * - Off-suit, non-trump cards can never win.
  *
  * @throws if the trick has no cards (no winner possible).
  * @throws if no lead suit cards are found (data integrity error).
  */
-export function getTrickWinner(trick: Trick, trump: Suit | null): SeatPosition {
+export function getTrickWinner(
+  trick: Trick,
+  trump: Suit | null,
+  trumpRevealed: boolean,
+): SeatPosition {
   if (trick.cards.length === 0) {
     throw new Error('Cannot determine winner of an empty trick.');
   }
 
   // Trump cards beat all non-trump; highest trump wins
-  if (trump !== null) {
+  // BUT only if trump has been revealed. If still hidden, trump-suit cards
+  // are treated as ordinary discards (per "Skip" rule).
+  if (trump !== null && trumpRevealed) {
     const trumpCards = trick.cards.filter((tc) => tc.card.suit === trump);
     if (trumpCards.length > 0) {
       const winner = highestCard(trumpCards).player;

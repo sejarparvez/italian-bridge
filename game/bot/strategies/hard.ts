@@ -2,15 +2,19 @@ import { ALL_RANKS, ALL_SUITS, type Card, type Suit } from '@/constants/cards';
 import type { GameState, SeatPosition, Trick } from '@/types/game-type';
 import {
   canCardWinTrick,
+  countPartnerTrumpsSpent,
   countTrumpsRemaining,
   getCheapestDiscard,
   getHighestCard,
   getLongestSuitCards,
   getLowestCard,
+  getPartnerLastLedSuit,
+  getPartnerSeat,
   getShortestSuitCards,
   getTrickPosition,
   holdingHighestRemainingTrump,
   isMyPartnerWinning,
+  isOpponentWinningWithTrump,
 } from '../utils';
 
 // ─── Played-card memory ───────────────────────────────────────────────────────
@@ -89,6 +93,11 @@ interface PlayContext {
   unplayedCardIds: Set<string>;
   trumpsRemaining: number;
   iHoldHighestTrump: boolean;
+  /** Estimated number of trumps opponents still hold. */
+  opponentTrumpsEstimate: number;
+  /** Suit partner signalled by leading last trick (if won by our team). */
+  partnerSignalSuit: Suit | null;
+  partnerSeat: SeatPosition;
 }
 
 function buildContext(
@@ -96,8 +105,9 @@ function buildContext(
   seat: SeatPosition,
   playable: Card[],
 ): PlayContext {
+  const partnerSeat = getPartnerSeat(seat);
+
   if (!gameState.highestBidder) {
-    // Fallback — should never happen in practice
     return {
       myTeam: gameState.players[seat].team,
       opponentTeam: gameState.players[seat].team === 'BT' ? 'LR' : 'BT',
@@ -114,6 +124,9 @@ function buildContext(
       unplayedCardIds: getAllCardIds(),
       trumpsRemaining: 13,
       iHoldHighestTrump: false,
+      opponentTrumpsEstimate: 13,
+      partnerSignalSuit: null,
+      partnerSeat,
     };
   }
 
@@ -128,12 +141,9 @@ function buildContext(
   const tricksPlayed = gameState.completedTricks.length;
   const tricksRemaining = 10 - tricksPlayed;
 
-  // Target: bidding team needs `bid` tricks; defending team needs 4
   const target = isBiddingTeam ? bid : 4;
   const tricksNeeded = Math.max(0, target - myTeamTricks);
   const mustWin = tricksNeeded >= tricksRemaining;
-
-  // Safely ahead: we have enough tricks already, or will win even losing all remaining
   const safelyAhead = myTeamTricks >= target;
 
   const playedCardIds = getPlayedCardIds(gameState);
@@ -147,6 +157,29 @@ function buildContext(
     playable,
     gameState.trumpSuit,
     unplayedCardIds,
+  );
+
+  // Estimate opponent trump count:
+  // Total unplayed trumps minus what I hold minus what partner has spent
+  const myTrumpCount = gameState.trumpSuit
+    ? playable.filter((c) => c.suit === gameState.trumpSuit).length
+    : 0;
+  const partnerTrumpsSpent = countPartnerTrumpsSpent(
+    gameState.completedTricks,
+    partnerSeat,
+    gameState.trumpSuit,
+  );
+  const opponentTrumpsEstimate = Math.max(
+    0,
+    trumpsRemaining - myTrumpCount - partnerTrumpsSpent,
+  );
+
+  // Partner signal: suit they led in the last trick won by our team
+  const partnerSignalSuit = getPartnerLastLedSuit(
+    gameState.completedTricks,
+    partnerSeat,
+    myTeam,
+    gameState,
   );
 
   return {
@@ -165,7 +198,25 @@ function buildContext(
     unplayedCardIds,
     trumpsRemaining,
     iHoldHighestTrump,
+    opponentTrumpsEstimate,
+    partnerSignalSuit,
+    partnerSeat,
   };
+}
+
+// ─── High trump check ─────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the hand contains at least 2 high trump cards (A, K, or Q).
+ * Used to gate trump extraction — we only extract when we have enough
+ * firepower to flush out opponents' remaining trumps.
+ */
+function hasExtractionStrength(playable: Card[], trump: Suit | null): boolean {
+  if (!trump) return false;
+  const highTrumps = playable.filter(
+    (c) => c.suit === trump && c.value >= 12, // Q=12, K=13, A=14
+  );
+  return highTrumps.length >= 2;
 }
 
 // ─── Main entry ───────────────────────────────────────────────────────────────
@@ -174,7 +225,7 @@ export function playHard(
   playable: Card[],
   trick: Trick,
   trump: Suit | null,
-  _trumpRevealed: boolean,
+  trumpRevealed: boolean,
   gameState: GameState,
   seat: SeatPosition,
 ): Card {
@@ -195,19 +246,22 @@ export function playHard(
 
   // ── Position 1: Leading the trick ────────────────────────────────────────
   if (trickPosition === 1) {
-    return getSmartLead(playable, trump, ctx);
+    return getSmartLead(playable, trump, trumpRevealed, ctx);
   }
 
   // ── Can follow suit ──────────────────────────────────────────────────────
   if (leadSuitCards.length > 0) {
     return playFollowingSuit(
       leadSuitCards,
+      playable,
       trick,
       trump,
+      trumpRevealed,
       seat,
       trickPosition,
       partnerWinning,
       ctx,
+      gameState,
     );
   }
 
@@ -218,10 +272,12 @@ export function playHard(
     nonTrumpCards,
     trick,
     trump,
+    trumpRevealed,
     seat,
     trickPosition,
     partnerWinning,
     ctx,
+    gameState,
   );
 }
 
@@ -229,40 +285,74 @@ export function playHard(
 
 function playFollowingSuit(
   leadSuitCards: Card[],
+  playable: Card[],
   trick: Trick,
   trump: Suit | null,
+  trumpRevealed: boolean,
   seat: SeatPosition,
   trickPosition: 1 | 2 | 3 | 4,
   partnerWinning: boolean,
   ctx: PlayContext,
+  gameState: GameState,
 ): Card {
   const winningCards = leadSuitCards.filter((c) =>
-    canCardWinTrick(c, trick, trump, seat),
+    canCardWinTrick(c, trick, trump, trumpRevealed, seat),
   );
 
-  // ── Position 2 (second to play) ──────────────────────────────────────────
+  // ── Conservative mode: target already met, protect what we have ──────────
+  if (ctx.safelyAhead) {
+    return getLowestCard(leadSuitCards);
+  }
+
+  // ── Position 2 ───────────────────────────────────────────────────────────
   if (trickPosition === 2) {
-    // Default: duck (play low, save high cards for later)
-    // Exception: if we're desperate AND we hold the only winning card, take it
     if (ctx.mustWin && winningCards.length > 0) {
       return getLowestCard(winningCards);
     }
     return getLowestCard(leadSuitCards);
   }
 
-  // ── Position 3 or 4 (late position) ─────────────────────────────────────
+  // ── Positions 3 and 4 ────────────────────────────────────────────────────
+
+  // Overtrump check (Gap B): opponent ruffs with trump while we can follow
+  // suit — if trump is revealed and we hold a higher trump, steal it back.
+  // Only applies when we're not already winning.
+  if (
+    trumpRevealed &&
+    !partnerWinning &&
+    isOpponentWinningWithTrump(trick, trump, gameState, seat)
+  ) {
+    const trumpCards = trump ? playable.filter((c) => c.suit === trump) : [];
+    const winningTrumps = trumpCards.filter((c) =>
+      canCardWinTrick(c, trick, trump, trumpRevealed, seat),
+    );
+    if (winningTrumps.length > 0) {
+      // Overtrump with lowest winning trump to preserve the highest ones
+      return getLowestCard(winningTrumps);
+    }
+    // Cannot overtrump — follow suit normally
+  }
+
+  // Partner support: partner led this suit, play highest to establish it
+  if (
+    trick.leadSuit &&
+    isPartnerLeading(trick, ctx.partnerSeat) &&
+    !partnerWinning
+  ) {
+    return winningCards.length > 0
+      ? getHighestCard(winningCards)
+      : getLowestCard(leadSuitCards);
+  }
+
   if (partnerWinning) {
-    // Partner is already winning — don't waste a high card
+    // Partner already winning — don't waste a high card
     return getLowestCard(leadSuitCards);
   }
 
-  // We need to win this trick
   if (winningCards.length > 0) {
-    // Play the cheapest card that still wins
     return getLowestCard(winningCards);
   }
 
-  // Cannot beat the current winner — discard lowest
   return getLowestCard(leadSuitCards);
 }
 
@@ -274,45 +364,66 @@ function playVoid(
   nonTrumpCards: Card[],
   trick: Trick,
   trump: Suit | null,
+  trumpRevealed: boolean,
   seat: SeatPosition,
   trickPosition: 1 | 2 | 3 | 4,
   partnerWinning: boolean,
   ctx: PlayContext,
+  gameState: GameState,
 ): Card {
-  // Partner is already winning — discard cheapest non-trump
+  // Conservative mode: target already met — just discard cheapest
+  if (ctx.safelyAhead) {
+    return nonTrumpCards.length > 0
+      ? getCheapestDiscard(nonTrumpCards, trump)
+      : getCheapestDiscard(playable, trump);
+  }
+
+  // Overtrump check (Gap C): opponent is winning with a small trump,
+  // we hold a higher trump and trump is revealed — always steal it back.
+  if (
+    trumpRevealed &&
+    isOpponentWinningWithTrump(trick, trump, gameState, seat)
+  ) {
+    const winningTrumps = trumpCards.filter((c) =>
+      canCardWinTrick(c, trick, trump, trumpRevealed, seat),
+    );
+    if (winningTrumps.length > 0) {
+      return getLowestCard(winningTrumps);
+    }
+  }
+
+  // Partner is winning — discard cheapest non-trump
   if (partnerWinning) {
     return nonTrumpCards.length > 0
       ? getCheapestDiscard(nonTrumpCards, trump)
       : getCheapestDiscard(playable, trump);
   }
 
-  // We need to win — try to trump
+  // Try to win with trump
   if (trumpCards.length > 0) {
     const winningTrumps = trumpCards.filter((c) =>
-      canCardWinTrick(c, trick, trump, seat),
+      canCardWinTrick(c, trick, trump, trumpRevealed, seat),
     );
 
     if (winningTrumps.length > 0) {
-      // In position 3 with position 4 still to play, only overcommit if
-      // we're holding the highest remaining trump (safe) or desperately need it
+      // Position 3: only commit if safe (highest trump) or desperate
       if (trickPosition === 3) {
         if (ctx.iHoldHighestTrump || ctx.mustWin) {
           return getLowestCard(winningTrumps);
         }
-        // Otherwise save the trump — opponent in pos 4 might overtrump anyway
+        // Save trump — opponent in pos 4 might overtrump
         return nonTrumpCards.length > 0
           ? getCheapestDiscard(nonTrumpCards, trump)
-          : getLowestCard(winningTrumps); // forced — no other option
+          : getLowestCard(winningTrumps);
       }
-      // Position 4: safe to trump, no one after us
+      // Position 4: safe to trump, no one follows
       return getLowestCard(winningTrumps);
     }
 
-    // Have trumps but none can win (opponent already played higher trump)
+    // Have trumps but none can win
     return getCheapestDiscard(playable, trump);
   }
 
-  // No trumps at all — discard cheapest
   return getCheapestDiscard(playable, trump);
 }
 
@@ -321,46 +432,87 @@ function playVoid(
 function getSmartLead(
   playable: Card[],
   trump: Suit | null,
+  trumpRevealed: boolean,
   ctx: PlayContext,
 ): Card {
   const nonTrump = trump ? playable.filter((c) => c.suit !== trump) : playable;
   const trumpCards = trump ? playable.filter((c) => c.suit === trump) : [];
 
-  // ── Desperate mode: draw trumps aggressively ─────────────────────────────
-  // If we're the bidding team, running out of tricks, and hold many trumps,
-  // leading trump forces opponents to spend theirs
-  if (ctx.mustWin && ctx.isBiddingTeam && trumpCards.length >= 3) {
-    // Only lead trump if we hold the highest remaining — safe extraction
-    if (ctx.iHoldHighestTrump) {
-      return getHighestCard(trumpCards);
+  // ── Conservative mode: safely ahead — lead low, don't risk tricks ────────
+  if (ctx.safelyAhead) {
+    return nonTrump.length > 0
+      ? getLowestCard(getLongestSuitCards(nonTrump, trump))
+      : getLowestCard(trumpCards);
+  }
+
+  // ── P1: mustWin trump extraction ─────────────────────────────────────────
+  // Desperate + bidding team + hold highest trump + opponents still have trumps
+  if (
+    ctx.mustWin &&
+    ctx.isBiddingTeam &&
+    trumpRevealed &&
+    ctx.iHoldHighestTrump &&
+    ctx.opponentTrumpsEstimate > 0 &&
+    trumpCards.length >= 2
+  ) {
+    return getHighestCard(trumpCards);
+  }
+
+  // ── P2: Hand-strength trump extraction ───────────────────────────────────
+  // Bidding team, trump revealed, hold 2+ high trumps (A/K/Q),
+  // opponents still hold trumps worth extracting — lead highest trump
+  if (
+    ctx.isBiddingTeam &&
+    trumpRevealed &&
+    hasExtractionStrength(playable, trump) &&
+    ctx.opponentTrumpsEstimate > 0
+  ) {
+    return getHighestCard(trumpCards);
+  }
+
+  // ── P3: Suit continuation — follow partner's signal ──────────────────────
+  // Partner led a suit last trick and our team won it — continue that suit
+  if (ctx.partnerSignalSuit && ctx.partnerSignalSuit !== trump) {
+    const signalSuitCards = playable.filter(
+      (c) => c.suit === ctx.partnerSignalSuit,
+    );
+    if (signalSuitCards.length >= 2) {
+      // Still have 2+ cards in that suit — worth continuing
+      return getHighestCard(signalSuitCards);
     }
   }
 
-  // ── Singleton lead: dump a lone card to go void, gain trump entries later ─
+  // ── P4: Singleton lead — go void, gain trump entry later ─────────────────
   if (nonTrump.length > 0) {
     const shortSuit = getShortestSuitCards(nonTrump, trump);
     if (shortSuit.length === 1) {
-      // Singleton — lead it to become void in that suit
       return shortSuit[0];
     }
   }
 
-  // ── Bidding team: lead high from longest suit to establish tricks ─────────
+  // ── P5: Normal lead ───────────────────────────────────────────────────────
   if (ctx.isBiddingTeam) {
     if (nonTrump.length > 0) {
-      const longestSuitCards = getLongestSuitCards(nonTrump, trump);
-      return getHighestCard(longestSuitCards);
+      return getHighestCard(getLongestSuitCards(nonTrump, trump));
     }
-    // Only trump cards left — lead lowest to preserve high trumps
     return getLowestCard(trumpCards);
   }
 
-  // ── Defending team: lead low to stay safe, avoid handing tricks away ──────
+  // Defending team: lead low from longest suit
   if (nonTrump.length > 0) {
-    // Lead low from longest suit — safer than leading short
-    const longestSuitCards = getLongestSuitCards(nonTrump, trump);
-    return getLowestCard(longestSuitCards);
+    return getLowestCard(getLongestSuitCards(nonTrump, trump));
   }
 
   return getLowestCard(trumpCards);
+}
+
+// ─── Partner helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Returns true if the first card played in the trick was by our partner.
+ * Used to detect when partner is leading so we can play high to support them.
+ */
+function isPartnerLeading(trick: Trick, partnerSeat: SeatPosition): boolean {
+  if (trick.cards.length === 0) return false;
+  return trick.cards[0].player === partnerSeat;
 }

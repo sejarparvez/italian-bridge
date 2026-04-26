@@ -190,7 +190,11 @@ export function playCard(
   }
 
   // ── Trick complete ────────────────────────────────────────────────────────
-  const winner = getTrickWinner(newTrick, state.trumpSuit);
+  const winner = getTrickWinner(
+    newTrick,
+    state.trumpSuit,
+    newState.trumpRevealed,
+  );
   const updatedWinner: Player = {
     ...newState.players[winner],
     tricksTaken: newState.players[winner].tricksTaken + 1,
