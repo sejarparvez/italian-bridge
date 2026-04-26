@@ -6,7 +6,7 @@ import type {
   SeatPosition,
 } from '@/types/game-type';
 import { getPlayableCards, type Trick } from '../trick';
-import { playEasy, playHard, playMedium } from './strategies';
+import { playEasy, playHard } from './strategies';
 
 export function getBotPlay(
   hand: Card[],
@@ -24,9 +24,6 @@ export function getBotPlay(
   switch (difficulty) {
     case 'easy':
       card = playEasy(playable, trump, trick);
-      break;
-    case 'medium':
-      card = playMedium(playable, trick, trump, trumpRevealed, gameState, seat);
       break;
     case 'hard':
       card = playHard(playable, trick, trump, trumpRevealed, gameState, seat);
