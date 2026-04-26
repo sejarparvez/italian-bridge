@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -224,6 +225,11 @@ const COMPASS: Record<string, string> = {
 };
 
 function PlayerPanel() {
+  const userName = useSettingsStore((s) => s.userName);
+  const setUserName = useSettingsStore((s) => s.setUserName);
+  const [editing, setEditing] = useState(false);
+  const [tempName, setTempName] = useState(userName);
+
   const seats = [
     {
       id: 'B2',
@@ -259,19 +265,52 @@ function PlayerPanel() {
     },
   ];
 
+  const handleSave = () => {
+    if (tempName.trim()) {
+      setUserName(tempName.trim());
+    } else {
+      setTempName(userName);
+    }
+    setEditing(false);
+  };
+
   return (
     <>
       {/* Profile card */}
       <View style={s.profileCard}>
         <View style={s.avatar}>
-          <Text style={s.avatarText}>P1</Text>
+          <Text style={s.avatarText}>
+            {userName.slice(0, 2).toUpperCase()}
+          </Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.profileName}>Player One</Text>
+          {editing ? (
+            <TextInput
+              style={[s.profileName, s.nameInput]}
+              value={tempName}
+              onChangeText={setTempName}
+              autoFocus
+              onBlur={handleSave}
+              onSubmitEditing={handleSave}
+              selectTextOnFocus
+            />
+          ) : (
+            <Text style={s.profileName}>{userName}</Text>
+          )}
           <Text style={s.profileSub}>Human · South · Team A</Text>
         </View>
-        <TouchableOpacity style={s.editBtn}>
-          <Text style={s.editBtnText}>Edit</Text>
+        <TouchableOpacity
+          style={s.editBtn}
+          onPress={() => {
+            if (editing) {
+              handleSave();
+            } else {
+              setTempName(userName);
+              setEditing(true);
+            }
+          }}
+        >
+          <Text style={s.editBtnText}>{editing ? 'Save' : 'Edit'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1120,6 +1159,15 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: colors.ivory300,
     letterSpacing: 0.1,
+  },
+  nameInput: {
+    backgroundColor: colors.felt800,
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginHorizontal: -6,
+    marginTop: -2,
+    color: colors.ivory300,
   },
   profileSub: {
     fontSize: 10,

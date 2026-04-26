@@ -6,9 +6,11 @@ import type { Difficulty } from '@/types/game-type';
 const mmkvStorage = createMMKV({ id: 'italian-bridge-settings' });
 
 export interface SettingsState {
+  userName: string;
   winThreshold: number;
   animSpeed: number;
   difficulty: Difficulty;
+  setUserName: (value: string) => void;
   setWinThreshold: (value: number) => void;
   setAnimSpeed: (value: number) => void;
   setDifficulty: (value: Difficulty) => void;
@@ -17,8 +19,9 @@ export interface SettingsState {
 
 const DEFAULT_SETTINGS: Pick<
   SettingsState,
-  'winThreshold' | 'animSpeed' | 'difficulty'
+  'userName' | 'winThreshold' | 'animSpeed' | 'difficulty'
 > = {
+  userName: 'Player One',
   winThreshold: 30,
   animSpeed: 1,
   difficulty: 'hard',
@@ -29,6 +32,7 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       ...DEFAULT_SETTINGS,
 
+      setUserName: (value) => set({ userName: value }),
       setWinThreshold: (value) => set({ winThreshold: value }),
       setAnimSpeed: (value) => set({ animSpeed: value }),
       setDifficulty: (value) => set({ difficulty: value }),
